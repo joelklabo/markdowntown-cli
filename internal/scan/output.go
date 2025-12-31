@@ -54,8 +54,12 @@ func sortConfigs(configs []ConfigEntry) {
 		if left.Depth != right.Depth {
 			return left.Depth < right.Depth
 		}
-		return left.Path < right.Path
+		return sortPathKey(left.Path) < sortPathKey(right.Path)
 	})
+}
+
+func sortPathKey(path string) string {
+	return filepath.ToSlash(path)
 }
 
 func scopeRank(scope string) int {
@@ -115,8 +119,10 @@ func conflictWarnings(configs []ConfigEntry, scans []Root) []Warning {
 	}
 
 	sort.SliceStable(warnings, func(i, j int) bool {
-		if warnings[i].Path != warnings[j].Path {
-			return warnings[i].Path < warnings[j].Path
+		leftPath := sortPathKey(warnings[i].Path)
+		rightPath := sortPathKey(warnings[j].Path)
+		if leftPath != rightPath {
+			return leftPath < rightPath
 		}
 		if warnings[i].Code != warnings[j].Code {
 			return warnings[i].Code < warnings[j].Code
@@ -137,6 +143,7 @@ func conflictPaths(entries []ConfigEntry, root string) []string {
 				path = rel
 			}
 		}
+		path = filepath.ToSlash(path)
 		if _, ok := seen[path]; ok {
 			continue
 		}
