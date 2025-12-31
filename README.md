@@ -119,6 +119,8 @@ Registry resolution order:
 
 If multiple registries are found without an override, the scan fails.
 
+Release archives include `ai-config-patterns.json` next to the binary; keep them together or copy the registry into the XDG config path.
+
 ## Suggestion source registry
 
 Suggestion sources are defined in `doc-sources.json` and discovered in this order:
@@ -129,6 +131,8 @@ Suggestion sources are defined in `doc-sources.json` and discovered in this orde
 4. `doc-sources.json` next to the executable
 
 If multiple source registries are found without an override, the command fails.
+
+Release archives include `doc-sources.json` next to the binary; keep it co-located or move it into the XDG config path.
 
 ## Config + cache locations
 
