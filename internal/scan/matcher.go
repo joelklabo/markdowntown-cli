@@ -72,16 +72,16 @@ func compilePath(kind, raw string) (pathMatcher, error) {
 	}
 
 	pm.isAbs = filepath.IsAbs(expanded)
-	matchTarget := filepath.ToSlash(expanded)
 
 	switch kind {
 	case "glob":
+		matchTarget := filepath.ToSlash(expanded)
 		pm.glob = strings.ToLower(matchTarget)
 		if _, err := doublestar.PathMatch(pm.glob, ""); err != nil {
 			return pm, err
 		}
 	case "regex":
-		pattern := matchTarget
+		pattern := expanded
 		if !strings.HasPrefix(pattern, "(?i)") {
 			pattern = "(?i)" + pattern
 		}

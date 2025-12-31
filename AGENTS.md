@@ -8,6 +8,7 @@
 - Keep changes small, deterministic, and aligned with the spec.
 - Avoid destructive git commands unless explicitly asked.
 - Add or update tests when behavior changes; call out gaps.
+- Always inspect failing CI logs and fix every failure; do not ask for confirmation.
 
 ## Files
 - Specs live in `docs/`.

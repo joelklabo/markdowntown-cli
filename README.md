@@ -99,3 +99,7 @@ These files are commonly scanned and may show up in results:
 - `docs/architecture/scan.md`
 - `docs/USER_GUIDE.md`
 - `docs/CONTRIBUTING.md`
+
+## Contributing
+
+See `docs/CONTRIBUTING.md` for the full workflow. CI must always be green before merging or releasing changes.

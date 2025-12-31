@@ -3,3 +3,4 @@
 .beads/issues.jsonl merge=beads
 
 *.go text eol=lf
+testdata/** text eol=lf

@@ -180,13 +180,17 @@ func normalizeOutput(output Output, repoRoot string, userRoot string) Output {
 }
 
 func normalizePath(path string, repoRoot string, userRoot string) string {
-	if strings.HasPrefix(path, repoRoot) {
-		return strings.Replace(path, repoRoot, "<repo>", 1)
+	normalized := filepath.ToSlash(path)
+	repoRoot = filepath.ToSlash(repoRoot)
+	userRoot = filepath.ToSlash(userRoot)
+
+	if strings.HasPrefix(normalized, repoRoot) {
+		return strings.Replace(normalized, repoRoot, "<repo>", 1)
 	}
-	if strings.HasPrefix(path, userRoot) {
-		return strings.Replace(path, userRoot, "<user>", 1)
+	if strings.HasPrefix(normalized, userRoot) {
+		return strings.Replace(normalized, userRoot, "<user>", 1)
 	}
-	return path
+	return normalized
 }
 
 func execGit(t *testing.T, dir string, args ...string) {
