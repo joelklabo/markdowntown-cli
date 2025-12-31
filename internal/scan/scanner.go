@@ -4,20 +4,24 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	scanhash "markdowntown-cli/internal/hash"
 )
 
 // Options configures the discovery scan.
 type Options struct {
-	RepoRoot   string
-	RepoOnly   bool
-	UserRoots  []string
-	StdinPaths []string
-	Registry   Registry
-	Patterns   []CompiledPattern
+	RepoRoot       string
+	RepoOnly       bool
+	IncludeContent bool
+	UserRoots      []string
+	StdinPaths     []string
+	Registry       Registry
+	Patterns       []CompiledPattern
 }
 
 // Result collects discovered entries and warnings.
@@ -64,7 +68,7 @@ func Scan(opts Options) (Result, error) {
 		result.Warnings = append(result.Warnings, warningForError(repoRoot, repoErr))
 	}
 	if repoExists {
-		walkState := newWalkState(repoRoot)
+		walkState := newWalkState(repoRoot, opts.IncludeContent)
 		scanDir(repoRoot, repoRoot, repoRoot, "repo", repoInfo, patterns, entries, &result, walkState, false, false)
 	}
 
@@ -91,7 +95,7 @@ func Scan(opts Options) (Result, error) {
 			if !exists {
 				continue
 			}
-			walkState := newWalkState(absRoot)
+			walkState := newWalkState(absRoot, opts.IncludeContent)
 			scanDir(absRoot, absRoot, absRoot, "user", info, patterns, entries, &result, walkState, false, false)
 		}
 	}
@@ -113,7 +117,7 @@ func Scan(opts Options) (Result, error) {
 			continue
 		}
 		scope, root := resolveScopeAndRoot(absPath, repoRoot, userRootsAbs, info)
-		walkState := newWalkState(root)
+		walkState := newWalkState(root, opts.IncludeContent)
 		scanPath(absPath, absPath, root, scope, patterns, entries, &result, walkState, true)
 	}
 
@@ -142,16 +146,18 @@ func DefaultUserRoots() []string {
 }
 
 type walkState struct {
-	root    string
-	visited map[string]struct{}
-	active  map[string]struct{}
+	root           string
+	includeContent bool
+	visited        map[string]struct{}
+	active         map[string]struct{}
 }
 
-func newWalkState(root string) *walkState {
+func newWalkState(root string, includeContent bool) *walkState {
 	return &walkState{
-		root:    root,
-		visited: make(map[string]struct{}),
-		active:  make(map[string]struct{}),
+		root:           root,
+		includeContent: includeContent,
+		visited:        make(map[string]struct{}),
+		active:         make(map[string]struct{}),
 	}
 }
 
@@ -198,7 +204,7 @@ func scanPath(logicalPath string, actualPath string, root string, scope string, 
 		return
 	}
 
-	scanFile(logicalPath, actualPath, root, scope, patterns, entries, result, info, fromStdin)
+	scanFile(logicalPath, actualPath, root, scope, patterns, entries, result, state, info, fromStdin)
 }
 
 func resolveAndScanSymlink(logicalPath string, actualPath string, root string, scope string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, state *walkState, fromStdin bool) {
@@ -219,10 +225,10 @@ func resolveAndScanSymlink(logicalPath string, actualPath string, root string, s
 		return
 	}
 
-	scanFile(logicalPath, resolved, root, scope, patterns, entries, result, resolvedInfo, fromStdin)
+	scanFile(logicalPath, resolved, root, scope, patterns, entries, result, state, resolvedInfo, fromStdin)
 }
 
-func scanFile(logicalPath string, resolvedPath string, root string, scope string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, info os.FileInfo, fromStdin bool) {
+func scanFile(logicalPath string, resolvedPath string, root string, scope string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, state *walkState, info os.FileInfo, fromStdin bool) {
 	absPath, err := filepath.Abs(logicalPath)
 	if err != nil {
 		result.Warnings = append(result.Warnings, warningForError(logicalPath, err))
@@ -252,13 +258,11 @@ func scanFile(logicalPath string, resolvedPath string, root string, scope string
 
 	entry := entries[resolvedAbs]
 	if entry == nil {
-		size := info.Size()
 		mtime := info.ModTime().UnixMilli()
 		entry = &ConfigEntry{
 			Path:       outputPath,
 			Scope:      scope,
 			Depth:      depth,
-			SizeBytes:  &size,
 			Mtime:      mtime,
 			Tools:      []ToolEntry{},
 			Resolved:   resolvedAbs,
@@ -266,15 +270,81 @@ func scanFile(logicalPath string, resolvedPath string, root string, scope string
 			Gitignored: false,
 		}
 		entries[resolvedAbs] = entry
+		populateEntryContent(entry, resolvedAbs, state.includeContent)
+	} else if fromStdin {
+		entry.FromStdin = true
 	}
 
 	entry.Tools = append(entry.Tools, matches...)
-	if fromStdin && len(matches) == 0 {
+	if fromStdin && len(entry.Tools) == 0 {
 		result.Warnings = append(result.Warnings, Warning{
 			Path:    entry.Path,
 			Code:    "UNRECOGNIZED_STDIN",
 			Message: "stdin path did not match any registry pattern",
 		})
+	}
+}
+
+func populateEntryContent(entry *ConfigEntry, resolvedPath string, includeContent bool) {
+	// #nosec G304 -- resolvedPath comes from scan roots or stdin.
+	data, err := os.ReadFile(resolvedPath)
+	if err != nil {
+		code := errorCodeFor(err)
+		entry.Error = &code
+		entry.SizeBytes = nil
+		entry.Sha256 = nil
+		return
+	}
+
+	size := int64(len(data))
+	entry.SizeBytes = &size
+
+	sha := scanhash.SumHex(data)
+	entry.Sha256 = &sha
+
+	if size == 0 {
+		warning := "empty"
+		entry.Warning = &warning
+	}
+
+	frontmatter, hasFrontmatter, fmErr := ParseFrontmatter(data)
+	if hasFrontmatter {
+		entry.Frontmatter = frontmatter
+	}
+	if fmErr != nil {
+		errText := fmErr.Error()
+		entry.FrontmatterError = &errText
+	}
+
+	if isBinaryContent(data) {
+		skipped := "binary"
+		entry.ContentSkipped = &skipped
+		entry.Content = nil
+		return
+	}
+
+	if includeContent {
+		content := string(data)
+		entry.Content = &content
+	}
+}
+
+func isBinaryContent(data []byte) bool {
+	if len(data) == 0 {
+		return false
+	}
+	contentType := http.DetectContentType(data)
+	return strings.HasPrefix(contentType, "application/octet-stream")
+}
+
+func errorCodeFor(err error) string {
+	switch {
+	case errors.Is(err, fs.ErrPermission):
+		return "EACCES"
+	case errors.Is(err, fs.ErrNotExist):
+		return "ENOENT"
+	default:
+		return "ERROR"
 	}
 }
 
