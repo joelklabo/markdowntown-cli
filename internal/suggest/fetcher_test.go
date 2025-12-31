@@ -47,7 +47,7 @@ func (m memoryCache) Get(url string) ([]byte, bool) {
 
 func TestFetcherBlocksRobots(t *testing.T) {
 	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/robots.txt" {
 			_, _ = w.Write([]byte("User-agent: *\nDisallow: /blocked\nSitemap: " + server.URL + "/sitemap.xml\n"))
 			return
@@ -58,7 +58,10 @@ func TestFetcherBlocksRobots(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	parsed, _ := url.Parse(server.URL)
-	fetcher, err := NewFetcher(FetcherOptions{Allowlist: []string{parsed.Hostname()}})
+	fetcher, err := NewFetcher(FetcherOptions{
+		Client:    server.Client(),
+		Allowlist: []string{parsed.Hostname()},
+	})
 	if err != nil {
 		t.Fatalf("new fetcher: %v", err)
 	}
@@ -82,7 +85,7 @@ func TestFetcherBlocksRobots(t *testing.T) {
 }
 
 func TestFetcherConditionalGETUsesCache(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/robots.txt" {
 			_, _ = w.Write([]byte("User-agent: *\nAllow: /\n"))
 			return
@@ -105,6 +108,7 @@ func TestFetcherConditionalGETUsesCache(t *testing.T) {
 	cache := memoryCache{payloads: map[string][]byte{server.URL + "/doc": []byte("cached")}}
 
 	fetcher, err := NewFetcher(FetcherOptions{
+		Client:    server.Client(),
 		Allowlist: []string{parsed.Hostname()},
 		Store:     store,
 		Cache:     cache,
