@@ -1,0 +1,7 @@
+command: go test ./...
+exit_code: 0
+stdout:
+?   	markdowntown-cli/cmd/markdowntown	[no test files]
+?   	markdowntown-cli/internal/version	[no test files]
+
+stderr:
