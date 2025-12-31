@@ -1,0 +1,6 @@
+command: go test ./cmd/markdowntown -run TestAuditCLI
+exit_code: 0
+stdout:
+ok  	markdowntown-cli/cmd/markdowntown	(cached)
+
+stderr:
