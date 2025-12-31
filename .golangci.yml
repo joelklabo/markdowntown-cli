@@ -20,5 +20,3 @@ linters:
 formatters:
   enable:
     - gofmt
-
-issues:
