@@ -77,7 +77,7 @@ func runRegistry(args []string) error {
 	if args[0] != "validate" {
 		return fmt.Errorf("unknown registry subcommand: %s", args[0])
 	}
-	return fmt.Errorf("registry validate not implemented")
+	return runRegistryValidate()
 }
 
 func runTools(args []string) error {
@@ -107,4 +107,29 @@ func runToolsList() error {
 	enc.SetIndent("", "  ")
 	enc.SetEscapeHTML(false)
 	return enc.Encode(summaries)
+}
+
+func runRegistryValidate() error {
+	path, err := scan.ResolveRegistryPath()
+	if err != nil {
+		return err
+	}
+
+	data, err := scan.ReadRegistryFile(path)
+	if err != nil {
+		return err
+	}
+
+	result := scan.ValidateRegistry(path, data)
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(result); err != nil {
+		return err
+	}
+
+	if !result.Valid {
+		os.Exit(1)
+	}
+	return nil
 }

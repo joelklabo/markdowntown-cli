@@ -37,8 +37,7 @@ func LoadRegistry() (Registry, string, error) {
 		return Registry{}, "", err
 	}
 
-	// #nosec G304 -- registry path comes from env override or well-known locations.
-	data, err := os.ReadFile(path)
+	data, err := ReadRegistryFile(path)
 	if err != nil {
 		return Registry{}, "", fmt.Errorf("read registry: %w", err)
 	}
@@ -49,6 +48,12 @@ func LoadRegistry() (Registry, string, error) {
 	}
 
 	return reg, path, nil
+}
+
+// ReadRegistryFile reads the raw registry JSON from disk.
+func ReadRegistryFile(path string) ([]byte, error) {
+	// #nosec G304 -- registry path comes from env override or well-known locations.
+	return os.ReadFile(path)
 }
 
 // ResolveRegistryPath determines the single registry path to use.
