@@ -573,6 +573,37 @@ No filtering options - consumers filter the JSON.
 
 ## Research-Backed Discovery Patterns
 
+### VS Code + Copilot CLI Discovery Matrix
+
+#### VS Code (Copilot Chat)
+
+| Scope | Pattern | Kind | loadBehavior | Notes |
+| --- | --- | --- | --- | --- |
+| repo | `.github/copilot-instructions.md` | instructions | single | Combined with other instruction types; ordering is undefined. |
+| repo | `.github/instructions/*.instructions.md` | instructions | directory-glob | `applyTo` frontmatter controls targeting. |
+| repo | `.github/prompts/*.prompt.md` | prompts | directory-glob | Prompt files (experimental). |
+| repo | `AGENTS.md` | instructions | nearest-ancestor | Requires `chat.useAgentsMdFile`; nested AGENTS needs `chat.useNestedAgentsMdFiles`. |
+| user | `~/.config/Code/User/prompts/*.prompt.md` | prompts | directory-glob | User profile prompt files (Unix-like path). |
+| user | `~/.config/Code/User/profiles/*/prompts/*.prompt.md` | prompts | directory-glob | VS Code profiles (Unix-like path). |
+
+#### Copilot CLI
+
+| Scope | Pattern | Kind | loadBehavior | Notes |
+| --- | --- | --- | --- | --- |
+| repo | `.github/copilot-instructions.md` | instructions | single | Repo instructions for Copilot CLI. |
+| repo | `.github/copilot-instructions/**/*.instructions.md` | instructions | directory-glob | Nested instruction files. |
+| repo | `AGENTS.md` | instructions | nearest-ancestor | Nearest file wins in directory tree. |
+| repo | `.github/agents/*.md` | agent | directory-glob | Custom Copilot CLI agents. |
+| user | `~/.copilot/config.json` | config | single | Use `$XDG_CONFIG_HOME/copilot/config.json` when set. |
+| user | `~/.copilot/mcp-config.json` | config | single | Use `$XDG_CONFIG_HOME/copilot/mcp-config.json` when set. |
+| user | `~/.copilot/agents/*.md` | agent | directory-glob | User-scoped agents. |
+
+Notes:
+- Instruction ordering is undefined when multiple instruction file types exist; treat conflicts as ambiguous.
+- `chat.instructionsFilesLocations` custom instruction locations are not auto-discovered; use `--stdin` for custom paths.
+- XDG config overrides: when `$XDG_CONFIG_HOME` is set, use it for Copilot CLI config paths.
+- VS Code user profile prompt paths vary by OS; current coverage targets Unix-like paths.
+
 ### Repo-Scoped: GitHub Copilot
 
 | Pattern | Kind | loadBehavior | application |
