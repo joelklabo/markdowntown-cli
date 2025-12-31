@@ -1,0 +1,16 @@
+$ go test ./cmd/markdowntown -run TestAudit
+--- FAIL: TestAuditJSONOutput (0.01s)
+    audit_test.go:25: expected empty stderr, got "stat /Users/honk/code/markdowntown-cli/cmd/cmd/markdowntown: directory not found\n"
+--- FAIL: TestAuditMarkdownOutput (0.01s)
+    audit_test.go:43: expected empty stderr, got "stat /Users/honk/code/markdowntown-cli/cmd/cmd/markdowntown: directory not found\n"
+--- FAIL: TestAuditIncludeScanWarnings (0.01s)
+    audit_test.go:61: expected empty stderr, got "stat /Users/honk/code/markdowntown-cli/cmd/cmd/markdowntown: directory not found\n"
+--- FAIL: TestAuditOnlyIgnoreRules (0.01s)
+    audit_test.go:75: expected exit code 0, got 1 (stderr: stat /Users/honk/code/markdowntown-cli/cmd/cmd/markdowntown: directory not found
+        )
+--- FAIL: TestAuditExcludePaths (0.01s)
+    audit_test.go:99: expected empty stderr, got "stat /Users/honk/code/markdowntown-cli/cmd/cmd/markdowntown: directory not found\n"
+FAIL
+FAIL	markdowntown-cli/cmd/markdowntown	0.380s
+FAIL
+exit: 1
