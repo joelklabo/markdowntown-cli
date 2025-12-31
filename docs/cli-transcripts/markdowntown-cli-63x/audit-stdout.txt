@@ -1,0 +1,9 @@
+command: go run ./cmd/markdowntown audit --input - --format md
+exit_code: 0
+stdout:
+# markdowntown audit
+
+Summary: 0 error(s), 0 warn(s), 0 info
+
+
+stderr:
