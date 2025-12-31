@@ -52,4 +52,28 @@ func TestRegistry(t *testing.T) {
 			t.Fatal("expected error for missing version")
 		}
 	})
+
+	t.Run("invalid allowlist host", func(t *testing.T) {
+		reg := base
+		reg.AllowlistHosts = []string{"https://example.com"}
+		if err := ValidateSources(reg); err == nil {
+			t.Fatal("expected error for allowlist host with scheme")
+		}
+	})
+
+	t.Run("non-https source", func(t *testing.T) {
+		reg := base
+		reg.Sources[0].URL = "http://example.com/docs"
+		if err := ValidateSources(reg); err == nil {
+			t.Fatal("expected error for non-https url")
+		}
+	})
+
+	t.Run("unsafe path", func(t *testing.T) {
+		reg := base
+		reg.Sources[0].URL = "https://example.com/../secret"
+		if err := ValidateSources(reg); err == nil {
+			t.Fatal("expected error for unsafe path")
+		}
+	})
 }

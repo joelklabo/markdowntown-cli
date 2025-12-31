@@ -1,0 +1,5 @@
+$ go test ./internal/suggest -run 'TestRegistry|TestFetcher|TestWARC'
+[stdout]
+ok  	markdowntown-cli/internal/suggest	(cached)
+[stderr]
+exit: 0
