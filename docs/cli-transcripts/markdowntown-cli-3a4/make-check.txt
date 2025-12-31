@@ -1,0 +1,8 @@
+golangci-lint run ./...
+0 issues.
+go test ./...
+?   	markdowntown-cli/cmd/markdowntown	[no test files]
+?   	markdowntown-cli/internal/git	[no test files]
+?   	markdowntown-cli/internal/hash	[no test files]
+ok  	markdowntown-cli/internal/scan	2.057s
+?   	markdowntown-cli/internal/version	[no test files]
