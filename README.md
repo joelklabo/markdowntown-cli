@@ -91,7 +91,7 @@ Run `markdowntown <command> --help` for full flag details.
 
 `suggest` and `audit` are correctness-first: suggestions are emitted only when Tier-0/Tier-1 sources and proof objects are present. Conflicts or missing evidence produce omissions (see `audit`). Use `--explain` to include proof metadata in JSON output.
 
-`--offline` skips all network fetches and returns warnings if no cached data is available. `--refresh` forces a refresh when caching is supported (current runs always fetch unless `--offline` is set).
+`--offline` skips all network fetches and uses cached snapshots (XDG data); warnings are emitted for cache misses. `--refresh` forces a fetch by ignoring cached metadata.
 
 Example (Markdown output):
 

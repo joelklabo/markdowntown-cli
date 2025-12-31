@@ -76,8 +76,8 @@ Notes:
 
 - Suggestions are fail-closed: only Tier-0/Tier-1 sources with proof objects produce suggestions.
 - `--explain` populates `proof` metadata (sources, snapshot IDs, spans, normative strength). Without it, `proof` is blanked.
-- `--offline` disables network fetches; current releases return warnings when no cached data exists.
-- `--refresh` forces a re-fetch when caching is supported (current runs fetch by default).
+- `--offline` disables network fetches and uses cached snapshots under the XDG data path; warnings are emitted for cache misses.
+- `--refresh` forces a re-fetch by ignoring cached metadata.
 
 Examples:
 
@@ -192,7 +192,10 @@ Suggestion paths follow the XDG base directory spec:
 - Cache: `$XDG_CACHE_HOME/markdowntown` (or `~/.cache/markdowntown`)
 - Data: `$XDG_DATA_HOME/markdowntown` (or `~/.local/share/markdowntown`)
 
-Current releases keep evidence in memory per run; on-disk caches will live in the cache/data locations above.
+Suggested cache layout:
+
+- Metadata: `$XDG_CACHE_HOME/markdowntown/suggest/metadata.json`
+- Snapshots: `$XDG_DATA_HOME/markdowntown/suggest/snapshots/*.body`
 
 ## User-scope roots
 

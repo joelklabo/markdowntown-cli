@@ -7,5 +7,8 @@ This folder stores CLI transcript evidence for the suggest/audit/resolve workflo
 Reproduce:
 
 ```bash
-printf "ignored\n" | go run ./cmd/markdowntown suggest --offline --format json
+XDG_DATA_HOME="$(mktemp -d)" \
+XDG_CACHE_HOME="$(mktemp -d)" \
+MARKDOWNTOWN_SOURCES=data/doc-sources.json \
+go run ./cmd/markdowntown suggest --offline --format json
 ```

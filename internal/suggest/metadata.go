@@ -33,6 +33,61 @@ type SourceMetadataRecord struct {
 	Hash           string `json:"hash,omitempty"`
 }
 
+// MetadataFileStore implements MetadataWriter with on-disk persistence.
+type MetadataFileStore struct {
+	path  string
+	store MetadataStore
+}
+
+// LoadMetadataStore loads metadata and prepares a file-backed store.
+func LoadMetadataStore(path string) (*MetadataFileStore, error) {
+	store, err := LoadMetadata(path)
+	if err != nil {
+		return nil, err
+	}
+	return &MetadataFileStore{path: path, store: store}, nil
+}
+
+// Get returns the stored metadata for a source.
+func (m *MetadataFileStore) Get(id, url string) (MetadataRecord, bool) {
+	for _, rec := range m.store.Sources {
+		if rec.ID == id && rec.URL == url {
+			return MetadataRecord{
+				ID:             rec.ID,
+				URL:            rec.URL,
+				ETag:           rec.ETag,
+				LastModified:   rec.LastModified,
+				LastVerifiedAt: rec.LastVerifiedAt,
+			}, true
+		}
+	}
+	return MetadataRecord{}, false
+}
+
+// Put updates a stored metadata record.
+func (m *MetadataFileStore) Put(record MetadataRecord) {
+	for i, rec := range m.store.Sources {
+		if rec.ID == record.ID && rec.URL == record.URL {
+			m.store.Sources[i].ETag = record.ETag
+			m.store.Sources[i].LastModified = record.LastModified
+			m.store.Sources[i].LastVerifiedAt = record.LastVerifiedAt
+			return
+		}
+	}
+	m.store.Sources = append(m.store.Sources, SourceMetadataRecord{
+		ID:             record.ID,
+		URL:            record.URL,
+		ETag:           record.ETag,
+		LastModified:   record.LastModified,
+		LastVerifiedAt: record.LastVerifiedAt,
+	})
+}
+
+// Save persists metadata to disk.
+func (m *MetadataFileStore) Save() error {
+	return SaveMetadata(m.path, m.store)
+}
+
 // MetadataPath resolves the metadata file location in cache.
 func MetadataPath() (string, error) {
 	cacheDir, err := CacheDir()

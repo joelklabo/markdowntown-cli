@@ -1,0 +1,9 @@
+$ go test ./internal/suggest -run TestFetcher
+--- FAIL: TestFetcherBlocksRobots (0.00s)
+    fetcher_test.go:68: fetch: scheme not allowed: http
+--- FAIL: TestFetcherConditionalGETUsesCache (0.00s)
+    fetcher_test.go:119: fetch: scheme not allowed: http
+FAIL
+FAIL	markdowntown-cli/internal/suggest	0.323s
+FAIL
+[exit:1]

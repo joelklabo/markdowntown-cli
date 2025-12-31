@@ -1,0 +1,17 @@
+$ make test
+go test ./...
+ok  	markdowntown-cli/cmd/markdowntown	(cached)
+ok  	markdowntown-cli/internal/git	(cached)
+?   	markdowntown-cli/internal/hash	[no test files]
+?   	markdowntown-cli/internal/instructions	[no test files]
+ok  	markdowntown-cli/internal/scan	(cached)
+--- FAIL: TestFetcherBlocksRobots (0.00s)
+    fetcher_test.go:68: fetch: scheme not allowed: http
+--- FAIL: TestFetcherConditionalGETUsesCache (0.00s)
+    fetcher_test.go:119: fetch: scheme not allowed: http
+FAIL
+FAIL	markdowntown-cli/internal/suggest	0.239s
+?   	markdowntown-cli/internal/version	[no test files]
+FAIL
+make: *** [test] Error 1
+[exit:2]
