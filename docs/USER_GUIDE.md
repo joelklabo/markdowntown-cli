@@ -108,16 +108,31 @@ Default user roots scanned (unless `--repo-only` is set):
 
 ## Copilot + VS Code paths
 
-Repo-scope locations scanned via registry patterns:
+Repo-scope patterns (pattern-based; `.github` is **not** fully scanned):
 
 - `.github/copilot-instructions.md`
+- `.github/copilot-instructions/**/*.instructions.md`
 - `.github/instructions/*.instructions.md`
-- `.github/agents/*.md` (Copilot CLI custom agents)
+- `.github/prompts/*.prompt.md`
+- `.github/agents/*.md`
+- `AGENTS.md`
 
-User-scope Copilot CLI locations:
+User-scope patterns:
 
 - `~/.copilot/config.json`
+- `~/.copilot/mcp-config.json`
+- `$XDG_CONFIG_HOME/copilot/config.json`
+- `$XDG_CONFIG_HOME/copilot/mcp-config.json`
 - `~/.copilot/agents/*.md`
+- `~/.config/Code/User/prompts/*.prompt.md`
+- `~/.config/Code/User/profiles/*/prompts/*.prompt.md`
+
+Notes:
+
+- VS Code instruction files require settings such as `github.copilot.chat.codeGeneration.useInstructionFiles`,
+  `chat.useAgentsMdFile`, and `chat.useNestedAgentsMdFiles`.
+- Ordering is undefined when multiple instruction types coexist; treat conflicts as ambiguous.
+- If you configure `chat.instructionsFilesLocations`, pass those custom paths via `--stdin`.
 
 ## Codex CLI niceties
 

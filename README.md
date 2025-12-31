@@ -81,17 +81,40 @@ Default user roots scanned (unless `--repo-only` is set):
 - `~/.cursor`
 - `~/.claude`
 
+## Repo scope (.github)
+
+Repo scanning is pattern-based from the registry — `markdowntown` does **not** scan every file in `.github`.
+For Copilot/VS Code coverage, only specific patterns are matched (e.g., `.github/copilot-instructions.md`,
+`.github/instructions/*.instructions.md`, `.github/copilot-instructions/**/*.instructions.md`,
+`.github/prompts/*.prompt.md`, `.github/agents/*.md`).
+
 ## Copilot + VS Code paths
 
-Registry patterns include `.github/` locations used by Copilot and VS Code:
+Repo-scope patterns:
 
-- `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md`
-- `.github/agents/*.md` (Copilot CLI custom agents)
+- `.github/copilot-instructions.md`
+- `.github/copilot-instructions/**/*.instructions.md`
+- `.github/instructions/*.instructions.md`
+- `.github/prompts/*.prompt.md`
+- `.github/agents/*.md`
+- `AGENTS.md`
 
-User-scope Copilot CLI locations are also scanned (unless `--repo-only`):
+User-scope patterns:
 
 - `~/.copilot/config.json`
+- `~/.copilot/mcp-config.json`
+- `$XDG_CONFIG_HOME/copilot/config.json`
+- `$XDG_CONFIG_HOME/copilot/mcp-config.json`
 - `~/.copilot/agents/*.md`
+- `~/.config/Code/User/prompts/*.prompt.md`
+- `~/.config/Code/User/profiles/*/prompts/*.prompt.md`
+
+Notes:
+
+- VS Code instruction files require settings such as `github.copilot.chat.codeGeneration.useInstructionFiles`,
+  `chat.useAgentsMdFile`, and `chat.useNestedAgentsMdFiles`.
+- Ordering is undefined when multiple instruction types coexist; treat conflicts as ambiguous.
+- Custom instruction locations configured via `chat.instructionsFilesLocations` should be added via `--stdin`.
 
 ## Output highlights
 
