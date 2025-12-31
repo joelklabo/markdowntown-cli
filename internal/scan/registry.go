@@ -163,3 +163,21 @@ func expandHome(path string) (string, error) {
 
 	return path, nil
 }
+
+func expandRegistryPath(path string) (string, error) {
+	expanded, err := expandHome(path)
+	if err != nil {
+		return "", err
+	}
+	return expandXDGConfigHome(expanded), nil
+}
+
+func expandXDGConfigHome(path string) string {
+	xdg := os.Getenv("XDG_CONFIG_HOME")
+	if xdg == "" {
+		return path
+	}
+	path = strings.ReplaceAll(path, "${XDG_CONFIG_HOME}", xdg)
+	path = strings.ReplaceAll(path, "$XDG_CONFIG_HOME", xdg)
+	return path
+}

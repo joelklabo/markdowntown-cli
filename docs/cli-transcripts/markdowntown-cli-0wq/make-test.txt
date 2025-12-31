@@ -1,0 +1,8 @@
+$ make test
+go test ./...
+?   	markdowntown-cli/cmd/markdowntown	[no test files]
+ok  	markdowntown-cli/internal/git	(cached)
+?   	markdowntown-cli/internal/hash	[no test files]
+ok  	markdowntown-cli/internal/scan	2.176s
+?   	markdowntown-cli/internal/version	[no test files]
+exit: 0

@@ -1,0 +1,3 @@
+$ go test ./internal/scan -run Test.*XDG
+zsh:2: no matches found: Test.*XDG
+exit: 1
