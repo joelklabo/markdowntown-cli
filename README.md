@@ -22,6 +22,12 @@ go install ./cmd/markdowntown
 markdowntown scan --repo /path/to/repo --repo-only
 ```
 
+Audit scan results:
+
+```bash
+markdowntown audit --repo /path/to/repo --repo-only --format md
+```
+
 Compact JSON output:
 
 ```bash
@@ -47,6 +53,7 @@ markdowntown tools list
 ## Commands
 
 - `markdowntown scan` scans repo + user roots and emits JSON.
+- `markdowntown audit` analyzes scan output and emits JSON/Markdown issues with deterministic ordering.
 - `markdowntown registry validate` validates the registry JSON (syntax, schema, unique IDs, docs reachability). Exits 1 on failure.
 - `markdowntown tools list` emits a JSON array of tools aggregated from the registry.
 - `markdowntown --version` prints tool + schema versions.
@@ -74,6 +81,18 @@ Default user roots scanned (unless `--repo-only` is set):
 - `~/.cursor`
 - `~/.claude`
 
+## Copilot + VS Code paths
+
+Registry patterns include `.github/` locations used by Copilot and VS Code:
+
+- `.github/copilot-instructions.md` and `.github/instructions/*.instructions.md`
+- `.github/agents/*.md` (Copilot CLI custom agents)
+
+User-scope Copilot CLI locations are also scanned (unless `--repo-only`):
+
+- `~/.copilot/config.json`
+- `~/.copilot/agents/*.md`
+
 ## Output highlights
 
 Scan output is deterministic and sorted. Top-level fields include:
@@ -84,6 +103,14 @@ Scan output is deterministic and sorted. Top-level fields include:
 - `warnings` (non-fatal issues)
 
 See `docs/USER_GUIDE.md` for detailed output schema and examples.
+
+## Audit highlights
+
+- Supports `--format json|md` and `--input <file|->` for scan JSON reuse.
+- Exit codes: 0 (no error-severity issues), 1 (error-severity issues), 2 (fatal error).
+- User-scope paths are redacted in audit output to avoid leaking home directory names.
+
+Audit rules surface actionable issues such as empty instructions, frontmatter errors, gitignored configs, missing instructions, and required settings.
 
 ## Codex CLI niceties
 
@@ -97,6 +124,8 @@ These files are commonly scanned and may show up in results:
 
 - `docs/scan-spec-v1.md`
 - `docs/architecture/scan.md`
+- `docs/audit-spec-v1.md`
+- `docs/architecture/audit.md`
 - `docs/USER_GUIDE.md`
 - `docs/CONTRIBUTING.md`
 
