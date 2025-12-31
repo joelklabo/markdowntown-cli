@@ -22,6 +22,9 @@ const rootUsage = `markdowntown
 Usage:
   markdowntown                     # Show help (no default command)
   markdowntown scan [flags]        # Scan for AI config files
+  markdowntown suggest [flags]     # Generate evidence-backed suggestions
+  markdowntown resolve [flags]     # Resolve effective instruction chain
+  markdowntown audit [flags]       # Audit conflicts and omissions
   markdowntown registry validate   # Validate pattern registry
   markdowntown tools list          # List recognized tools
 
@@ -61,6 +64,21 @@ func main() {
 		return
 	case "scan":
 		if err := runScan(args[1:]); err != nil {
+			exitWithError(err)
+		}
+		return
+	case "suggest":
+		if err := runSuggest(args[1:]); err != nil {
+			exitWithError(err)
+		}
+		return
+	case "resolve":
+		if err := runResolve(args[1:]); err != nil {
+			exitWithError(err)
+		}
+		return
+	case "audit":
+		if err := runAudit(args[1:]); err != nil {
 			exitWithError(err)
 		}
 		return

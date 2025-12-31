@@ -1,0 +1,5 @@
+$ go test ./cmd/markdowntown -run TestSuggestCLI
+[stdout]
+ok  	markdowntown-cli/cmd/markdowntown	0.528s
+[stderr]
+exit: 0
