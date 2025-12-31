@@ -1,0 +1,5 @@
+$ go test ./internal/suggest -run TestFetcherSecurity
+[stdout]
+ok  	markdowntown-cli/internal/suggest	(cached)
+[stderr]
+exit: 0
