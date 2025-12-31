@@ -1,0 +1,453 @@
+{
+  "version": "1.0",
+  "patterns": [
+    {
+      "id": "github-copilot-instructions",
+      "toolId": "github-copilot",
+      "toolName": "GitHub Copilot",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": [".github/copilot-instructions.md"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "notes": "Requires VS Code setting to apply",
+      "hints": [
+        {
+          "type": "requires-setting",
+          "setting": "github.copilot.chat.codeGeneration.useInstructionFiles"
+        }
+      ],
+      "docs": [
+        "https://docs.github.com/en/copilot/customizing-copilot/adding-repository-custom-instructions-for-github-copilot"
+      ]
+    },
+    {
+      "id": "github-copilot-instructions-dir",
+      "toolId": "github-copilot",
+      "toolName": "GitHub Copilot",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": [".github/instructions/*.instructions.md"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "pattern-matched",
+      "applicationField": "applyTo",
+      "docs": [
+        "https://docs.github.com/en/copilot/customizing-copilot/adding-repository-custom-instructions-for-github-copilot"
+      ]
+    },
+    {
+      "id": "github-copilot-prompts",
+      "toolId": "github-copilot",
+      "toolName": "GitHub Copilot",
+      "kind": "prompts",
+      "scope": "repo",
+      "paths": [".github/prompts/*.prompt.md"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "selected",
+      "docs": [
+        "https://docs.github.com/en/copilot/customizing-copilot/adding-repository-custom-instructions-for-github-copilot"
+      ]
+    },
+    {
+      "id": "codex-agents-override-repo",
+      "toolId": "codex",
+      "toolName": "Codex",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": ["AGENTS.override.md"],
+      "type": "glob",
+      "loadBehavior": "all-ancestors",
+      "application": "automatic",
+      "notes": "Overrides AGENTS.md in the same directory",
+      "docs": [
+        "https://developers.openai.com/codex/guides/agents-md"
+      ]
+    },
+    {
+      "id": "codex-agents-repo",
+      "toolId": "codex",
+      "toolName": "Codex",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": ["AGENTS.md"],
+      "type": "glob",
+      "loadBehavior": "all-ancestors",
+      "application": "automatic",
+      "docs": [
+        "https://developers.openai.com/codex/guides/agents-md"
+      ]
+    },
+    {
+      "id": "codex-skills-repo",
+      "toolId": "codex",
+      "toolName": "Codex",
+      "kind": "skills",
+      "scope": "repo",
+      "paths": [".codex/skills/**/SKILL.md"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "invoked",
+      "notes": "Invoked by skill name",
+      "docs": [
+        "https://developers.openai.com/codex/skills"
+      ]
+    },
+    {
+      "id": "codex-agents-override-user",
+      "toolId": "codex",
+      "toolName": "Codex",
+      "kind": "instructions",
+      "scope": "user",
+      "paths": ["~/.codex/AGENTS.override.md"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "notes": "Overrides AGENTS.md in the same directory",
+      "docs": [
+        "https://developers.openai.com/codex/guides/agents-md"
+      ]
+    },
+    {
+      "id": "codex-agents-user",
+      "toolId": "codex",
+      "toolName": "Codex",
+      "kind": "instructions",
+      "scope": "user",
+      "paths": ["~/.codex/AGENTS.md"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://developers.openai.com/codex/guides/agents-md"
+      ]
+    },
+    {
+      "id": "codex-config-user",
+      "toolId": "codex",
+      "toolName": "Codex",
+      "kind": "config",
+      "scope": "user",
+      "paths": ["~/.codex/config.toml"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "notes": "May define project_doc_fallback_filenames",
+      "docs": [
+        "https://developers.openai.com/codex/guides/agents-md"
+      ]
+    },
+    {
+      "id": "codex-prompts-user",
+      "toolId": "codex",
+      "toolName": "Codex",
+      "kind": "prompts",
+      "scope": "user",
+      "paths": ["~/.codex/prompts/*.md"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "selected",
+      "notes": "Top-level Markdown files only",
+      "docs": [
+        "https://developers.openai.com/codex/cli/slash-commands"
+      ]
+    },
+    {
+      "id": "codex-skills-user",
+      "toolId": "codex",
+      "toolName": "Codex",
+      "kind": "skills",
+      "scope": "user",
+      "paths": ["~/.codex/skills/**/SKILL.md"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "invoked",
+      "notes": "Invoked by skill name",
+      "docs": [
+        "https://developers.openai.com/codex/skills"
+      ]
+    },
+    {
+      "id": "gemini-cli-instructions-repo",
+      "toolId": "gemini-cli",
+      "toolName": "Gemini CLI",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": ["GEMINI.md"],
+      "type": "glob",
+      "loadBehavior": "nearest-ancestor",
+      "application": "automatic",
+      "docs": [
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md"
+      ]
+    },
+    {
+      "id": "gemini-cli-instructions-user",
+      "toolId": "gemini-cli",
+      "toolName": "Gemini CLI",
+      "kind": "instructions",
+      "scope": "user",
+      "paths": ["~/.gemini/GEMINI.md"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md"
+      ]
+    },
+    {
+      "id": "gemini-cli-settings-user",
+      "toolId": "gemini-cli",
+      "toolName": "Gemini CLI",
+      "kind": "config",
+      "scope": "user",
+      "paths": ["~/.gemini/settings.json"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md"
+      ]
+    },
+    {
+      "id": "gemini-cli-geminiignore-repo",
+      "toolId": "gemini-cli",
+      "toolName": "Gemini CLI",
+      "kind": "config",
+      "scope": "repo",
+      "paths": [".geminiignore"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md"
+      ]
+    },
+    {
+      "id": "cursor-rules-dir",
+      "toolId": "cursor",
+      "toolName": "Cursor",
+      "kind": "rules",
+      "scope": "repo",
+      "paths": [".cursor/rules/**/*"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "automatic",
+      "docs": [
+        "https://docs.cursor.com/context/rules"
+      ]
+    },
+    {
+      "id": "cursor-rules-file",
+      "toolId": "cursor",
+      "toolName": "Cursor",
+      "kind": "rules",
+      "scope": "repo",
+      "paths": [".cursorrules"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.cursor.com/context/rules"
+      ]
+    },
+    {
+      "id": "cline-rules-dir-repo",
+      "toolId": "cline",
+      "toolName": "Cline",
+      "kind": "rules",
+      "scope": "repo",
+      "paths": [".clinerules/**/*"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "automatic",
+      "docs": [
+        "https://docs.cline.bot/prompting/clinerules"
+      ]
+    },
+    {
+      "id": "cline-rules-file-repo",
+      "toolId": "cline",
+      "toolName": "Cline",
+      "kind": "rules",
+      "scope": "repo",
+      "paths": [".clinerules"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.cline.bot/prompting/clinerules"
+      ]
+    },
+    {
+      "id": "cline-rules-dir-user",
+      "toolId": "cline",
+      "toolName": "Cline",
+      "kind": "rules",
+      "scope": "user",
+      "paths": ["~/Documents/Cline/Rules/**/*"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "automatic",
+      "docs": [
+        "https://docs.cline.bot/prompting/clinerules"
+      ]
+    },
+    {
+      "id": "aider-config-yml",
+      "toolId": "aider",
+      "toolName": "Aider",
+      "kind": "config",
+      "scope": "repo",
+      "paths": [".aider.conf.yml"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://aider.chat/docs/config.html"
+      ]
+    },
+    {
+      "id": "aider-config",
+      "toolId": "aider",
+      "toolName": "Aider",
+      "kind": "config",
+      "scope": "repo",
+      "paths": [".aider.conf"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://aider.chat/docs/config.html"
+      ]
+    },
+    {
+      "id": "aider-config-toml",
+      "toolId": "aider",
+      "toolName": "Aider",
+      "kind": "config",
+      "scope": "repo",
+      "paths": [".aider.conf.toml"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://aider.chat/docs/config.html"
+      ]
+    },
+    {
+      "id": "continue-config-yaml",
+      "toolId": "continue",
+      "toolName": "Continue",
+      "kind": "config",
+      "scope": "user",
+      "paths": ["~/.continue/config.yaml"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.continue.dev/configuration/configuration-file"
+      ]
+    },
+    {
+      "id": "continue-config-json",
+      "toolId": "continue",
+      "toolName": "Continue",
+      "kind": "config",
+      "scope": "user",
+      "paths": ["~/.continue/config.json"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.continue.dev/configuration/configuration-file"
+      ]
+    },
+    {
+      "id": "continue-config-ts",
+      "toolId": "continue",
+      "toolName": "Continue",
+      "kind": "config",
+      "scope": "user",
+      "paths": ["~/.continue/config.ts"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.continue.dev/configuration/configuration-file"
+      ]
+    },
+    {
+      "id": "claude-code-instructions-repo",
+      "toolId": "claude-code",
+      "toolName": "Claude Code",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": ["CLAUDE.md"],
+      "type": "glob",
+      "loadBehavior": "all-ancestors",
+      "application": "automatic",
+      "docs": [
+        "https://docs.anthropic.com/en/docs/claude-code/settings"
+      ]
+    },
+    {
+      "id": "claude-code-settings-repo",
+      "toolId": "claude-code",
+      "toolName": "Claude Code",
+      "kind": "config",
+      "scope": "repo",
+      "paths": [".claude/settings.json"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.anthropic.com/en/docs/claude-code/settings"
+      ]
+    },
+    {
+      "id": "claude-code-commands-repo",
+      "toolId": "claude-code",
+      "toolName": "Claude Code",
+      "kind": "skills",
+      "scope": "repo",
+      "paths": [".claude/commands/**/*"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "invoked",
+      "docs": [
+        "https://docs.anthropic.com/en/docs/claude-code/slash-commands"
+      ]
+    },
+    {
+      "id": "claude-code-instructions-user",
+      "toolId": "claude-code",
+      "toolName": "Claude Code",
+      "kind": "instructions",
+      "scope": "user",
+      "paths": ["~/.claude/CLAUDE.md"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.anthropic.com/en/docs/claude-code/settings"
+      ]
+    },
+    {
+      "id": "claude-code-settings-user",
+      "toolId": "claude-code",
+      "toolName": "Claude Code",
+      "kind": "config",
+      "scope": "user",
+      "paths": ["~/.claude/settings.json"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.anthropic.com/en/docs/claude-code/settings"
+      ]
+    }
+  ]
+}

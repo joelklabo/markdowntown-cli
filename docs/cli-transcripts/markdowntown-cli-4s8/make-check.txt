@@ -1,0 +1,6 @@
+command: make check
+exit_code: 2
+stdout:
+
+stderr:
+make: *** No rule to make target `check'.  Stop.
