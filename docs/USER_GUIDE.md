@@ -34,6 +34,36 @@ markdowntown scan --stdin < extra-paths.txt
 markdowntown scan --include-content --compact
 ```
 
+### `markdowntown audit`
+
+```bash
+markdowntown audit [flags]
+```
+
+Flags:
+
+- `--input <path|->`: read scan JSON from file or stdin
+- `--format <json|md>`: output format (default: json)
+- `--compact`: emit compact JSON (no indentation)
+- `--ignore-rule <id>`: suppress a rule by ID (repeatable)
+- `--exclude <glob>`: exclude matching paths (repeatable)
+- `--repo <path>`: repo path (defaults to git root from cwd)
+- `--repo-only`: exclude user scope (scan repo only)
+- `--stdin`: read additional paths from stdin (one per line)
+
+Notes:
+
+- Exit codes: 0 when no error-severity issues, 1 when error-severity issues exist, 2 for fatal errors.
+- User-scope paths are redacted (shown as `~/...`) in audit output.
+- Audit is metadata-only by default; rules avoid reading file contents unless required.
+
+Examples:
+
+```bash
+markdowntown audit --repo /path/to/repo --repo-only
+markdowntown audit --input scan.json --format md
+```
+
 ### `markdowntown registry validate`
 
 Validates the registry JSON and reports details for each check.
@@ -76,6 +106,19 @@ Default user roots scanned (unless `--repo-only` is set):
 - `~/.cursor`
 - `~/.claude`
 
+## Copilot + VS Code paths
+
+Repo-scope locations scanned via registry patterns:
+
+- `.github/copilot-instructions.md`
+- `.github/instructions/*.instructions.md`
+- `.github/agents/*.md` (Copilot CLI custom agents)
+
+User-scope Copilot CLI locations:
+
+- `~/.copilot/config.json`
+- `~/.copilot/agents/*.md`
+
 ## Codex CLI niceties
 
 Codex users commonly store instructions and skill definitions in:
@@ -114,6 +157,18 @@ Top-level output fields:
 - `toolId`, `toolName`, `patternCount`, `docs`
 
 Warnings are not fatal; examples include `CONFIG_CONFLICT`, `CIRCULAR_SYMLINK`, and `UNRECOGNIZED_STDIN`.
+
+## Audit output schema
+
+Top-level audit fields:
+
+- `schemaVersion`, `toolVersion`, `registryVersion`
+- `auditStartedAt`, `generatedAt`
+- `input` (scan metadata: repo root, scan timestamps, scan roots)
+- `summary` (counts by severity)
+- `issues` (ruleId, severity, title, message, suggestion, paths, tools, evidence)
+
+Markdown output groups issues by severity and includes suggestions.
 
 ## Example output (abbreviated)
 
