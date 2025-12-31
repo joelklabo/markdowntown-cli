@@ -18,7 +18,7 @@ func CheckIgnore(repoRoot string, paths []string) (map[string]bool, error) {
 	}
 
 	stdin := strings.NewReader(strings.Join(filtered, "\x00") + "\x00")
-	stdout, _, exitCode, err := runGit(repoRoot, stdin, "check-ignore", "-z", "--stdin")
+	stdout, exitCode, err := runGit(repoRoot, stdin, "check-ignore", "-z", "--stdin")
 	if err != nil && exitCode != 1 {
 		return nil, err
 	}

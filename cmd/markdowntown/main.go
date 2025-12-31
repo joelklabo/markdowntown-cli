@@ -2,10 +2,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
+	"markdowntown-cli/internal/scan"
 	"markdowntown-cli/internal/version"
 )
 
@@ -85,11 +87,24 @@ func runTools(args []string) error {
 	if args[0] != "list" {
 		return fmt.Errorf("unknown tools subcommand: %s", args[0])
 	}
-	return fmt.Errorf("tools list not implemented")
+	return runToolsList()
 }
 
 func exitWithError(err error) {
 	fmt.Fprintln(os.Stderr, err.Error())
 	printUsage(os.Stderr)
 	os.Exit(1)
+}
+
+func runToolsList() error {
+	reg, _, err := scan.LoadRegistry()
+	if err != nil {
+		return err
+	}
+
+	summaries := scan.BuildToolSummaries(reg)
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+	return enc.Encode(summaries)
 }
