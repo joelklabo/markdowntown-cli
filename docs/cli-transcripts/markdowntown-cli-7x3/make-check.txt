@@ -1,0 +1,12 @@
+$ make check
+[stdout]
+golangci-lint run ./...
+0 issues.
+go test ./...
+ok  	markdowntown-cli/cmd/markdowntown	(cached)
+ok  	markdowntown-cli/internal/git	(cached)
+?   	markdowntown-cli/internal/hash	[no test files]
+ok  	markdowntown-cli/internal/scan	(cached)
+?   	markdowntown-cli/internal/version	[no test files]
+[stderr]
+exit: 0
