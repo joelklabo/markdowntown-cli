@@ -1,0 +1,3 @@
+$ go test ./cmd/markdowntown -run TestSuggestCLI
+ok  	markdowntown-cli/cmd/markdowntown	(cached)
+[exit:0]

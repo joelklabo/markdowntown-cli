@@ -1,0 +1,11 @@
+$ printf "ignored\n" | go run ./cmd/markdowntown suggest --offline --format json
+[stdout]
+{
+  "client": "codex",
+  "generatedAt": 1767176559676,
+  "warnings": [
+    "offline mode enabled; no fetch performed"
+  ]
+}
+[stderr]
+exit: 0

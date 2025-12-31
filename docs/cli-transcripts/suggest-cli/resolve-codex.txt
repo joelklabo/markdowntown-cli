@@ -1,0 +1,40 @@
+$ CODEX_HOME="$(pwd)/.codex-test" go run ./cmd/markdowntown resolve --client codex --format json --repo .
+[stdout]
+{
+  "client": "codex",
+  "generatedAt": 1767176572855,
+  "resolution": {
+    "Client": "codex",
+    "RepoRoot": "/Users/honk/code/markdowntown-cli",
+    "Cwd": "/Users/honk/code/markdowntown-cli",
+    "TargetPath": "",
+    "Applied": [
+      {
+        "Path": "/Users/honk/code/markdowntown-cli/AGENTS.md",
+        "Scope": "repo",
+        "Dir": "/Users/honk/code/markdowntown-cli",
+        "Reason": "primary",
+        "Bytes": 1480,
+        "IncludedBytes": 1480,
+        "Truncated": false
+      }
+    ],
+    "OrderGuarantee": "deterministic",
+    "Conflicts": null,
+    "SettingsRequired": null,
+    "SizeLimits": [
+      {
+        "Name": "project_doc_max_bytes",
+        "Bytes": 32768,
+        "Scope": "repo",
+        "Source": "default"
+      }
+    ],
+    "Warnings": null,
+    "CodexHome": "/Users/honk/code/markdowntown-cli/.codex-test",
+    "ConfigPath": "",
+    "FallbackFilenames": null
+  }
+}
+[stderr]
+exit: 0
