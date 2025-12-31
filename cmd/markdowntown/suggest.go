@@ -107,7 +107,6 @@ func runSuggestWithIO(stdout, stderr io.Writer, args []string) error {
 	return suggest.WriteSuggestReport(stdout, format, report)
 }
 
-
 func runResolveWithIO(stdout, stderr io.Writer, args []string) error {
 	flags := flag.NewFlagSet("resolve", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -291,29 +290,55 @@ type cacheWriter interface {
 }
 
 type metadataWriter struct {
-	store     *suggest.MetadataFileStore
+	path      string
+	store     suggest.MetadataStore
 	ignoreGet bool
 }
 
-func (m metadataWriter) Get(id, url string) (suggest.MetadataRecord, bool) {
-	if m.store == nil || m.ignoreGet {
+func (m *metadataWriter) Get(id, url string) (suggest.MetadataRecord, bool) {
+	if m == nil || m.ignoreGet {
 		return suggest.MetadataRecord{}, false
 	}
-	return m.store.Get(id, url)
+	for _, record := range m.store.Sources {
+		if record.ID == id && record.URL == url {
+			return suggest.MetadataRecord{
+				ID:             record.ID,
+				URL:            record.URL,
+				ETag:           record.ETag,
+				LastModified:   record.LastModified,
+				LastVerifiedAt: record.LastVerifiedAt,
+			}, true
+		}
+	}
+	return suggest.MetadataRecord{}, false
 }
 
-func (m metadataWriter) Put(record suggest.MetadataRecord) {
-	if m.store == nil {
+func (m *metadataWriter) Put(record suggest.MetadataRecord) {
+	if m == nil {
 		return
 	}
-	m.store.Put(record)
+	for i, stored := range m.store.Sources {
+		if stored.ID == record.ID && stored.URL == record.URL {
+			m.store.Sources[i].ETag = record.ETag
+			m.store.Sources[i].LastModified = record.LastModified
+			m.store.Sources[i].LastVerifiedAt = record.LastVerifiedAt
+			return
+		}
+	}
+	m.store.Sources = append(m.store.Sources, suggest.SourceMetadataRecord{
+		ID:             record.ID,
+		URL:            record.URL,
+		ETag:           record.ETag,
+		LastModified:   record.LastModified,
+		LastVerifiedAt: record.LastVerifiedAt,
+	})
 }
 
-func (m metadataWriter) Save() error {
-	if m.store == nil {
+func (m *metadataWriter) Save() error {
+	if m == nil {
 		return nil
 	}
-	return m.store.Save()
+	return suggest.SaveMetadata(m.path, m.store)
 }
 
 func newMetadataStore(report *suggest.SuggestReport, refresh bool) suggest.MetadataWriter {
@@ -322,12 +347,12 @@ func newMetadataStore(report *suggest.SuggestReport, refresh bool) suggest.Metad
 		report.Warnings = append(report.Warnings, fmt.Sprintf("metadata path failed: %v", err))
 		return nil
 	}
-	store, err := suggest.LoadMetadataStore(path)
+	store, err := suggest.LoadMetadata(path)
 	if err != nil {
 		report.Warnings = append(report.Warnings, fmt.Sprintf("metadata load failed: %v", err))
 		return nil
 	}
-	return metadataWriter{store: store, ignoreGet: refresh}
+	return &metadataWriter{path: path, store: store, ignoreGet: refresh}
 }
 
 func newFileCache(report *suggest.SuggestReport) cacheWriter {

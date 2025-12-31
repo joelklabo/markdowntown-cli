@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "allowlistHosts": ["example.com"],
+  "sources": [
+    {
+      "id": "example",
+      "tier": "tier-0",
+      "client": "codex",
+      "url": "https://example.com/docs",
+      "refreshHours": 24
+    }
+  ]
+}

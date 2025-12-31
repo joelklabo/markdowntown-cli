@@ -3,4 +3,5 @@
 _No suggestions available._
 
 ## Warnings
-- offline mode enabled; no fetch performed
+- offline mode enabled; using cached data only
+- cache miss for https://example.com/docs

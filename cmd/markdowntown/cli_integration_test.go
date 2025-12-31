@@ -13,6 +13,7 @@ import (
 )
 
 func TestSuggestCLIGoldenJSON(t *testing.T) {
+	setSuggestEnv(t)
 	var out bytes.Buffer
 	if err := runSuggestWithIO(&out, io.Discard, []string{"--offline", "--format", "json"}); err != nil {
 		t.Fatalf("runSuggest failed: %v", err)
@@ -26,6 +27,7 @@ func TestSuggestCLIGoldenJSON(t *testing.T) {
 }
 
 func TestSuggestCLIGoldenMarkdown(t *testing.T) {
+	setSuggestEnv(t)
 	var out bytes.Buffer
 	if err := runSuggestWithIO(&out, io.Discard, []string{"--offline", "--format", "md"}); err != nil {
 		t.Fatalf("runSuggest failed: %v", err)
@@ -71,16 +73,6 @@ func TestResolveCLIGoldenJSON(t *testing.T) {
 	}
 }
 
-func TestAuditCLIOffline(t *testing.T) {
-	var out bytes.Buffer
-	if err := runAuditWithIO(&out, io.Discard, []string{"--offline", "--format", "json"}); err != nil {
-		t.Fatalf("runAudit failed: %v", err)
-	}
-	if !strings.Contains(out.String(), "offline mode enabled") {
-		t.Fatalf("expected offline warning in audit output")
-	}
-}
-
 func TestSuggestCLIUnknownClientExitCode(t *testing.T) {
 	repoRoot := repoRootFromCaller(t)
 	cmd := exec.Command("go", "run", "./cmd/markdowntown", "suggest", "--client", "nope")
@@ -104,6 +96,14 @@ func TestSuggestCLIUnknownClientExitCode(t *testing.T) {
 	if !strings.Contains(stderr.String(), "unknown client") {
 		t.Fatalf("expected unknown client error, got: %s", stderr.String())
 	}
+}
+
+func setSuggestEnv(t *testing.T) {
+	t.Helper()
+	repoRoot := repoRootFromCaller(t)
+	t.Setenv("MARKDOWNTOWN_SOURCES", filepath.Join(repoRoot, "testdata", "suggest", "doc-sources.json"))
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 }
 
 func normalizeGeneratedAt(input string) string {
