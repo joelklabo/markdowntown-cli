@@ -1,5 +1,5 @@
-// Package hash provides hashing helpers for scan output.
-package hash
+// Package scanhash provides hashing helpers for scan output.
+package scanhash
 
 import (
 	"crypto/sha256"
