@@ -34,6 +34,12 @@ go test ./internal/scan -fuzz=FuzzCompileAndMatch -fuzztime=3s
 
 Keep fuzz runs short for CI to avoid timeouts; longer runs are fine for local experimentation.
 
+### Suggest fetcher tests
+
+The suggest fetcher only allows HTTPS URLs. When adding fetcher tests, use
+`httptest.NewTLSServer` and pass `server.Client()` into `FetcherOptions` so the
+test client trusts the TLS cert.
+
 ### Sanity checks
 
 ```bash
