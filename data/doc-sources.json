@@ -1,0 +1,122 @@
+{
+  "version": "1.0",
+  "allowlistHosts": [
+    "developers.openai.com",
+    "docs.github.com",
+    "code.visualstudio.com",
+    "docs.claude.com",
+    "geminicli.com",
+    "www.rfc-editor.org",
+    "iipc.github.io",
+    "www.sitemaps.org",
+    "specifications.freedesktop.org",
+    "docs.brew.sh"
+  ],
+  "sources": [
+    {
+      "id": "codex-agents-md",
+      "tier": "tier-0",
+      "client": "codex",
+      "url": "https://developers.openai.com/codex/guides/agents-md/",
+      "refreshHours": 24
+    },
+    {
+      "id": "codex-config-reference",
+      "tier": "tier-0",
+      "client": "codex",
+      "url": "https://developers.openai.com/codex/config-reference",
+      "refreshHours": 24
+    },
+    {
+      "id": "copilot-repo-instructions",
+      "tier": "tier-0",
+      "client": "copilot",
+      "url": "https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions",
+      "refreshHours": 24
+    },
+    {
+      "id": "copilot-customize-chat",
+      "tier": "tier-1",
+      "client": "copilot",
+      "url": "https://docs.github.com/copilot/concepts/about-customizing-github-copilot-chat-responses",
+      "refreshHours": 24
+    },
+    {
+      "id": "vscode-custom-instructions",
+      "tier": "tier-0",
+      "client": "vscode",
+      "url": "https://code.visualstudio.com/docs/copilot/customization/custom-instructions",
+      "refreshHours": 24
+    },
+    {
+      "id": "claude-code-memory",
+      "tier": "tier-0",
+      "client": "claude",
+      "url": "https://docs.claude.com/en/docs/claude-code/memory",
+      "refreshHours": 24
+    },
+    {
+      "id": "gemini-cli-gemini-md",
+      "tier": "tier-0",
+      "client": "gemini",
+      "url": "https://geminicli.com/docs/cli/gemini-md/",
+      "refreshHours": 24
+    },
+    {
+      "id": "rfc-9309-robots",
+      "tier": "tier-1",
+      "client": "standards",
+      "url": "https://www.rfc-editor.org/rfc/rfc9309",
+      "refreshHours": 168
+    },
+    {
+      "id": "rfc-7232-conditional",
+      "tier": "tier-1",
+      "client": "standards",
+      "url": "https://www.rfc-editor.org/rfc/rfc7232",
+      "refreshHours": 168
+    },
+    {
+      "id": "rfc-9110-http",
+      "tier": "tier-1",
+      "client": "standards",
+      "url": "https://www.rfc-editor.org/rfc/rfc9110",
+      "refreshHours": 168
+    },
+    {
+      "id": "rfc-6920-content-hash",
+      "tier": "tier-1",
+      "client": "standards",
+      "url": "https://www.rfc-editor.org/rfc/rfc6920",
+      "refreshHours": 168
+    },
+    {
+      "id": "warc-1-1",
+      "tier": "tier-1",
+      "client": "standards",
+      "url": "https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/",
+      "refreshHours": 168
+    },
+    {
+      "id": "sitemap-protocol",
+      "tier": "tier-1",
+      "client": "standards",
+      "url": "https://www.sitemaps.org/protocol.html",
+      "refreshHours": 168
+    },
+    {
+      "id": "xdg-basedir",
+      "tier": "tier-1",
+      "client": "standards",
+      "url": "https://specifications.freedesktop.org/basedir-spec/latest/",
+      "refreshHours": 168
+    },
+    {
+      "id": "homebrew-manpage",
+      "tier": "tier-1",
+      "client": "packaging",
+      "url": "https://docs.brew.sh/Manpage",
+      "refreshHours": 168
+    }
+  ]
+}
