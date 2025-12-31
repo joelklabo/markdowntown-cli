@@ -1,0 +1,5 @@
+$ go test ./internal/instructions -run 'Test.*Adapter'
+[stdout]
+ok  	markdowntown-cli/internal/instructions	(cached)
+[stderr]
+exit: 0

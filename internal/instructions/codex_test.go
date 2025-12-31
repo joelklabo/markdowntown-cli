@@ -19,12 +19,12 @@ func TestCodexAdapterResolveOrder(t *testing.T) {
 	}
 	t.Setenv("CODEX_HOME", codexHome)
 
-	writeFile(t, filepath.Join(codexHome, codexAgentsFilename), "user")
-	writeFile(t, filepath.Join(codexHome, codexConfigFilename), "project_doc_fallback_filenames = [\"INSTRUCTIONS.md\"]\n")
+	writeTestFile(t, filepath.Join(codexHome, codexAgentsFilename), "user")
+	writeTestFile(t, filepath.Join(codexHome, codexConfigFilename), "project_doc_fallback_filenames = [\"INSTRUCTIONS.md\"]\n")
 
-	writeFile(t, filepath.Join(repo, codexAgentsOverrideFilename), "root override")
-	writeFile(t, filepath.Join(repo, codexAgentsFilename), "root primary")
-	writeFile(t, filepath.Join(cwd, "INSTRUCTIONS.md"), "service instructions")
+	writeTestFile(t, filepath.Join(repo, codexAgentsOverrideFilename), "root override")
+	writeTestFile(t, filepath.Join(repo, codexAgentsFilename), "root primary")
+	writeTestFile(t, filepath.Join(cwd, "INSTRUCTIONS.md"), "service instructions")
 
 	adapter := CodexAdapter{}
 	res, err := adapter.Resolve(ResolveOptions{RepoRoot: repo, Cwd: cwd})
@@ -69,8 +69,8 @@ func TestCodexAdapterOverrideEmptyUsesPrimary(t *testing.T) {
 	}
 	t.Setenv("CODEX_HOME", codexHome)
 
-	writeFile(t, filepath.Join(repo, codexAgentsOverrideFilename), "")
-	writeFile(t, filepath.Join(repo, codexAgentsFilename), "root primary")
+	writeTestFile(t, filepath.Join(repo, codexAgentsOverrideFilename), "")
+	writeTestFile(t, filepath.Join(repo, codexAgentsFilename), "root primary")
 
 	adapter := CodexAdapter{}
 	res, err := adapter.Resolve(ResolveOptions{RepoRoot: repo, Cwd: repo})
@@ -93,9 +93,9 @@ func TestCodexAdapterSizeLimit(t *testing.T) {
 	if err := os.MkdirAll(codexHome, 0o755); err != nil {
 		t.Fatalf("mkdir codex home: %v", err)
 	}
-	writeFile(t, filepath.Join(codexHome, codexConfigFilename), "project_doc_max_bytes = 5\n")
-	writeFile(t, filepath.Join(repo, codexAgentsFilename), "1234567890")
-	writeFile(t, filepath.Join(repo, codexAgentsOverrideFilename), "")
+	writeTestFile(t, filepath.Join(codexHome, codexConfigFilename), "project_doc_max_bytes = 5\n")
+	writeTestFile(t, filepath.Join(repo, codexAgentsFilename), "1234567890")
+	writeTestFile(t, filepath.Join(repo, codexAgentsOverrideFilename), "")
 
 	t.Setenv("CODEX_HOME", codexHome)
 
@@ -119,15 +119,5 @@ func TestCodexAdapterSizeLimit(t *testing.T) {
 
 	if len(res.SizeLimits) != 1 || res.SizeLimits[0].Source != "config" {
 		t.Fatalf("expected size limit from config, got %v", res.SizeLimits)
-	}
-}
-
-func writeFile(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatalf("write file: %v", err)
 	}
 }

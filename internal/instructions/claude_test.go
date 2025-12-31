@@ -13,23 +13,23 @@ func TestClaudeAdapterMemoryPrecedence(t *testing.T) {
 	setHomeEnv(t, home)
 
 	userClaude := filepath.Join(home, ".claude", claudeFile)
-	writeClaudeFile(t, userClaude, "user")
+	writeTestFileMode(t, userClaude, "user", 0o600)
 
 	projectClaude := filepath.Join(repo, claudeFile)
-	writeClaudeFile(t, projectClaude, "project")
+	writeTestFileMode(t, projectClaude, "project", 0o600)
 
 	subdir := filepath.Join(repo, "service")
 	if err := os.MkdirAll(subdir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	subClaude := filepath.Join(subdir, claudeFile)
-	writeClaudeFile(t, subClaude, "sub")
+	writeTestFileMode(t, subClaude, "sub", 0o600)
 
 	localClaude := filepath.Join(repo, claudeLocalFile)
-	writeClaudeFile(t, localClaude, "local")
+	writeTestFileMode(t, localClaude, "local", 0o600)
 
 	target := filepath.Join(subdir, "main.go")
-	writeClaudeFile(t, target, "package main")
+	writeTestFileMode(t, target, "package main", 0o600)
 
 	adapter := ClaudeAdapter{}
 	res, err := adapter.Resolve(ResolveOptions{RepoRoot: repo, Cwd: subdir, TargetPath: target})
@@ -72,7 +72,7 @@ func TestClaudeAdapterImports(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 	target := filepath.Join(targetDir, "main.go")
-	writeClaudeFile(t, target, "package main")
+	writeTestFileMode(t, target, "package main", 0o600)
 
 	rulesDir := filepath.Join(repo, ".claude", claudeRulesFolder)
 	baseRule := filepath.Join(rulesDir, "base.md")
@@ -80,10 +80,10 @@ func TestClaudeAdapterImports(t *testing.T) {
 	grandchildRule := filepath.Join(rulesDir, "grandchild.md")
 	skipRule := filepath.Join(repo, "skip.md")
 
-	writeClaudeFile(t, baseRule, "---\npaths: ['**/*.go']\n---\n@import ./child.md\n```\n@import ../skip.md\n```")
-	writeClaudeFile(t, childRule, "@import ./grandchild.md\nchild")
-	writeClaudeFile(t, grandchildRule, "grandchild")
-	writeClaudeFile(t, skipRule, "skip")
+	writeTestFileMode(t, baseRule, "---\npaths: ['**/*.go']\n---\n@import ./child.md\n```\n@import ../skip.md\n```", 0o600)
+	writeTestFileMode(t, childRule, "@import ./grandchild.md\nchild", 0o600)
+	writeTestFileMode(t, grandchildRule, "grandchild", 0o600)
+	writeTestFileMode(t, skipRule, "skip", 0o600)
 
 	adapter := ClaudeAdapter{MaxImportDepth: 1}
 	res, err := adapter.Resolve(ResolveOptions{RepoRoot: repo, Cwd: targetDir, TargetPath: target})
@@ -127,14 +127,4 @@ func setHomeEnv(t *testing.T, home string) {
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("HOMEPATH", string(os.PathSeparator))
 	t.Setenv("HOMEDRIVE", "C:")
-}
-
-func writeClaudeFile(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
-		t.Fatalf("write file: %v", err)
-	}
 }

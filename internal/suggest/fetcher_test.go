@@ -59,7 +59,10 @@ func TestFetcherBlocksRobots(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	parsed, _ := url.Parse(server.URL)
-	fetcher, err := NewFetcher(FetcherOptions{Allowlist: []string{parsed.Hostname()}, Client: server.Client()})
+	fetcher, err := NewFetcher(FetcherOptions{
+		Client:    server.Client(),
+		Allowlist: []string{parsed.Hostname()},
+	})
 	if err != nil {
 		t.Fatalf("new fetcher: %v", err)
 	}
@@ -106,6 +109,7 @@ func TestFetcherConditionalGETUsesCache(t *testing.T) {
 	cache := memoryCache{payloads: map[string][]byte{server.URL + "/doc": []byte("cached")}}
 
 	fetcher, err := NewFetcher(FetcherOptions{
+		Client:    server.Client(),
 		Allowlist: []string{parsed.Hostname()},
 		Client:    server.Client(),
 		Store:     store,
