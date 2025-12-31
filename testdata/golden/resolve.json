@@ -1,0 +1,36 @@
+{
+  "client": "codex",
+  "generatedAt": 0,
+  "resolution": {
+    "Client": "codex",
+    "RepoRoot": "<REPO>",
+    "Cwd": "<REPO>",
+    "TargetPath": "",
+    "Applied": [
+      {
+        "Path": "<REPO>/AGENTS.md",
+        "Scope": "repo",
+        "Dir": "<REPO>",
+        "Reason": "primary",
+        "Bytes": 4,
+        "IncludedBytes": 4,
+        "Truncated": false
+      }
+    ],
+    "OrderGuarantee": "deterministic",
+    "Conflicts": null,
+    "SettingsRequired": null,
+    "SizeLimits": [
+      {
+        "Name": "project_doc_max_bytes",
+        "Bytes": 32768,
+        "Scope": "repo",
+        "Source": "default"
+      }
+    ],
+    "Warnings": null,
+    "CodexHome": "<REPO>/.codex",
+    "ConfigPath": "",
+    "FallbackFilenames": null
+  }
+}
