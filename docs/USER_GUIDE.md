@@ -221,6 +221,8 @@ Suggestion sources are defined in `doc-sources.json` and discovered in this orde
 
 If multiple source registries are found without an override, the command fails.
 
+See `docs/source-registry.md` for schema details and tier guidance.
+
 ## Config + cache locations
 
 Suggestion paths follow the XDG base directory spec:
