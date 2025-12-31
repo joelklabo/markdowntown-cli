@@ -44,24 +44,29 @@ Flags:
 
 - `--input <path|->`: read scan JSON from file or stdin
 - `--format <json|md>`: output format (default: json)
-- `--compact`: emit compact JSON (no indentation)
+- `--compact`: emit compact JSON (no indentation; ignored for md)
+- `--fail-severity <level>`: exit 1 when issues meet severity (`error|warning|info`)
+- `--redact <mode>`: path redaction mode (`auto|always|never`)
+- `--only <id>`: run only these rule IDs (repeatable)
 - `--ignore-rule <id>`: suppress a rule by ID (repeatable)
 - `--exclude <glob>`: exclude matching paths (repeatable)
-- `--repo <path>`: repo path (defaults to git root from cwd)
+- `--include-scan-warnings`: include raw scan warnings in output
+- `--repo <path>`: repo path (defaults to git root from cwd; internal scan only)
 - `--repo-only`: exclude user scope (scan repo only)
 - `--stdin`: read additional paths from stdin (one per line)
 
 Notes:
 
-- Exit codes: 0 when no error-severity issues, 1 when error-severity issues exist, 2 for fatal errors.
-- User-scope paths are redacted (shown as `~/...`) in audit output.
+- Exit codes: 0 when no issues at/above `--fail-severity` (default `error`), 1 when threshold met, 2 for fatal errors.
+- Repo-scope paths are emitted as `./...`; non-repo paths are redacted to `$HOME/...`, `$XDG_CONFIG_HOME/...`, or `<ABS_PATH_N>` with a `pathId`.
+- `--input` cannot be combined with scan flags (`--repo`, `--repo-only`, `--stdin`).
 - Audit is metadata-only by default; rules avoid reading file contents unless required.
 
 Examples:
 
 ```bash
-markdowntown audit --repo /path/to/repo --repo-only
-markdowntown audit --input scan.json --format md
+markdowntown audit --repo /path/to/repo --repo-only --format md
+markdowntown audit --input scan.json --fail-severity warning
 ```
 
 ### `markdowntown registry validate`
@@ -162,11 +167,16 @@ Warnings are not fatal; examples include `CONFIG_CONFLICT`, `CIRCULAR_SYMLINK`, 
 
 Top-level audit fields:
 
-- `schemaVersion`, `toolVersion`, `registryVersion`
-- `auditStartedAt`, `generatedAt`
-- `input` (scan metadata: repo root, scan timestamps, scan roots)
-- `summary` (counts by severity)
-- `issues` (ruleId, severity, title, message, suggestion, paths, tools, evidence)
+- `schemaVersion` (audit schema version tag)
+- `audit` (toolVersion, auditStartedAt, generatedAt)
+- `sourceScan` (schemaVersion, toolVersion, registryVersion, repoRoot, scanStartedAt, generatedAt, scans)
+- `registryVersionUsed`
+- `pathRedaction` (mode, enabled)
+- `summary` (issueCounts, rulesFired)
+- `issues` (ruleId, severity, title, message, suggestion, fingerprint, paths, tools, evidence)
+- `scanWarnings` (optional; included only with `--include-scan-warnings`)
+
+`paths` fields include `path`, `scope`, `redacted`, and optional `pathId` for redacted entries.
 
 Markdown output groups issues by severity and includes suggestions.
 
