@@ -11,8 +11,9 @@ import (
 
 // Engine runs audit rules against scan output.
 type Engine struct {
-	Rules []Rule
-	Now   func() time.Time
+	Rules   []Rule
+	Now     func() time.Time
+	Filters FilterOptions
 }
 
 // Run executes the audit rules and returns deterministic output.
@@ -34,9 +35,23 @@ func (e Engine) Run(scanOutput scan.Output) (Output, error) {
 	started := nowFn().UnixMilli()
 	generated := nowFn().UnixMilli()
 
-	ctx := Context{Scan: scanOutput}
+	filteredScan := scanOutput
+	if len(e.Filters.ExcludePaths) > 0 {
+		var err error
+		filteredScan, err = FilterScan(scanOutput, e.Filters.ExcludePaths)
+		if err != nil {
+			return Output{}, err
+		}
+	}
+
+	filteredRules, err := FilterRules(e.Rules, e.Filters.IgnoreRules)
+	if err != nil {
+		return Output{}, err
+	}
+
+	ctx := Context{Scan: filteredScan}
 	issues := make([]Issue, 0)
-	rules := append([]Rule(nil), e.Rules...)
+	rules := append([]Rule(nil), filteredRules...)
 	sort.SliceStable(rules, func(i, j int) bool {
 		return rules[i].ID() < rules[j].ID()
 	})
