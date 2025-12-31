@@ -1,0 +1,4 @@
+---
+foo: [bar
+---
+Claude instructions.
