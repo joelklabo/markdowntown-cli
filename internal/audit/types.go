@@ -68,7 +68,8 @@ type Evidence struct {
 
 // Context carries scan output to rule implementations.
 type Context struct {
-	Scan scan.Output
+	Scan     scan.Output
+	Redactor Redactor
 }
 
 // Rule evaluates scan output and returns zero or more issues.

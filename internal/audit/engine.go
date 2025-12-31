@@ -2,6 +2,7 @@ package audit
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"time"
@@ -14,6 +15,7 @@ type Engine struct {
 	Rules   []Rule
 	Now     func() time.Time
 	Filters FilterOptions
+	HomeDir string
 }
 
 // Run executes the audit rules and returns deterministic output.
@@ -49,7 +51,21 @@ func (e Engine) Run(scanOutput scan.Output) (Output, error) {
 		return Output{}, err
 	}
 
-	ctx := Context{Scan: filteredScan}
+	homeDir := e.HomeDir
+	if homeDir == "" {
+		if resolved, err := os.UserHomeDir(); err == nil {
+			homeDir = resolved
+		}
+	}
+	redactor := Redactor{
+		RepoRoot: filteredScan.RepoRoot,
+		HomeDir:  homeDir,
+	}
+
+	ctx := Context{
+		Scan:     filteredScan,
+		Redactor: redactor,
+	}
 	issues := make([]Issue, 0)
 	rules := append([]Rule(nil), filteredRules...)
 	sort.SliceStable(rules, func(i, j int) bool {
