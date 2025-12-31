@@ -1,0 +1,8 @@
+go test ./...
+?   	markdowntown-cli/cmd/markdowntown	[no test files]
+ok  	markdowntown-cli/internal/audit	0.207s
+ok  	markdowntown-cli/internal/git	(cached)
+?   	markdowntown-cli/internal/hash	[no test files]
+ok  	markdowntown-cli/internal/scan	(cached)
+?   	markdowntown-cli/internal/version	[no test files]
+exit code: 0
