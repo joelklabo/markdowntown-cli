@@ -1,10 +1,13 @@
+// Package scan provides registry loading and file matching helpers.
 package scan
 
+// Registry describes the on-disk registry JSON structure.
 type Registry struct {
 	Version  string    `json:"version"`
 	Patterns []Pattern `json:"patterns"`
 }
 
+// Pattern represents a single tool pattern entry.
 type Pattern struct {
 	ID               string        `json:"id"`
 	ToolID           string        `json:"toolId"`
@@ -21,12 +24,14 @@ type Pattern struct {
 	Docs             []string      `json:"docs"`
 }
 
+// PatternHint captures structured activation hints for a tool.
 type PatternHint struct {
 	Type    string `json:"type"`
 	Setting string `json:"setting,omitempty"`
 }
 
-type ScanOutput struct {
+// Output is the top-level scan JSON structure.
+type Output struct {
 	SchemaVersion   string        `json:"schemaVersion"`
 	RegistryVersion string        `json:"registryVersion"`
 	ToolVersion     string        `json:"toolVersion"`
@@ -34,11 +39,12 @@ type ScanOutput struct {
 	GeneratedAt     int64         `json:"generatedAt"`
 	Timing          Timing        `json:"timing"`
 	RepoRoot        string        `json:"repoRoot"`
-	Scans           []ScanRoot    `json:"scans"`
+	Scans           []Root        `json:"scans"`
 	Configs         []ConfigEntry `json:"configs"`
 	Warnings        []Warning     `json:"warnings"`
 }
 
+// Timing captures scan timing metrics.
 type Timing struct {
 	DiscoveryMs int64 `json:"discoveryMs"`
 	HashingMs   int64 `json:"hashingMs"`
@@ -46,12 +52,14 @@ type Timing struct {
 	TotalMs     int64 `json:"totalMs"`
 }
 
-type ScanRoot struct {
+// Root reports a scanned root and existence status.
+type Root struct {
 	Scope  string `json:"scope"`
 	Root   string `json:"root"`
 	Exists bool   `json:"exists"`
 }
 
+// ConfigEntry represents a single matched config file.
 type ConfigEntry struct {
 	Path             string         `json:"path"`
 	Scope            string         `json:"scope"`
@@ -69,6 +77,7 @@ type ConfigEntry struct {
 	Tools            []ToolEntry    `json:"tools"`
 }
 
+// ToolEntry captures tool metadata for a matched config.
 type ToolEntry struct {
 	ToolID         string        `json:"toolId"`
 	ToolName       string        `json:"toolName"`
@@ -80,6 +89,7 @@ type ToolEntry struct {
 	Hints          []PatternHint `json:"hints"`
 }
 
+// Warning describes a scan warning entry.
 type Warning struct {
 	Path    string `json:"path"`
 	Code    string `json:"code"`

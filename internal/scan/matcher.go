@@ -1,3 +1,4 @@
+// Package scan provides registry loading and file matching helpers.
 package scan
 
 import (
@@ -9,6 +10,7 @@ import (
 	"github.com/bmatcuk/doublestar/v4"
 )
 
+// CompiledPattern stores a pattern with its compiled path matchers.
 type CompiledPattern struct {
 	Pattern Pattern
 	Paths   []pathMatcher
@@ -22,6 +24,7 @@ type pathMatcher struct {
 	re    *regexp.Regexp
 }
 
+// CompilePatterns compiles all registry patterns for matching.
 func CompilePatterns(reg Registry) ([]CompiledPattern, error) {
 	compiled := make([]CompiledPattern, 0, len(reg.Patterns))
 	for _, pattern := range reg.Patterns {
@@ -45,6 +48,7 @@ func CompilePatterns(reg Registry) ([]CompiledPattern, error) {
 	return compiled, nil
 }
 
+// Match reports whether the compiled pattern matches the provided paths.
 func (cp CompiledPattern) Match(absPath, relPath string) (bool, string, error) {
 	for _, pm := range cp.Paths {
 		ok, err := pm.Match(absPath, relPath)

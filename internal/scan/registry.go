@@ -1,3 +1,4 @@
+// Package scan provides registry loading and file matching helpers.
 package scan
 
 import (
@@ -10,24 +11,33 @@ import (
 )
 
 const (
-	RegistryEnvVar  = "MARKDOWNTOWN_REGISTRY"
-	RegistryFile    = "ai-config-patterns.json"
-	RegistrySubdir  = "markdowntown"
+	// RegistryEnvVar overrides registry discovery with an explicit file path.
+	RegistryEnvVar = "MARKDOWNTOWN_REGISTRY"
+	// RegistryFile is the default registry filename.
+	RegistryFile = "ai-config-patterns.json"
+	// RegistrySubdir is the XDG config subdirectory for markdowntown.
+	RegistrySubdir = "markdowntown"
+	// RegistryEtcPath is the system-level registry directory.
 	RegistryEtcPath = "/etc/markdowntown"
 )
 
 var (
-	ErrRegistryNotFound    = errors.New("registry not found")
-	ErrMultipleRegistries  = errors.New("multiple registries found")
+	// ErrRegistryNotFound signals no registry was found in any candidate location.
+	ErrRegistryNotFound = errors.New("registry not found")
+	// ErrMultipleRegistries signals more than one registry was detected.
+	ErrMultipleRegistries = errors.New("multiple registries found")
+	// ErrRegistryPathMissing signals an explicit registry path does not exist.
 	ErrRegistryPathMissing = errors.New("registry path does not exist")
 )
 
+// LoadRegistry reads and parses the registry JSON from the resolved path.
 func LoadRegistry() (Registry, string, error) {
 	path, err := ResolveRegistryPath()
 	if err != nil {
 		return Registry{}, "", err
 	}
 
+	// #nosec G304 -- registry path comes from env override or well-known locations.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Registry{}, "", fmt.Errorf("read registry: %w", err)
@@ -41,6 +51,7 @@ func LoadRegistry() (Registry, string, error) {
 	return reg, path, nil
 }
 
+// ResolveRegistryPath determines the single registry path to use.
 func ResolveRegistryPath() (string, error) {
 	if override := os.Getenv(RegistryEnvVar); override != "" {
 		expanded, err := expandHome(override)

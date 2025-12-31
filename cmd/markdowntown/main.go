@@ -1,3 +1,4 @@
+// Package main implements the markdowntown CLI.
 package main
 
 import (
@@ -56,11 +57,11 @@ func main() {
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprint(w, rootUsage)
+	_, _ = fmt.Fprint(w, rootUsage)
 }
 
 func printVersion(w io.Writer) {
-	fmt.Fprintf(w, "markdowntown %s (schema %s)\n", version.ToolVersion, version.SchemaVersion)
+	_, _ = fmt.Fprintf(w, "markdowntown %s (schema %s)\n", version.ToolVersion, version.SchemaVersion)
 }
 
 func runScan(_ []string) error {
