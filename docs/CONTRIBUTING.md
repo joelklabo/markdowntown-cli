@@ -39,3 +39,5 @@ Keep fuzz runs short for CI to avoid timeouts; longer runs are fine for local ex
 ```bash
 make check
 ```
+
+CI must always be green before merging or releasing changes.
