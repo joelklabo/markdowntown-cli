@@ -2,7 +2,28 @@
 
 ## Overview
 
-`markdowntown` scans for AI tool configuration files using a registry of known patterns and emits deterministic JSON suitable for audits, CI, and onboarding.
+`markdowntown` scans for AI tool configuration files and can generate evidence-backed instruction suggestions plus resolve effective instruction chains for supported clients.
+
+## Install / Uninstall
+
+Homebrew (if available):
+
+```bash
+brew install markdowntown
+brew uninstall markdowntown
+```
+
+Go install:
+
+```bash
+go install ./cmd/markdowntown
+```
+
+Uninstall (Go install):
+
+```bash
+rm "$(go env GOPATH)/bin/markdowntown"
+```
 
 ## Commands
 
@@ -71,6 +92,94 @@ markdowntown audit --repo /path/to/repo --repo-only --format md
 markdowntown audit --input scan.json --fail-severity warning
 ```
 
+### `markdowntown suggest`
+
+Generates evidence-backed suggestions for a specific client.
+
+```bash
+markdowntown suggest [flags]
+```
+
+Flags:
+
+- `--client <codex|copilot|vscode|claude|gemini>`: client target (default `codex`)
+- `--format <json|md>`: output format (default `json`)
+- `--json`: alias for `--format json`
+- `--refresh`: force refresh of sources
+- `--offline`: do not fetch; use cached data only
+- `--explain`: include proof objects in output
+
+Notes:
+
+- Suggestions are fail-closed: only Tier-0/Tier-1 sources with proof objects produce suggestions.
+- `--explain` populates `proof` metadata (sources, snapshot IDs, spans, normative strength). Without it, `proof` is blanked.
+- `--offline` disables network fetches; current releases return warnings when no cached data exists.
+- `--refresh` forces a re-fetch when caching is supported (current runs fetch by default).
+
+Examples:
+
+```bash
+markdowntown suggest --client codex --format md
+markdowntown suggest --client codex --format json --explain
+```
+
+### `markdowntown resolve`
+
+Resolves the effective instruction chain for a client and target path.
+
+```bash
+markdowntown resolve [flags]
+```
+
+Flags:
+
+- `--client <codex|copilot|vscode|claude|gemini>`: client target (default `codex`)
+- `--format <json|md>`: output format (default `json`)
+- `--json`: alias for `--format json`
+- `--repo <path>`: repo root (defaults to git root)
+- `--path <file>`: target file path (used for path-scoped instructions)
+- `--setting <key>`: enable a client setting (repeatable)
+
+Notes:
+
+- VS Code resolution requires settings flags to mirror the editor state. Known keys:
+  - `github.copilot.chat.codeGeneration.useInstructionFiles`
+  - `chat.useAgentsMdFile`
+  - `chat.useNestedAgentsMdFiles`
+- `resolve` may report conflicts when instruction order is undefined.
+
+Examples:
+
+```bash
+markdowntown resolve --client codex --repo /path/to/repo
+markdowntown resolve --client vscode --repo /path/to/repo --path src/app.ts \
+  --setting github.copilot.chat.codeGeneration.useInstructionFiles \
+  --setting chat.useAgentsMdFile
+```
+
+### `markdowntown audit`
+
+Reports conflicts and omissions without emitting suggestions.
+
+```bash
+markdowntown audit [flags]
+```
+
+Flags:
+
+- `--client <codex|copilot|vscode|claude|gemini>`: client target (default `codex`)
+- `--format <json|md>`: output format (default `json`)
+- `--json`: alias for `--format json`
+- `--refresh`: force refresh of sources
+- `--offline`: do not fetch; use cached data only
+- `--explain`: include proof objects in output
+
+Examples:
+
+```bash
+markdowntown audit --client codex --format json
+```
+
 ### `markdowntown registry validate`
 
 Validates the registry JSON and reports details for each check.
@@ -100,6 +209,27 @@ Registry resolution order:
 4. `ai-config-patterns.json` next to the executable
 
 If multiple registries are found without an override, the scan fails.
+
+## Suggestion source registry
+
+Suggestion sources are defined in `doc-sources.json` and discovered in this order:
+
+1. `MARKDOWNTOWN_SOURCES` (explicit file path)
+2. `$XDG_CONFIG_HOME/markdowntown/doc-sources.json` (or `~/.config/markdowntown/doc-sources.json`)
+3. `/etc/markdowntown/doc-sources.json`
+4. `doc-sources.json` next to the executable
+
+If multiple source registries are found without an override, the command fails.
+
+## Config + cache locations
+
+Suggestion paths follow the XDG base directory spec:
+
+- Config: `$XDG_CONFIG_HOME/markdowntown` (or `~/.config/markdowntown`)
+- Cache: `$XDG_CACHE_HOME/markdowntown` (or `~/.cache/markdowntown`)
+- Data: `$XDG_DATA_HOME/markdowntown` (or `~/.local/share/markdowntown`)
+
+Current releases keep evidence in memory per run; on-disk caches will live in the cache/data locations above.
 
 ## User-scope roots
 
@@ -197,6 +327,19 @@ Top-level audit fields:
 
 Markdown output groups issues by severity and includes suggestions.
 
+## Suggest output fields
+
+- `client`, `generatedAt`
+- `suggestions`
+- `conflicts`, `omissions`, `warnings`
+
+Each suggestion includes `id`, `claimId`, `text`, `sources`, and `proof` (when `--explain` is set).
+
+## Resolve output fields
+
+- `client`, `generatedAt`
+- `resolution` (applied files, order guarantee, conflicts, settingsRequired, warnings)
+
 ## Example output (abbreviated)
 
 ```json
@@ -241,6 +384,33 @@ Markdown output groups issues by severity and includes suggestions.
       ]
     }
   ],
+  "warnings": []
+}
+```
+
+### Suggest output (abbreviated)
+
+```json
+{
+  "client": "codex",
+  "generatedAt": 0,
+  "suggestions": [
+    {
+      "id": "suggest:sha256:...",
+      "claimId": "source:sha256:...",
+      "client": "codex",
+      "text": "Keep instructions short and self-contained.",
+      "sources": ["https://example.com/docs"],
+      "proof": {
+        "sources": ["https://example.com/docs"],
+        "snapshotIds": ["sha256:..."],
+        "spans": [{"sectionId": "section-1", "start": 0, "end": 42}],
+        "normativeStrength": "SHOULD"
+      }
+    }
+  ],
+  "conflicts": [],
+  "omissions": [],
   "warnings": []
 }
 ```

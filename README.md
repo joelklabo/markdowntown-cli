@@ -4,6 +4,13 @@ Deterministic scanning for AI tool configuration files. `markdowntown` walks rep
 
 ## Install
 
+Homebrew (if available):
+
+```bash
+brew install markdowntown
+brew uninstall markdowntown
+```
+
 Build from source:
 
 ```bash
@@ -14,6 +21,12 @@ Or install into your Go bin:
 
 ```bash
 go install ./cmd/markdowntown
+```
+
+Uninstall (Go install):
+
+```bash
+rm "$(go env GOPATH)/bin/markdowntown"
 ```
 
 ## Quick start
@@ -32,6 +45,24 @@ Compact JSON output:
 
 ```bash
 markdowntown scan --compact
+```
+
+Generate evidence-backed suggestions (Markdown output):
+
+```bash
+markdowntown suggest --client codex --format md
+```
+
+Resolve effective instruction chains:
+
+```bash
+markdowntown resolve --client codex --repo /path/to/repo
+```
+
+Audit conflicts and omissions:
+
+```bash
+markdowntown audit --client codex --format json
 ```
 
 Validate the registry:
@@ -53,10 +84,29 @@ markdowntown tools list
 ## Commands
 
 - `markdowntown scan` scans repo + user roots and emits JSON.
-- `markdowntown audit` analyzes scan output and emits JSON/Markdown issues with deterministic ordering.
+- `markdowntown suggest` emits evidence-backed instruction suggestions.
+- `markdowntown resolve` lists the effective instruction chain for a target file.
+- `markdowntown audit` analyzes scan output and emits JSON/Markdown issues (conflicts/omissions) with deterministic ordering.
 - `markdowntown registry validate` validates the registry JSON (syntax, schema, unique IDs, docs reachability). Exits 1 on failure.
 - `markdowntown tools list` emits a JSON array of tools aggregated from the registry.
 - `markdowntown --version` prints tool + schema versions.
+
+Run `markdowntown <command> --help` for full flag details.
+
+## Evidence-only suggestions
+
+`suggest` and `audit` are correctness-first: suggestions are emitted only when Tier-0/Tier-1 sources and proof objects are present. Conflicts or missing evidence produce omissions (see `audit`). Use `--explain` to include proof metadata in JSON output.
+
+`--offline` skips all network fetches and returns warnings if no cached data is available. `--refresh` forces a refresh when caching is supported (current runs always fetch unless `--offline` is set).
+
+Example (Markdown output):
+
+```md
+# Suggestions (codex)
+
+- Keep instructions short and self-contained.
+  - Sources: https://example.com/docs
+```
 
 ## Registry discovery
 
@@ -68,6 +118,27 @@ Registry resolution order:
 4. `ai-config-patterns.json` next to the executable
 
 If multiple registries are found without an override, the scan fails.
+
+## Suggestion source registry
+
+Suggestion sources are defined in `doc-sources.json` and discovered in this order:
+
+1. `MARKDOWNTOWN_SOURCES` (explicit file path)
+2. `$XDG_CONFIG_HOME/markdowntown/doc-sources.json` (or `~/.config/markdowntown/doc-sources.json`)
+3. `/etc/markdowntown/doc-sources.json`
+4. `doc-sources.json` next to the executable
+
+If multiple source registries are found without an override, the command fails.
+
+## Config + cache locations
+
+Suggestion data and cache paths follow the XDG base directory spec:
+
+- Config: `$XDG_CONFIG_HOME/markdowntown` (or `~/.config/markdowntown`)
+- Cache: `$XDG_CACHE_HOME/markdowntown` (or `~/.cache/markdowntown`)
+- Data: `$XDG_DATA_HOME/markdowntown` (or `~/.local/share/markdowntown`)
+
+Current releases keep evidence in memory per run; on-disk caches will live in the cache/data locations above.
 
 ## User-scope roots
 
