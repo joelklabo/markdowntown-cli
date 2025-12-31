@@ -18,6 +18,7 @@ type Options struct {
 	RepoRoot       string
 	RepoOnly       bool
 	IncludeContent bool
+	Progress       func(string)
 	UserRoots      []string
 	StdinPaths     []string
 	Registry       Registry
@@ -68,7 +69,7 @@ func Scan(opts Options) (Result, error) {
 		result.Warnings = append(result.Warnings, warningForError(repoRoot, repoErr))
 	}
 	if repoExists {
-		walkState := newWalkState(repoRoot, opts.IncludeContent)
+		walkState := newWalkState(repoRoot, opts.IncludeContent, opts.Progress)
 		scanDir(repoRoot, repoRoot, repoRoot, "repo", repoInfo, patterns, entries, &result, walkState, false, false)
 	}
 
@@ -95,7 +96,7 @@ func Scan(opts Options) (Result, error) {
 			if !exists {
 				continue
 			}
-			walkState := newWalkState(absRoot, opts.IncludeContent)
+			walkState := newWalkState(absRoot, opts.IncludeContent, opts.Progress)
 			scanDir(absRoot, absRoot, absRoot, "user", info, patterns, entries, &result, walkState, false, false)
 		}
 	}
@@ -117,7 +118,7 @@ func Scan(opts Options) (Result, error) {
 			continue
 		}
 		scope, root := resolveScopeAndRoot(absPath, repoRoot, userRootsAbs, info)
-		walkState := newWalkState(root, opts.IncludeContent)
+		walkState := newWalkState(root, opts.IncludeContent, opts.Progress)
 		scanPath(absPath, absPath, root, scope, patterns, entries, &result, walkState, true)
 	}
 
@@ -148,14 +149,16 @@ func DefaultUserRoots() []string {
 type walkState struct {
 	root           string
 	includeContent bool
+	progress       func(string)
 	visited        map[string]struct{}
 	active         map[string]struct{}
 }
 
-func newWalkState(root string, includeContent bool) *walkState {
+func newWalkState(root string, includeContent bool, progress func(string)) *walkState {
 	return &walkState{
 		root:           root,
 		includeContent: includeContent,
+		progress:       progress,
 		visited:        make(map[string]struct{}),
 		active:         make(map[string]struct{}),
 	}
@@ -188,6 +191,10 @@ func scanDir(logicalPath string, actualPath string, root string, scope string, i
 }
 
 func scanPath(logicalPath string, actualPath string, root string, scope string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, state *walkState, fromStdin bool) {
+	if state.progress != nil {
+		state.progress(logicalPath)
+	}
+
 	info, err := os.Lstat(actualPath)
 	if err != nil {
 		result.Warnings = append(result.Warnings, warningForError(logicalPath, err))
