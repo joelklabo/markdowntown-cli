@@ -1,0 +1,49 @@
+$ MARKDOWNTOWN_REGISTRY=data/ai-config-patterns.json go run ./cmd/markdowntown registry validate
+{
+  "valid": false,
+  "registryPath": "data/ai-config-patterns.json",
+  "version": "1.0",
+  "patternCount": 43,
+  "toolCount": 9,
+  "checks": {
+    "docsReachable": {
+      "passed": false,
+      "details": [
+        {
+          "patternId": "gemini-cli-instructions-repo",
+          "url": "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md",
+          "error": "404 Not Found"
+        },
+        {
+          "patternId": "gemini-cli-instructions-user",
+          "url": "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md",
+          "error": "404 Not Found"
+        },
+        {
+          "patternId": "gemini-cli-settings-user",
+          "url": "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md",
+          "error": "404 Not Found"
+        },
+        {
+          "patternId": "gemini-cli-geminiignore-repo",
+          "url": "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md",
+          "error": "404 Not Found"
+        }
+      ]
+    },
+    "patterns": {
+      "passed": true
+    },
+    "schema": {
+      "passed": true
+    },
+    "syntax": {
+      "passed": true
+    },
+    "uniqueIds": {
+      "passed": true
+    }
+  }
+}
+exit status 1
+exit: 1
