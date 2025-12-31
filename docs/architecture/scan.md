@@ -15,7 +15,7 @@
 | internal/version | Tool + schema version constants |
 
 ## Data Flow
-1. Parse CLI flags into ScanOptions.
+1. Parse CLI flags into scan.Options.
 2. Resolve scan roots:
    - Repo root from git or `--repo`.
    - User roots from known locations (XDG + tool defaults).

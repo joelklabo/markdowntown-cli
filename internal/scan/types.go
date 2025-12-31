@@ -62,6 +62,8 @@ type Root struct {
 // ConfigEntry represents a single matched config file.
 type ConfigEntry struct {
 	Path             string         `json:"path"`
+	Resolved         string         `json:"-"`
+	FromStdin        bool           `json:"-"`
 	Scope            string         `json:"scope"`
 	Depth            int            `json:"depth"`
 	SizeBytes        *int64         `json:"sizeBytes"`
