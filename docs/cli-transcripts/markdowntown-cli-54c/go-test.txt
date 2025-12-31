@@ -1,0 +1,5 @@
+$ go test ./internal/instructions -run TestGeminiAdapter
+[stdout]
+ok  	markdowntown-cli/internal/instructions	0.883s
+[stderr]
+exit: 0
