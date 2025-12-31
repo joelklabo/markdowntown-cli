@@ -98,3 +98,4 @@ These files are commonly scanned and may show up in results:
 - `docs/scan-spec-v1.md`
 - `docs/architecture/scan.md`
 - `docs/USER_GUIDE.md`
+- `docs/CONTRIBUTING.md`

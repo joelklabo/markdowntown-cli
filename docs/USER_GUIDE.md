@@ -162,3 +162,7 @@ Warnings are not fatal; examples include `CONFIG_CONFLICT`, `CIRCULAR_SYMLINK`, 
   "warnings": []
 }
 ```
+
+## Developer notes
+
+See `docs/CONTRIBUTING.md` for workflow setup, screenshot generation, and fuzzing guidance.
