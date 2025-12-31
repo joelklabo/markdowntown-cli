@@ -33,6 +33,13 @@
       "loadBehavior": "directory-glob",
       "application": "pattern-matched",
       "applicationField": "applyTo",
+      "notes": "Requires VS Code setting to apply",
+      "hints": [
+        {
+          "type": "requires-setting",
+          "setting": "github.copilot.chat.codeGeneration.useInstructionFiles"
+        }
+      ],
       "docs": [
         "https://docs.github.com/en/copilot/customizing-copilot/adding-repository-custom-instructions-for-github-copilot"
       ]
@@ -52,7 +59,7 @@
       ]
     },
     {
-      "id": "github-copilot-agents-instructions-repo",
+      "id": "github-copilot-agents",
       "toolId": "github-copilot",
       "toolName": "GitHub Copilot",
       "kind": "instructions",
@@ -61,9 +68,104 @@
       "type": "glob",
       "loadBehavior": "nearest-ancestor",
       "application": "automatic",
-      "notes": "Nearest AGENTS.md applies for Copilot/VS Code instructions",
+      "notes": "Nearest AGENTS.md applies when VS Code settings enable AGENTS support",
+      "hints": [
+        {
+          "type": "requires-setting",
+          "setting": "chat.useAgentsMdFile"
+        },
+        {
+          "type": "requires-setting",
+          "setting": "chat.useNestedAgentsMdFiles"
+        }
+      ],
       "docs": [
         "https://code.visualstudio.com/docs/copilot/customization/custom-instructions"
+      ]
+    },
+    {
+      "id": "github-copilot-prompts-user",
+      "toolId": "github-copilot",
+      "toolName": "GitHub Copilot",
+      "kind": "prompts",
+      "scope": "user",
+      "paths": ["~/.config/Code/User/prompts/*.prompt.md"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "selected",
+      "docs": [
+        "https://code.visualstudio.com/docs/copilot/copilot-customization#_prompt-files-experimental"
+      ]
+    },
+    {
+      "id": "github-copilot-prompts-user-profiles",
+      "toolId": "github-copilot",
+      "toolName": "GitHub Copilot",
+      "kind": "prompts",
+      "scope": "user",
+      "paths": ["~/.config/Code/User/profiles/*/prompts/*.prompt.md"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "selected",
+      "docs": [
+        "https://code.visualstudio.com/docs/copilot/copilot-customization#_prompt-files-experimental"
+      ]
+    },
+    {
+      "id": "github-copilot-cli-instructions",
+      "toolId": "github-copilot-cli",
+      "toolName": "GitHub Copilot CLI",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": [".github/copilot-instructions.md"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli"
+      ]
+    },
+    {
+      "id": "github-copilot-cli-instructions-dir",
+      "toolId": "github-copilot-cli",
+      "toolName": "GitHub Copilot CLI",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": [".github/copilot-instructions/**/*.instructions.md"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "pattern-matched",
+      "applicationField": "applyTo",
+      "docs": [
+        "https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli"
+      ]
+    },
+    {
+      "id": "github-copilot-cli-agents-repo",
+      "toolId": "github-copilot-cli",
+      "toolName": "GitHub Copilot CLI",
+      "kind": "agent",
+      "scope": "repo",
+      "paths": [".github/agents/*.md"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "selected",
+      "docs": [
+        "https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli"
+      ]
+    },
+    {
+      "id": "github-copilot-cli-agents-md",
+      "toolId": "github-copilot-cli",
+      "toolName": "GitHub Copilot CLI",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": ["AGENTS.md"],
+      "type": "glob",
+      "loadBehavior": "nearest-ancestor",
+      "application": "automatic",
+      "docs": [
+        "https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli"
       ]
     },
     {
@@ -81,17 +183,45 @@
       ]
     },
     {
-      "id": "github-copilot-cli-agents-repo",
+      "id": "github-copilot-cli-mcp-config-user",
       "toolId": "github-copilot-cli",
       "toolName": "GitHub Copilot CLI",
-      "kind": "agent",
-      "scope": "repo",
-      "paths": [".github/agents/*.md"],
+      "kind": "config",
+      "scope": "user",
+      "paths": ["~/.copilot/mcp-config.json"],
       "type": "glob",
-      "loadBehavior": "directory-glob",
-      "application": "selected",
+      "loadBehavior": "single",
+      "application": "automatic",
       "docs": [
-        "https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli"
+        "https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli#configuration"
+      ]
+    },
+    {
+      "id": "github-copilot-cli-config-user-xdg",
+      "toolId": "github-copilot-cli",
+      "toolName": "GitHub Copilot CLI",
+      "kind": "config",
+      "scope": "user",
+      "paths": ["$XDG_CONFIG_HOME/copilot/config.json"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli#configuration"
+      ]
+    },
+    {
+      "id": "github-copilot-cli-mcp-config-user-xdg",
+      "toolId": "github-copilot-cli",
+      "toolName": "GitHub Copilot CLI",
+      "kind": "config",
+      "scope": "user",
+      "paths": ["$XDG_CONFIG_HOME/copilot/mcp-config.json"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli#configuration"
       ]
     },
     {
