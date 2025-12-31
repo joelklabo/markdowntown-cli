@@ -1,0 +1,3 @@
+$ go test ./internal/audit -run Test
+ok  	markdowntown-cli/internal/audit	(cached)
+exit: 0

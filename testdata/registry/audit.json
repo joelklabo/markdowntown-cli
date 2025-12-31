@@ -1,0 +1,29 @@
+{
+  "version": "test-registry-v1",
+  "patterns": [
+    {
+      "id": "cursor-rules",
+      "toolId": "cursor",
+      "toolName": "Cursor",
+      "kind": "rules",
+      "scope": "repo",
+      "paths": [".cursor/rules.md"],
+      "type": "file",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": []
+    },
+    {
+      "id": "copilot-cli-config",
+      "toolId": "copilot-cli",
+      "toolName": "Copilot CLI",
+      "kind": "config",
+      "scope": "repo",
+      "paths": [".github/copilot-instructions.md"],
+      "type": "file",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": []
+    }
+  ]
+}

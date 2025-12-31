@@ -1,0 +1,219 @@
+{
+  "schemaVersion": "audit-spec-v1",
+  "audit": {
+    "toolVersion": "0.1.0",
+    "auditStartedAt": 0,
+    "generatedAt": 0
+  },
+  "sourceScan": {
+    "schemaVersion": "1.0.0",
+    "toolVersion": "0.0.0",
+    "registryVersion": "scan-registry-v1",
+    "repoRoot": "/repo",
+    "scanStartedAt": 1700000000000,
+    "generatedAt": 1700000001000,
+    "scans": [
+      {
+        "scope": "repo",
+        "root": "/repo",
+        "exists": true
+      },
+      {
+        "scope": "user",
+        "root": "/home/test",
+        "exists": true
+      }
+    ]
+  },
+  "registryVersionUsed": "test-registry-v1",
+  "pathRedaction": {
+    "mode": "auto",
+    "enabled": true
+  },
+  "summary": {
+    "issueCounts": {
+      "error": 3,
+      "warning": 2,
+      "info": 1
+    },
+    "rulesFired": [
+      "MD001",
+      "MD002",
+      "MD003",
+      "MD004",
+      "MD005",
+      "MD006"
+    ]
+  },
+  "issues": [
+    {
+      "ruleId": "MD001",
+      "severity": "error",
+      "title": "Config conflict",
+      "message": "Conflicting configs for cursor (rules) in repo scope.",
+      "suggestion": "Keep exactly one config for this tool/kind/scope. Delete or rename extras, or use a documented override pair.",
+      "fingerprint": "sha256:6206fd23d3d82d755fff8f636d796673ee75749b1da52b50084601b2fcdf9a97",
+      "paths": [
+        {
+          "path": "./.cursor/rules.md",
+          "scope": "repo",
+          "redacted": false
+        },
+        {
+          "path": "./.cursor/rules2.md",
+          "scope": "repo",
+          "redacted": false
+        }
+      ],
+      "tools": [
+        {
+          "toolId": "cursor",
+          "kind": "rules"
+        }
+      ],
+      "evidence": {
+        "kind": "rules",
+        "scope": "repo",
+        "toolId": "cursor"
+      }
+    },
+    {
+      "ruleId": "MD003",
+      "severity": "error",
+      "title": "Invalid YAML frontmatter",
+      "message": "Invalid YAML frontmatter.",
+      "suggestion": "Fix the YAML frontmatter syntax or remove it entirely.",
+      "fingerprint": "sha256:3fec9269b8361cb53c40e8208e3ff1b750351b11c0a06d97eb3b975cb6b08e0c",
+      "paths": [
+        {
+          "path": "./AGENTS.md",
+          "scope": "repo",
+          "redacted": false
+        }
+      ],
+      "tools": [
+        {
+          "toolId": "frontmatter-tool",
+          "kind": "instructions"
+        }
+      ],
+      "evidence": {
+        "frontmatterError": "yaml: bad"
+      }
+    },
+    {
+      "ruleId": "MD006",
+      "severity": "error",
+      "title": "Config unreadable",
+      "message": "Config file could not be read.",
+      "suggestion": "Check the file permissions and ensure the path exists.",
+      "fingerprint": "sha256:d6ae67419ac02c8983ddd1d589c3c32bd9fb0e0508ae67cb439c44e74e164123",
+      "paths": [
+        {
+          "path": "./secret.md",
+          "scope": "repo",
+          "redacted": false
+        }
+      ],
+      "tools": [
+        {
+          "toolId": "unreadable-tool",
+          "kind": "instructions"
+        }
+      ],
+      "evidence": {
+        "error": "EACCES"
+      }
+    },
+    {
+      "ruleId": "MD002",
+      "severity": "warning",
+      "title": "Gitignored config",
+      "message": "Repo config is ignored by git; teammates and CI will not see it.",
+      "suggestion": "Remove this path from .gitignore or move the file to a tracked location.",
+      "fingerprint": "sha256:45bf51b7265b98c19080cd8179bafe06a4aa1b24366bee5cca8f6fbfb2ba975a",
+      "paths": [
+        {
+          "path": "./.gitignored.md",
+          "scope": "repo",
+          "redacted": false
+        }
+      ],
+      "tools": [
+        {
+          "toolId": "ignored-tool",
+          "kind": "instructions"
+        }
+      ],
+      "evidence": {
+        "gitignored": true
+      }
+    },
+    {
+      "ruleId": "MD004",
+      "severity": "warning",
+      "title": "Empty config file",
+      "message": "Config file is empty and will be ignored.",
+      "suggestion": "Add the intended instructions or delete the file.",
+      "fingerprint": "sha256:089bbad5a6f0bc91179254f1d6f8d666875a8a0020f96dfc6dc9c7f58d122e1e",
+      "paths": [
+        {
+          "path": "./EMPTY.md",
+          "scope": "repo",
+          "redacted": false
+        }
+      ],
+      "tools": [
+        {
+          "toolId": "empty-tool",
+          "kind": "instructions"
+        },
+        {
+          "toolId": "multi-tool",
+          "kind": "rules"
+        }
+      ],
+      "evidence": {
+        "sizeBytes": 0,
+        "warning": "empty"
+      }
+    },
+    {
+      "ruleId": "MD005",
+      "severity": "info",
+      "title": "No repo config",
+      "message": "No repo-scoped config for copilot-cli (config); only user/global configs detected.",
+      "suggestion": "Add a repo-scoped config for consistent behavior across teammates and CI.",
+      "fingerprint": "sha256:80f3e479c7a45377824e7aaee35fedeeb41cf9dc6c0796793a576e5f76306621",
+      "paths": [
+        {
+          "path": "<ABS_PATH_1>",
+          "scope": "user",
+          "redacted": true,
+          "pathId": "p:4295d4415152a313"
+        }
+      ],
+      "tools": [
+        {
+          "toolId": "copilot-cli",
+          "kind": "config"
+        }
+      ],
+      "evidence": {
+        "candidatePaths": [
+          ".github/copilot-instructions.md"
+        ],
+        "detectedScopes": [
+          "user"
+        ]
+      }
+    }
+  ],
+  "scanWarnings": [
+    {
+      "path": "./unknown",
+      "code": "UNRECOGNIZED_STDIN",
+      "message": "stdin path not recognized"
+    }
+  ]
+}

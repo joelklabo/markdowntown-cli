@@ -1,0 +1,193 @@
+{
+  "schemaVersion": "1.0.0",
+  "registryVersion": "scan-registry-v1",
+  "toolVersion": "0.0.0",
+  "scanStartedAt": 1700000000000,
+  "generatedAt": 1700000001000,
+  "timing": {
+    "discoveryMs": 1,
+    "hashingMs": 0,
+    "gitignoreMs": 0,
+    "totalMs": 1
+  },
+  "repoRoot": "/repo",
+  "scans": [
+    {
+      "scope": "repo",
+      "root": "/repo",
+      "exists": true
+    },
+    {
+      "scope": "user",
+      "root": "/home/test",
+      "exists": true
+    }
+  ],
+  "configs": [
+    {
+      "path": "/repo/.cursor/rules.md",
+      "scope": "repo",
+      "depth": 2,
+      "sizeBytes": 123,
+      "mtime": 1700000001,
+      "gitignored": false,
+      "tools": [
+        {
+          "toolId": "cursor",
+          "toolName": "Cursor",
+          "kind": "rules",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": ".cursor/rules.md",
+          "notes": "",
+          "hints": []
+        }
+      ]
+    },
+    {
+      "path": "/repo/.cursor/rules2.md",
+      "scope": "repo",
+      "depth": 2,
+      "sizeBytes": 120,
+      "mtime": 1700000002,
+      "gitignored": false,
+      "tools": [
+        {
+          "toolId": "cursor",
+          "toolName": "Cursor",
+          "kind": "rules",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": ".cursor/rules.md",
+          "notes": "",
+          "hints": []
+        }
+      ]
+    },
+    {
+      "path": "/repo/.gitignored.md",
+      "scope": "repo",
+      "depth": 1,
+      "sizeBytes": 10,
+      "mtime": 1700000003,
+      "gitignored": true,
+      "tools": [
+        {
+          "toolId": "ignored-tool",
+          "toolName": "Ignored Tool",
+          "kind": "instructions",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "AGENTS.md",
+          "notes": "",
+          "hints": []
+        }
+      ]
+    },
+    {
+      "path": "/repo/AGENTS.md",
+      "scope": "repo",
+      "depth": 1,
+      "sizeBytes": 10,
+      "mtime": 1700000004,
+      "gitignored": false,
+      "frontmatterError": "yaml: bad",
+      "tools": [
+        {
+          "toolId": "frontmatter-tool",
+          "toolName": "Frontmatter Tool",
+          "kind": "instructions",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "AGENTS.md",
+          "notes": "",
+          "hints": []
+        }
+      ]
+    },
+    {
+      "path": "/repo/EMPTY.md",
+      "scope": "repo",
+      "depth": 1,
+      "sizeBytes": 0,
+      "mtime": 1700000005,
+      "gitignored": false,
+      "warning": "empty",
+      "tools": [
+        {
+          "toolId": "empty-tool",
+          "toolName": "Empty Tool",
+          "kind": "instructions",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "AGENTS.md",
+          "notes": "",
+          "hints": []
+        },
+        {
+          "toolId": "multi-tool",
+          "toolName": "Multi Tool",
+          "kind": "rules",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "rules.md",
+          "notes": "",
+          "hints": []
+        }
+      ]
+    },
+    {
+      "path": "/home/test/.config/copilot/config.json",
+      "scope": "user",
+      "depth": 3,
+      "sizeBytes": 200,
+      "mtime": 1700000006,
+      "gitignored": false,
+      "tools": [
+        {
+          "toolId": "copilot-cli",
+          "toolName": "Copilot CLI",
+          "kind": "config",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "config.json",
+          "notes": "",
+          "hints": []
+        }
+      ]
+    },
+    {
+      "path": "/repo/secret.md",
+      "scope": "repo",
+      "depth": 1,
+      "sizeBytes": 10,
+      "mtime": 1700000007,
+      "gitignored": false,
+      "error": "EACCES",
+      "tools": [
+        {
+          "toolId": "unreadable-tool",
+          "toolName": "Unreadable Tool",
+          "kind": "instructions",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "AGENTS.md",
+          "notes": "",
+          "hints": []
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    {
+      "path": "/repo/.cursor/rules.md",
+      "code": "CONFIG_CONFLICT",
+      "message": "conflict detected"
+    },
+    {
+      "path": "/repo/unknown",
+      "code": "UNRECOGNIZED_STDIN",
+      "message": "stdin path not recognized"
+    }
+  ]
+}
