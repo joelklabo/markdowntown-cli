@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -89,4 +90,20 @@ func writeRegistryFile(t *testing.T, path string, data string) {
 	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
+}
+
+func loadRegistryFixture(t *testing.T) Registry {
+	t.Helper()
+	path := filepath.Join("..", "..", "data", "ai-config-patterns.json")
+	data, err := ReadRegistryFile(path)
+	if err != nil {
+		t.Fatalf("read registry fixture: %v", err)
+	}
+
+	var reg Registry
+	if err := json.Unmarshal(data, &reg); err != nil {
+		t.Fatalf("parse registry fixture: %v", err)
+	}
+
+	return reg
 }
