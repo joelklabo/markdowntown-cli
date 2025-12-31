@@ -1,0 +1,5 @@
+$ go test ./internal/suggest -run TestGenerator
+[stdout]
+ok  	markdowntown-cli/internal/suggest	0.585s
+[stderr]
+exit: 0
