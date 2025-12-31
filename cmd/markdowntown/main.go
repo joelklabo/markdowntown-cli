@@ -4,14 +4,17 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"markdowntown-cli/internal/audit"
 	"markdowntown-cli/internal/git"
 	"markdowntown-cli/internal/scan"
 	"markdowntown-cli/internal/version"
@@ -21,6 +24,7 @@ const rootUsage = `markdowntown
 
 Usage:
   markdowntown                     # Show help (no default command)
+  markdowntown audit [flags]       # Audit scan results
   markdowntown scan [flags]        # Scan for AI config files
   markdowntown registry validate   # Validate pattern registry
   markdowntown tools list          # List recognized tools
@@ -45,6 +49,27 @@ Flags:
   -h, --help            Show help
 `
 
+const auditUsage = `markdowntown audit
+
+Usage:
+  markdowntown audit [flags]
+
+Flags:
+  --input <path>            Read scan JSON from file or - for stdin
+  --format <json|md>        Output format (default: json)
+  --compact                 Emit compact JSON (ignored for md)
+  --fail-severity <level>   Exit 1 when issues at/above severity (error|warning|info)
+  --redact <mode>           Path redaction mode (auto|always|never)
+  --only <ruleId>           Run only these rule IDs (repeatable)
+  --ignore-rule <ruleId>    Suppress rule IDs (repeatable)
+  --exclude <glob>          Exclude paths from audit matching (repeatable)
+  --include-scan-warnings   Include raw scan warnings in output
+  --repo <path>             Repo path (defaults to git root)
+  --repo-only               Exclude user scope when running internal scan
+  --stdin                   Read additional scan roots from stdin
+  -h, --help                Show help
+`
+
 func main() {
 	args := os.Args[1:]
 	if len(args) == 0 {
@@ -61,6 +86,11 @@ func main() {
 		return
 	case "scan":
 		if err := runScan(args[1:]); err != nil {
+			exitWithError(err)
+		}
+		return
+	case "audit":
+		if err := runAudit(args[1:]); err != nil {
 			exitWithError(err)
 		}
 		return
@@ -181,6 +211,195 @@ func runScan(args []string) error {
 	return enc.Encode(output)
 }
 
+func runAudit(args []string) error {
+	flags := flag.NewFlagSet("audit", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+
+	var inputPath string
+	var format string
+	var compact bool
+	var failSeverity string
+	var redactMode string
+	var includeScanWarnings bool
+	var repoPath string
+	var repoOnly bool
+	var readStdin bool
+	var help bool
+	var onlyRules stringList
+	var ignoreRules stringList
+	var excludePaths stringList
+
+	flags.StringVar(&inputPath, "input", "", "read scan JSON from file or stdin (-)")
+	flags.StringVar(&format, "format", "json", "output format (json or md)")
+	flags.BoolVar(&compact, "compact", false, "emit compact JSON")
+	flags.StringVar(&failSeverity, "fail-severity", string(audit.SeverityError), "exit 1 when issues meet severity (error|warning|info)")
+	flags.StringVar(&redactMode, "redact", string(audit.RedactAuto), "path redaction mode (auto|always|never)")
+	flags.Var(&onlyRules, "only", "rule IDs to include (repeatable)")
+	flags.Var(&ignoreRules, "ignore-rule", "rule IDs to suppress (repeatable)")
+	flags.Var(&excludePaths, "exclude", "exclude path globs from audit matching (repeatable)")
+	flags.BoolVar(&includeScanWarnings, "include-scan-warnings", false, "include raw scan warnings")
+	flags.StringVar(&repoPath, "repo", "", "repo path (defaults to git root)")
+	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
+	flags.BoolVar(&readStdin, "stdin", false, "read additional paths from stdin")
+	flags.BoolVar(&help, "help", false, "show help")
+	flags.BoolVar(&help, "h", false, "show help")
+
+	if err := flags.Parse(args); err != nil {
+		return newCLIError(err, 2)
+	}
+	if help {
+		printAuditUsage(os.Stdout)
+		return nil
+	}
+	if flags.NArg() > 0 {
+		return newCLIError(fmt.Errorf("unexpected arguments: %s", strings.Join(flags.Args(), " ")), 2)
+	}
+
+	if inputPath != "" && (repoPath != "" || repoOnly || readStdin) {
+		return newCLIError(fmt.Errorf("--input cannot be combined with scan flags"), 2)
+	}
+
+	format = strings.ToLower(format)
+	if format != "json" && format != "md" {
+		return newCLIError(fmt.Errorf("invalid format: %s", format), 2)
+	}
+
+	threshold, err := audit.ParseSeverity(failSeverity)
+	if err != nil {
+		return newCLIError(err, 2)
+	}
+	redact, err := audit.ParseRedactMode(redactMode)
+	if err != nil {
+		return newCLIError(err, 2)
+	}
+
+	rules, err := audit.FilterRules(audit.DefaultRules(), []string(onlyRules), []string(ignoreRules))
+	if err != nil {
+		return newCLIError(err, 2)
+	}
+
+	registry, _, err := scan.LoadRegistry()
+	if err != nil {
+		return newCLIError(err, 2)
+	}
+
+	auditStartedAt := time.Now()
+	var scanOutput scan.Output
+
+	if inputPath != "" {
+		output, err := readScanInput(inputPath)
+		if err != nil {
+			return newCLIError(err, 2)
+		}
+		scanOutput = output
+	} else {
+		repoRoot, err := resolveRepoRoot(repoPath)
+		if err != nil {
+			return newCLIError(err, 2)
+		}
+		stdinPaths, err := readStdinPaths(readStdin)
+		if err != nil {
+			return newCLIError(err, 2)
+		}
+
+		progress, finish := progressReporter(true)
+		scanStartedAt := time.Now()
+		result, err := scan.Scan(scan.Options{
+			RepoRoot:       repoRoot,
+			RepoOnly:       repoOnly,
+			IncludeContent: false,
+			Progress:       progress,
+			StdinPaths:     stdinPaths,
+			Registry:       registry,
+		})
+		finish()
+		if err != nil {
+			return newCLIError(err, 2)
+		}
+
+		result, err = scan.ApplyGitignore(result, repoRoot)
+		if err != nil {
+			return newCLIError(err, 2)
+		}
+		scanFinishedAt := time.Now()
+
+		timing := scan.Timing{
+			DiscoveryMs: elapsedMs(scanStartedAt, scanFinishedAt),
+			HashingMs:   0,
+			GitignoreMs: 0,
+			TotalMs:     elapsedMs(scanStartedAt, scanFinishedAt),
+		}
+
+		scanOutput = scan.BuildOutput(result, scan.OutputOptions{
+			SchemaVersion:   version.SchemaVersion,
+			RegistryVersion: registry.Version,
+			ToolVersion:     version.ToolVersion,
+			RepoRoot:        repoRoot,
+			ScanStartedAt:   scanStartedAt.UnixMilli(),
+			GeneratedAt:     scanFinishedAt.UnixMilli(),
+			Timing:          timing,
+		})
+	}
+
+	filteredOutput, err := audit.FilterOutput(scanOutput, []string(excludePaths))
+	if err != nil {
+		return newCLIError(err, 2)
+	}
+	scanOutput = filteredOutput
+
+	homeDir, _ := os.UserHomeDir()
+	xdgConfigHome := os.Getenv("XDG_CONFIG_HOME")
+	if xdgConfigHome == "" && homeDir != "" {
+		xdgConfigHome = filepath.Join(homeDir, ".config")
+	}
+
+	redactor := audit.NewRedactor(scanOutput.RepoRoot, homeDir, xdgConfigHome, redact)
+	ctx := audit.Context{
+		Scan:     scanOutput,
+		Registry: registry,
+		Redactor: redactor,
+	}
+
+	issues := audit.RunRules(ctx, rules)
+	engine := audit.NewEngine(redactor)
+	issues = engine.NormalizeIssues(issues)
+
+	summary := audit.BuildSummary(issues)
+	generatedAt := time.Now()
+
+	output := audit.Output{
+		SchemaVersion:       version.AuditSchemaVersion,
+		Audit:               audit.AuditMeta{ToolVersion: version.ToolVersion, AuditStartedAt: auditStartedAt.UnixMilli(), GeneratedAt: generatedAt.UnixMilli()},
+		SourceScan:          audit.SourceScan{SchemaVersion: scanOutput.SchemaVersion, ToolVersion: scanOutput.ToolVersion, RegistryVersion: scanOutput.RegistryVersion, RepoRoot: scanOutput.RepoRoot, ScanStartedAt: scanOutput.ScanStartedAt, GeneratedAt: scanOutput.GeneratedAt, Scans: scanOutput.Scans},
+		RegistryVersionUsed: registry.Version,
+		PathRedaction:       audit.RedactionInfo{Mode: redact, Enabled: redact != audit.RedactNever},
+		Summary:             summary,
+		Issues:              issues,
+	}
+	if includeScanWarnings {
+		output.ScanWarnings = audit.BuildScanWarnings(scanOutput.Warnings, issues, redactor, scanOutput.RepoRoot)
+	}
+
+	switch format {
+	case "md":
+		_, _ = fmt.Fprint(os.Stdout, audit.RenderMarkdown(output))
+	default:
+		enc := json.NewEncoder(os.Stdout)
+		if !compact {
+			enc.SetIndent("", "  ")
+		}
+		enc.SetEscapeHTML(false)
+		if err := enc.Encode(output); err != nil {
+			return newCLIError(err, 2)
+		}
+	}
+
+	if audit.ShouldFail(issues, threshold) {
+		os.Exit(1)
+	}
+	return nil
+}
+
 func runRegistry(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("registry subcommand required")
@@ -202,9 +421,17 @@ func runTools(args []string) error {
 }
 
 func exitWithError(err error) {
-	fmt.Fprintln(os.Stderr, err.Error())
+	code := 1
+	if err != nil {
+		var cliErr *cliError
+		if errors.As(err, &cliErr) {
+			code = cliErr.code
+			err = cliErr.err
+		}
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
 	printUsage(os.Stderr)
-	os.Exit(1)
+	os.Exit(code)
 }
 
 func runToolsList() error {
@@ -218,6 +445,10 @@ func runToolsList() error {
 	enc.SetIndent("", "  ")
 	enc.SetEscapeHTML(false)
 	return enc.Encode(summaries)
+}
+
+func printAuditUsage(w io.Writer) {
+	_, _ = fmt.Fprint(w, auditUsage)
 }
 
 func runRegistryValidate() error {
@@ -338,4 +569,73 @@ func elapsedMs(start time.Time, end time.Time) int64 {
 		return 0
 	}
 	return end.Sub(start).Milliseconds()
+}
+
+type cliError struct {
+	err  error
+	code int
+}
+
+func (e *cliError) Error() string {
+	if e == nil || e.err == nil {
+		return ""
+	}
+	return e.err.Error()
+}
+
+func newCLIError(err error, code int) error {
+	if err == nil {
+		return nil
+	}
+	return &cliError{err: err, code: code}
+}
+
+type stringList []string
+
+func (s *stringList) String() string {
+	return strings.Join(*s, ",")
+}
+
+func (s *stringList) Set(value string) error {
+	parts := strings.Split(value, ",")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		*s = append(*s, part)
+	}
+	return nil
+}
+
+func readScanInput(inputPath string) (scan.Output, error) {
+	var output scan.Output
+	var data []byte
+	var err error
+
+	if inputPath == "-" {
+		data, err = io.ReadAll(os.Stdin)
+		if err != nil {
+			return output, err
+		}
+		if len(strings.TrimSpace(string(data))) == 0 {
+			return output, fmt.Errorf("stdin is empty")
+		}
+	} else {
+		data, err = os.ReadFile(inputPath)
+		if err != nil {
+			return output, err
+		}
+	}
+
+	if err := json.Unmarshal(data, &output); err != nil {
+		return output, err
+	}
+	if output.SchemaVersion == "" {
+		return output, fmt.Errorf("scan schemaVersion is required")
+	}
+	if output.SchemaVersion != version.SchemaVersion {
+		return output, fmt.Errorf("unsupported scan schemaVersion: %s", output.SchemaVersion)
+	}
+	return output, nil
 }
