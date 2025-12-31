@@ -150,6 +150,10 @@ func runScan(args []string) error {
 	if err != nil {
 		return err
 	}
+	result, err = scan.ApplyGitignore(result, repoRoot)
+	if err != nil {
+		return err
+	}
 	finishedAt := time.Now()
 
 	timing := scan.Timing{

@@ -1,0 +1,201 @@
+{
+  "schemaVersion": "test",
+  "registryVersion": "test",
+  "toolVersion": "test",
+  "scanStartedAt": 0,
+  "generatedAt": 0,
+  "timing": {
+    "discoveryMs": 0,
+    "hashingMs": 0,
+    "gitignoreMs": 0,
+    "totalMs": 0
+  },
+  "repoRoot": "\u003crepo\u003e",
+  "scans": [
+    {
+      "scope": "repo",
+      "root": "\u003crepo\u003e",
+      "exists": true
+    },
+    {
+      "scope": "user",
+      "root": "\u003cuser\u003e",
+      "exists": true
+    }
+  ],
+  "configs": [
+    {
+      "path": "\u003crepo\u003e/.cursorrules",
+      "scope": "repo",
+      "depth": 0,
+      "sizeBytes": 13,
+      "sha256": "df6d789e7f45eae6ec7db40b32d386ba2527a17e81f33ace9a8131a88de956f1",
+      "mtime": 0,
+      "gitignored": false,
+      "frontmatter": null,
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": [
+        {
+          "toolId": "cursor",
+          "toolName": "Cursor",
+          "kind": "rules",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": ".cursorrules",
+          "notes": "",
+          "hints": null
+        }
+      ]
+    },
+    {
+      "path": "\u003crepo\u003e/ignored.txt",
+      "scope": "repo",
+      "depth": 0,
+      "sizeBytes": 8,
+      "sha256": "a6c7e3c5ddd823efc8b7a30853eabc152dac866843bd7a39dc4a29e0a0eb68b3",
+      "mtime": 0,
+      "gitignored": true,
+      "frontmatter": null,
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": [
+        {
+          "toolId": "ignored-tool",
+          "toolName": "Ignored",
+          "kind": "config",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "ignored.txt",
+          "notes": "",
+          "hints": null
+        }
+      ]
+    },
+    {
+      "path": "\u003crepo\u003e/shared/config.json",
+      "scope": "repo",
+      "depth": 1,
+      "sizeBytes": 18,
+      "sha256": "06a96ab7082a8d2b795e08e2b068a43dedcd1f4d304683fe568fe8ec68731219",
+      "mtime": 0,
+      "gitignored": false,
+      "frontmatter": null,
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": [
+        {
+          "toolId": "alpha",
+          "toolName": "Alpha",
+          "kind": "config",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "shared/config.json",
+          "notes": "",
+          "hints": null
+        },
+        {
+          "toolId": "beta",
+          "toolName": "Beta",
+          "kind": "config",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "shared/config.json",
+          "notes": "",
+          "hints": null
+        }
+      ]
+    },
+    {
+      "path": "\u003crepo\u003e/stdin/unmatched.txt",
+      "scope": "repo",
+      "depth": 1,
+      "sizeBytes": 6,
+      "sha256": "b620ce8497608ef9734b465a3976b6a980f83eeb0e5de5e9e99433c2fff3fa7a",
+      "mtime": 0,
+      "gitignored": false,
+      "frontmatter": null,
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": []
+    },
+    {
+      "path": "\u003crepo\u003e/.cursor/rules/main.md",
+      "scope": "repo",
+      "depth": 2,
+      "sizeBytes": 14,
+      "sha256": "784e71b95672cab4c9bda0dd1f17631126667229cb11255155d2a64afb525782",
+      "mtime": 0,
+      "gitignored": false,
+      "frontmatter": null,
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": [
+        {
+          "toolId": "cursor",
+          "toolName": "Cursor",
+          "kind": "rules",
+          "loadBehavior": "directory-glob",
+          "application": "automatic",
+          "matchedPattern": ".cursor/rules/**/*",
+          "notes": "",
+          "hints": null
+        }
+      ]
+    },
+    {
+      "path": "\u003cuser\u003e/AGENTS.md",
+      "scope": "user",
+      "depth": 0,
+      "sizeBytes": 17,
+      "sha256": "de6ddaa34ef34dfbe61eb75fbc1598d29a8afb43ef4c515ff6caa30fd7d23efc",
+      "mtime": 0,
+      "gitignored": false,
+      "frontmatter": null,
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": [
+        {
+          "toolId": "codex",
+          "toolName": "Codex",
+          "kind": "instructions",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "AGENTS.md",
+          "notes": "",
+          "hints": null
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    {
+      "path": "\u003crepo\u003e/stdin/unmatched.txt",
+      "code": "UNRECOGNIZED_STDIN",
+      "message": "stdin path did not match any registry pattern"
+    },
+    {
+      "path": "\u003crepo\u003e",
+      "code": "CONFIG_CONFLICT",
+      "message": "cursor has conflicting configs: .cursor/rules/main.md, .cursorrules"
+    }
+  ]
+}
