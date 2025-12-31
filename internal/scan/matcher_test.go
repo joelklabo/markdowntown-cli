@@ -100,3 +100,77 @@ func TestMatcherRegexCaseInsensitive(t *testing.T) {
 		t.Fatalf("expected match")
 	}
 }
+
+func TestMatcherGlobXDGConfigExpansion(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "/tmp/xdg config")
+	reg := Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "xdg",
+				ToolID:       "tool",
+				ToolName:     "Tool",
+				Kind:         "config",
+				Scope:        "user",
+				Paths:        []string{"$XDG_CONFIG_HOME/copilot/config.json", "${XDG_CONFIG_HOME}/copilot/agents/*.md"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+	compiled, err := CompilePatterns(reg)
+	if err != nil {
+		t.Fatalf("CompilePatterns: %v", err)
+	}
+
+	matched, _, err := compiled[0].Match("/tmp/xdg config/copilot/config.json", "copilot/config.json")
+	if err != nil {
+		t.Fatalf("Match: %v", err)
+	}
+	if !matched {
+		t.Fatalf("expected match for expanded $XDG_CONFIG_HOME")
+	}
+
+	matched, _, err = compiled[0].Match("/tmp/xdg config/copilot/agents/alpha.md", "copilot/agents/alpha.md")
+	if err != nil {
+		t.Fatalf("Match: %v", err)
+	}
+	if !matched {
+		t.Fatalf("expected match for expanded ${XDG_CONFIG_HOME}")
+	}
+}
+
+func TestMatcherGlobXDGConfigUnset(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "")
+	reg := Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "xdg",
+				ToolID:       "tool",
+				ToolName:     "Tool",
+				Kind:         "config",
+				Scope:        "user",
+				Paths:        []string{"$XDG_CONFIG_HOME/copilot/config.json"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+	compiled, err := CompilePatterns(reg)
+	if err != nil {
+		t.Fatalf("CompilePatterns: %v", err)
+	}
+
+	matched, _, err := compiled[0].Match("/tmp/xdg/copilot/config.json", "copilot/config.json")
+	if err != nil {
+		t.Fatalf("Match: %v", err)
+	}
+	if matched {
+		t.Fatalf("expected no match when XDG_CONFIG_HOME is unset")
+	}
+}
