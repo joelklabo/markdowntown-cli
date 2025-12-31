@@ -1,0 +1,13 @@
+$ XDG_DATA_HOME=/var/folders/z1/mrclg_2j5057j0cmzj8s3qz40000gp/T/tmp.5NORDHWuTg XDG_CACHE_HOME=/var/folders/z1/mrclg_2j5057j0cmzj8s3qz40000gp/T/tmp.oBHd46btNk MARKDOWNTOWN_SOURCES=data/doc-sources.json go run ./cmd/markdowntown suggest --offline --format json
+[stdout]
+{
+  "client": "codex",
+  "generatedAt": 1767179334571,
+  "warnings": [
+    "offline mode enabled; using cached data only",
+    "cache miss for https://developers.openai.com/codex/guides/agents-md/",
+    "cache miss for https://developers.openai.com/codex/config-reference"
+  ]
+}
+[stderr]
+exit: 0
