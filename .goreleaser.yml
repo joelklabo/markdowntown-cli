@@ -26,6 +26,11 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
+    files:
+      - src: data/ai-config-patterns.json
+        dst: ai-config-patterns.json
+      - src: data/doc-sources.json
+        dst: doc-sources.json
 
 checksum:
   name_template: checksums.txt
