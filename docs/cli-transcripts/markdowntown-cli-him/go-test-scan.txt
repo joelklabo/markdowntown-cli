@@ -1,0 +1,3 @@
+$ go test ./internal/scan -run TestRegistryCopilotPatterns
+ok  	markdowntown-cli/internal/scan	(cached)
+exit: 0
