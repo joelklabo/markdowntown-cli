@@ -36,6 +36,10 @@ func TestCodexAdapterResolveOrder(t *testing.T) {
 		t.Fatalf("expected 3 instructions, got %d", len(res.Applied))
 	}
 
+	if res.OrderGuarantee != OrderDeterministic {
+		t.Fatalf("expected deterministic order, got %s", res.OrderGuarantee)
+	}
+
 	if res.Applied[0].Scope != ScopeUser {
 		t.Fatalf("expected user scope first, got %s", res.Applied[0].Scope)
 	}

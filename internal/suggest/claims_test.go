@@ -1,6 +1,10 @@
 package suggest
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestClaimsExtract(t *testing.T) {
 	doc := NormalizedDocument{
@@ -104,6 +108,36 @@ func TestClaimsConflicts(t *testing.T) {
 	}
 }
 
+func TestClaimsFixtureExtraction(t *testing.T) {
+	content := readFixture(t, "claims.md")
+	doc, err := NormalizeDocument(content, "markdown")
+	if err != nil {
+		t.Fatalf("normalize fixture: %v", err)
+	}
+
+	claims := ExtractClaims(doc, Source{ID: "fixture", Client: "codex", URL: "https://example.com"}, "sha256:fixture")
+	if len(claims) != 3 {
+		t.Fatalf("expected 3 fixture claims, got %d", len(claims))
+	}
+	if claims[0].Strength != StrengthMust || claims[1].Strength != StrengthShould || claims[2].Strength != StrengthMay {
+		t.Fatalf("unexpected fixture strengths: %v, %v, %v", claims[0].Strength, claims[1].Strength, claims[2].Strength)
+	}
+}
+
+func TestClaimsFixtureConflict(t *testing.T) {
+	content := readFixture(t, "conflict.md")
+	doc, err := NormalizeDocument(content, "markdown")
+	if err != nil {
+		t.Fatalf("normalize fixture: %v", err)
+	}
+
+	claims := ExtractClaims(doc, Source{ID: "fixture", Client: "codex", URL: "https://example.com"}, "sha256:fixture")
+	_, conflicts := DetectConflicts(claims)
+	if len(conflicts) == 0 {
+		t.Fatalf("expected conflict from fixture")
+	}
+}
+
 func contains(values []string, target string) bool {
 	for _, value := range values {
 		if value == target {
@@ -111,4 +145,14 @@ func contains(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func readFixture(t *testing.T, name string) string {
+	t.Helper()
+	path := filepath.Join("..", "..", "testdata", "instructions", name)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read fixture %s: %v", name, err)
+	}
+	return string(data)
 }

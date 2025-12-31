@@ -37,6 +37,10 @@ func TestClaudeAdapterMemoryPrecedence(t *testing.T) {
 		t.Fatalf("resolve: %v", err)
 	}
 
+	if res.OrderGuarantee != OrderDeterministic {
+		t.Fatalf("expected deterministic order, got %s", res.OrderGuarantee)
+	}
+
 	paths := map[string]struct{}{}
 	for _, file := range res.Applied {
 		paths[file.Path] = struct{}{}

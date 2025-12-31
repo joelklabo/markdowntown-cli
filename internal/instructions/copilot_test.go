@@ -35,6 +35,13 @@ func TestCopilotAdapterApplyToAndConflicts(t *testing.T) {
 		t.Fatalf("expected 2 applied instructions, got %d", len(res.Applied))
 	}
 
+	if res.Applied[0].Path != repoWide {
+		t.Fatalf("expected repo-wide first, got %s", res.Applied[0].Path)
+	}
+	if res.Applied[1].Path != applyFile {
+		t.Fatalf("expected scoped file second, got %s", res.Applied[1].Path)
+	}
+
 	if res.OrderGuarantee != OrderUndefined {
 		t.Fatalf("expected undefined order due to conflicts")
 	}
