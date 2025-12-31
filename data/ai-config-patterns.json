@@ -52,6 +52,63 @@
       ]
     },
     {
+      "id": "github-copilot-agents-instructions-repo",
+      "toolId": "github-copilot",
+      "toolName": "GitHub Copilot",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": ["AGENTS.md"],
+      "type": "glob",
+      "loadBehavior": "nearest-ancestor",
+      "application": "automatic",
+      "notes": "Nearest AGENTS.md applies for Copilot/VS Code instructions",
+      "docs": [
+        "https://code.visualstudio.com/docs/copilot/customization/custom-instructions"
+      ]
+    },
+    {
+      "id": "github-copilot-cli-config-user",
+      "toolId": "github-copilot-cli",
+      "toolName": "GitHub Copilot CLI",
+      "kind": "config",
+      "scope": "user",
+      "paths": ["~/.copilot/config.json"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli#configuration"
+      ]
+    },
+    {
+      "id": "github-copilot-cli-agents-repo",
+      "toolId": "github-copilot-cli",
+      "toolName": "GitHub Copilot CLI",
+      "kind": "agent",
+      "scope": "repo",
+      "paths": [".github/agents/*.md"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "selected",
+      "docs": [
+        "https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli"
+      ]
+    },
+    {
+      "id": "github-copilot-cli-agents-user",
+      "toolId": "github-copilot-cli",
+      "toolName": "GitHub Copilot CLI",
+      "kind": "agent",
+      "scope": "user",
+      "paths": ["~/.copilot/agents/*.md"],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "selected",
+      "docs": [
+        "https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli"
+      ]
+    },
+    {
       "id": "codex-agents-override-repo",
       "toolId": "codex",
       "toolName": "Codex",
