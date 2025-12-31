@@ -1,0 +1,6 @@
+go test ./...
+?   	markdowntown-cli/cmd/markdowntown	[no test files]
+ok  	markdowntown-cli/internal/git	0.727s
+?   	markdowntown-cli/internal/hash	[no test files]
+ok  	markdowntown-cli/internal/scan	2.114s
+?   	markdowntown-cli/internal/version	[no test files]

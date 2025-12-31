@@ -30,7 +30,11 @@ markdowntown audit [flags]         # Audit scan results and emit issues
 | `--input` | path | (empty) | Read scan JSON from file or `-` for stdin. When set, scan flags are ignored. |
 | `--format` | enum | `json` | Output format: `json` or `md`. |
 | `--compact` | bool | false | Minify JSON output (no pretty formatting). Ignored for `md`. |
+| `--fail-severity` | enum | `error` | Exit 1 when issues at or above this severity exist. |
+| `--redact` | enum | `auto` | Path redaction mode: `auto`, `always`, `never`. |
 | `--ignore-rule` | string[] | (none) | Rule IDs to suppress (repeatable). |
+| `--only` | string[] | (none) | Run only these rule IDs (repeatable). |
+| `--include-scan-warnings` | bool | false | Include raw scan warnings in output. |
 | `--exclude` | string[] | (none) | Path globs to exclude from audit matching (repeatable). |
 | `--repo` | path | (auto) | Repo root used when audit runs an internal scan. |
 | `--repo-only` | bool | false | Exclude user scope when audit runs an internal scan. |
@@ -40,8 +44,8 @@ markdowntown audit [flags]         # Audit scan results and emit issues
 
 | Code | Meaning |
 | --- | --- |
-| 0 | Success (no `error`-severity issues) |
-| 1 | Completed with `error`-severity issues |
+| 0 | Success (no issues at or above `--fail-severity`) |
+| 1 | Issues at or above `--fail-severity` |
 | 2 | Fatal error (invalid input, parse failure, registry error) |
 
 ### Stdout/Stderr Behavior
@@ -73,56 +77,107 @@ When `--input` is provided, scan-related flags are ignored to keep behavior dete
 
 ```json
 {
-  "schemaVersion": "1.0",
-  "toolVersion": "0.0.0",
-  "registryVersion": "1.0",
-  "auditStartedAt": 0,
-  "generatedAt": 0,
-  "input": {
+  "schemaVersion": "audit-spec-v1",
+  "audit": {
+    "toolVersion": "0.0.0",
+    "auditStartedAt": 0,
+    "generatedAt": 0
+  },
+  "sourceScan": {
+    "schemaVersion": "scan-spec-v1",
+    "toolVersion": "0.0.0",
+    "registryVersion": "2025-12-01",
     "repoRoot": "/path/to/repo",
     "scanStartedAt": 0,
-    "scanGeneratedAt": 0,
+    "generatedAt": 0,
     "scans": ["/path/to/repo", "~/.codex"]
   },
+  "registryVersionUsed": "2025-12-01",
+  "pathRedaction": {
+    "mode": "auto",
+    "enabled": true
+  },
   "summary": {
-    "total": 0,
-    "error": 0,
-    "warn": 0,
-    "info": 0
+    "issueCounts": {
+      "error": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "rulesFired": ["MD001", "MD004"]
   },
   "issues": [
     {
-      "ruleId": "MDTAUDIT001",
-      "severity": "warn",
-      "title": "Empty instruction file",
-      "message": "Instruction file is empty and will be ignored.",
-      "suggestion": "Add at least one concrete instruction or delete the file.",
-      "paths": ["./AGENTS.md"],
-      "tools": ["codex"],
-      "evidence": [
-        {
-          "path": "./AGENTS.md",
-          "scope": "repo",
-          "sha256": "...",
-          "warning": "empty"
-        }
-      ]
+      "ruleId": "MD004",
+      "severity": "warning",
+      "title": "Empty config file",
+      "message": "Config file is empty and will be ignored.",
+      "suggestion": "Add the intended instructions or delete the file.",
+      "fingerprint": "sha256:...",
+      "paths": [
+        { "path": "./AGENTS.md", "scope": "repo", "redacted": false }
+      ],
+      "tools": [
+        { "toolId": "codex", "kind": "instructions" }
+      ],
+      "evidence": {
+        "warning": "empty"
+      }
     }
-  ]
+  ],
+  "scanWarnings": []
 }
 ```
 
 ### Determinism Rules
 
-- Issues sorted by: severity (`error` > `warn` > `info`) → ruleId → primary path → toolId.
-- Paths are redacted for user scope (see below).
+- Issues sorted by: severity (**error**, **warning**, **info**) → ruleId → primary path → toolId → kind.
+- Paths are redacted for non-repo scopes (see below).
 - JSON field order follows struct order (no key sorting).
 
-### Path Redaction
+---
+
+## Issue Object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `ruleId` | string | Stable rule identifier (MD001..MD006). |
+| `severity` | enum | `error`, `warning`, `info`. |
+| `title` | string | Short issue label. |
+| `message` | string | Human-readable description. |
+| `suggestion` | string | Remediation guidance (no shell commands). |
+| `fingerprint` | string | Deterministic hash for stable suppression/diffing. |
+| `paths` | array | Affected paths (path objects). |
+| `tools` | array | Tool metadata (tool objects). |
+| `evidence` | object | Raw scan fields that triggered the rule. |
+
+### Path Object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `path` | string | Repo-relative path (`./...`) or redacted placeholder. |
+| `scope` | string | `repo`, `user`, or `global`. |
+| `redacted` | bool | Whether this path is redacted. |
+| `pathId` | string | Stable ID when redacted (e.g., `p:3b7c...`). |
+
+### Tool Object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `toolId` | string | Registry toolId. |
+| `kind` | string | Registry kind (instructions, config, prompts, rules, skills, agent). |
+
+---
+
+## Path Redaction
 
 - **Repo scope**: paths are repo-root relative with `./` prefix.
-- **User scope**: paths are normalized to `~/...` relative to user home.
-- **Global scope**: absolute paths are allowed (`/etc/...`).
+- **Non-repo scope** (when `--redact=auto` or `always`):
+  - If under home, replace prefix with `$HOME/`.
+  - If under XDG config home, replace prefix with `$XDG_CONFIG_HOME/`.
+  - Otherwise use deterministic placeholders: `<ABS_PATH_1>`, `<ABS_PATH_2>`, etc.
+- **`--redact=never`**: emit raw absolute paths for all scopes.
+
+When a path is redacted, include a stable `pathId` so issues can be correlated without leaking the raw path.
 
 No raw file content is emitted by default.
 
@@ -135,14 +190,14 @@ Markdown output is a deterministic report summary with sections:
 ```text
 # markdowntown audit
 
-Summary: 2 errors, 1 warn
+Summary: 2 errors, 1 warning
 
 ## Errors
-- [MDTAUDIT002] Frontmatter parse error in ./AGENTS.md
-  - Suggestion: Fix YAML frontmatter or remove it.
+- [MD001] Config conflict: ./AGENTS.md
+  - Suggestion: Keep exactly one config for this tool/kind/scope.
 
 ## Warnings
-- [MDTAUDIT001] Empty instruction file: ./AGENTS.md
+- [MD004] Empty config file: ./AGENTS.md
 ```
 
 Ordering mirrors JSON ordering rules.
@@ -151,15 +206,27 @@ Ordering mirrors JSON ordering rules.
 
 ## Rule Catalog (v1)
 
-All v1 rules are metadata-only and based on `scan` output fields. `audit` does **not** recompute scan warnings; it only consumes them.
+All v1 rules are metadata-only and based on `scan` output fields. `audit` does **not** re-run scan conflict detection; it uses scan warnings when present and falls back to grouping when not.
 
 | Rule ID | Severity | Detection | Suggestion |
 | --- | --- | --- | --- |
-| `MDTAUDIT001` | warn | `configs[].warning == "empty"` | Add a meaningful instruction or remove the file. |
-| `MDTAUDIT002` | error | `configs[].frontmatterError != ""` | Fix or remove YAML frontmatter. |
-| `MDTAUDIT003` | warn | `configs[].gitignored == true` in repo scope | Remove from `.gitignore` or relocate the file. |
-| `MDTAUDIT004` | error | `configs[].error` in (`EACCES`, `ENOENT`, `ERROR`) | Fix file permissions or path so audit can read it. |
-| `MDTAUDIT005` | warn | Multiple VS Code/Copilot instruction types present in repo (`.github/copilot-instructions.md` and `.github/instructions/**`) | Consolidate instructions to a single mechanism to avoid undefined ordering. |
+| `MD001` | error | Conflicting configs for same `(scope, toolId, kind)` (fallback grouping), or scan conflict warnings when present | Keep exactly one config for the tool/kind/scope. |
+| `MD002` | warning | `configs[].scope == "repo" && configs[].gitignored == true` | Remove from `.gitignore` or relocate. |
+| `MD003` | error | `configs[].frontmatterError != ""` | Fix or remove YAML frontmatter. |
+| `MD004` | warning | `configs[].warning == "empty"` **or** `sizeBytes == 0` | Add meaningful content or delete the file. |
+| `MD005` | info | No repo configs for a `(toolId, kind)` but user/global configs exist | Add a repo-scoped config for consistent behavior. |
+| `MD006` | error/warn | `configs[].error` in (`EACCES`, `ENOENT`, `ERROR`) | Fix permissions or path; repo scope is error, user/global is warning. |
+
+### MD001 conflict fallback
+
+- Group configs by `(scope, toolId, kind)` and emit a conflict when a group has more than one config.
+- Exclude known override pairs (e.g., `AGENTS.override.md` + `AGENTS.md`).
+- If scan warnings include structured conflict details, prefer them and do not recompute.
+
+### MD005 scope awareness
+
+- Only evaluates the scopes present in the scan input. If user/global scope is not scanned, the rule does not fire.
+- Emit one issue per `(toolId, kind)` and include detected paths (redacted) plus candidate repo paths from the registry.
 
 ### Content Read Policy
 
@@ -168,10 +235,33 @@ All v1 rules are metadata-only and based on `scan` output fields. `audit` does *
 
 ---
 
+## Issue Fingerprint
+
+The `fingerprint` field is a deterministic hash to support stable diffs and suppression lists.
+
+Canonical input (sorted):
+- `ruleId`
+- `severity`
+- `paths` (path + scope + pathId)
+- `tools` (toolId + kind)
+- Selected `evidence` fields (rule-specific, stable keys only)
+
+Hash: `sha256` of the canonical JSON representation.
+
+---
+
+## scanWarnings
+
+`scanWarnings` are included only when `--include-scan-warnings` is set.
+
+- If a warning is already represented by an issue, omit it from `scanWarnings` to avoid duplication.
+
+---
+
 ## Error Handling
 
 - Invalid scan JSON or unsupported schema version → fatal error (exit code 2).
-- Unknown rule IDs in `--ignore-rule` → fatal error (exit code 2).
+- Unknown rule IDs in `--ignore-rule` or `--only` → fatal error (exit code 2).
 - When `--input -` is used, empty stdin is a fatal error (exit code 2).
 
 ---
@@ -181,3 +271,6 @@ All v1 rules are metadata-only and based on `scan` output fields. `audit` does *
 - docs/scan-spec-v1.md
 - docs/USER_GUIDE.md
 - docs/architecture/scan.md
+- https://code.visualstudio.com/docs/copilot/customization/custom-instructions
+- https://code.visualstudio.com/docs/copilot/customization/prompt-files
+- https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli
