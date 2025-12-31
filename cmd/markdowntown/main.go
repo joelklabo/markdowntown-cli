@@ -3,6 +3,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"markdowntown-cli/internal/audit"
 	"markdowntown-cli/internal/git"
 	"markdowntown-cli/internal/scan"
 	"markdowntown-cli/internal/version"
@@ -22,6 +24,7 @@ const rootUsage = `markdowntown
 Usage:
   markdowntown                     # Show help (no default command)
   markdowntown scan [flags]        # Scan for AI config files
+  markdowntown audit [flags]       # Audit scan results and report issues
   markdowntown registry validate   # Validate pattern registry
   markdowntown tools list          # List recognized tools
 
@@ -45,6 +48,23 @@ Flags:
   -h, --help            Show help
 `
 
+const auditUsage = `markdowntown audit
+
+Usage:
+  markdowntown audit [flags]
+
+Flags:
+  --input <path|->      Read scan JSON from file or stdin
+  --format <json|md>    Output format (default: json)
+  --compact             Emit compact JSON (no indentation)
+  --ignore-rule <id>    Suppress a rule by ID (repeatable)
+  --exclude <glob>      Exclude matching paths (repeatable)
+  --repo <path>         Repo path (defaults to git root from cwd)
+  --repo-only           Exclude user scope; scan repo only
+  --stdin               Read additional paths from stdin (one per line)
+  -h, --help            Show help
+`
+
 func main() {
 	args := os.Args[1:]
 	if len(args) == 0 {
@@ -62,6 +82,19 @@ func main() {
 	case "scan":
 		if err := runScan(args[1:]); err != nil {
 			exitWithError(err)
+		}
+		return
+	case "audit":
+		code, err := runAudit(args[1:])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			if code == 0 {
+				code = 2
+			}
+			os.Exit(code)
+		}
+		if code != 0 {
+			os.Exit(code)
 		}
 		return
 	case "registry":
@@ -181,6 +214,96 @@ func runScan(args []string) error {
 	return enc.Encode(output)
 }
 
+func runAudit(args []string) (int, error) {
+	flags := flag.NewFlagSet("audit", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+
+	var input string
+	var format string
+	var compact bool
+	var repoPath string
+	var repoOnly bool
+	var readStdin bool
+	var help bool
+	var ignoreRules stringList
+	var excludePaths stringList
+
+	flags.StringVar(&input, "input", "", "scan JSON input file or '-' for stdin")
+	flags.StringVar(&format, "format", "json", "output format (json|md)")
+	flags.BoolVar(&compact, "compact", false, "emit compact JSON")
+	flags.Var(&ignoreRules, "ignore-rule", "suppress rule by ID (repeatable)")
+	flags.Var(&excludePaths, "exclude", "exclude matching paths (repeatable)")
+	flags.StringVar(&repoPath, "repo", "", "repo path (defaults to git root)")
+	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
+	flags.BoolVar(&readStdin, "stdin", false, "read additional paths from stdin")
+	flags.BoolVar(&help, "help", false, "show help")
+	flags.BoolVar(&help, "h", false, "show help")
+
+	if err := flags.Parse(args); err != nil {
+		printAuditUsage(os.Stderr)
+		return 2, err
+	}
+
+	if help {
+		printAuditUsage(os.Stdout)
+		return 0, nil
+	}
+
+	if flags.NArg() > 0 {
+		return 2, fmt.Errorf("unexpected arguments: %s", strings.Join(flags.Args(), " "))
+	}
+
+	format = strings.ToLower(format)
+	if format != "json" && format != "md" {
+		return 2, fmt.Errorf("invalid format: %s", format)
+	}
+
+	if input != "" && readStdin {
+		return 2, fmt.Errorf("--input and --stdin cannot be combined")
+	}
+
+	var scanOutput scan.Output
+	var err error
+	if input != "" {
+		scanOutput, err = readScanInput(input)
+	} else {
+		scanOutput, err = runAuditScan(repoPath, repoOnly, readStdin)
+	}
+	if err != nil {
+		return 2, err
+	}
+
+	engine := audit.Engine{
+		Rules: audit.DefaultRules(),
+		Filters: audit.FilterOptions{
+			IgnoreRules:  []string(ignoreRules),
+			ExcludePaths: []string(excludePaths),
+		},
+	}
+	output, err := engine.Run(scanOutput)
+	if err != nil {
+		return 2, err
+	}
+
+	exitCode := auditExitCode(output)
+	if format == "md" {
+		if err := audit.RenderMarkdown(os.Stdout, output); err != nil {
+			return 2, err
+		}
+		return exitCode, nil
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	if !compact {
+		enc.SetIndent("", "  ")
+	}
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(output); err != nil {
+		return 2, err
+	}
+	return exitCode, nil
+}
+
 func runRegistry(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("registry subcommand required")
@@ -249,6 +372,10 @@ func printScanUsage(w io.Writer) {
 	_, _ = fmt.Fprint(w, scanUsage)
 }
 
+func printAuditUsage(w io.Writer) {
+	_, _ = fmt.Fprint(w, auditUsage)
+}
+
 func resolveRepoRoot(repoPath string) (string, error) {
 	if repoPath != "" {
 		return git.Root(repoPath)
@@ -274,6 +401,101 @@ func readStdinPaths(enabled bool) ([]string, error) {
 		return nil, err
 	}
 	return paths, nil
+}
+
+func readScanInput(path string) (scan.Output, error) {
+	var data []byte
+	var err error
+	if path == "-" {
+		data, err = io.ReadAll(os.Stdin)
+	} else {
+		data, err = os.ReadFile(path)
+	}
+	if err != nil {
+		return scan.Output{}, err
+	}
+	if len(bytes.TrimSpace(data)) == 0 {
+		return scan.Output{}, fmt.Errorf("scan input is empty")
+	}
+	var output scan.Output
+	if err := json.Unmarshal(data, &output); err != nil {
+		return scan.Output{}, err
+	}
+	return output, nil
+}
+
+func runAuditScan(repoPath string, repoOnly bool, readStdin bool) (scan.Output, error) {
+	repoRoot, err := resolveRepoRoot(repoPath)
+	if err != nil {
+		return scan.Output{}, err
+	}
+
+	registry, _, err := scan.LoadRegistry()
+	if err != nil {
+		return scan.Output{}, err
+	}
+
+	stdinPaths, err := readStdinPaths(readStdin)
+	if err != nil {
+		return scan.Output{}, err
+	}
+
+	progress, finish := progressReporter(true)
+	startedAt := time.Now()
+	result, err := scan.Scan(scan.Options{
+		RepoRoot:       repoRoot,
+		RepoOnly:       repoOnly,
+		IncludeContent: false,
+		Progress:       progress,
+		StdinPaths:     stdinPaths,
+		Registry:       registry,
+	})
+	finish()
+	if err != nil {
+		return scan.Output{}, err
+	}
+	result, err = scan.ApplyGitignore(result, repoRoot)
+	if err != nil {
+		return scan.Output{}, err
+	}
+	finishedAt := time.Now()
+
+	timing := scan.Timing{
+		DiscoveryMs: elapsedMs(startedAt, finishedAt),
+		HashingMs:   0,
+		GitignoreMs: 0,
+		TotalMs:     elapsedMs(startedAt, finishedAt),
+	}
+
+	return scan.BuildOutput(result, scan.OutputOptions{
+		SchemaVersion:   version.SchemaVersion,
+		RegistryVersion: registry.Version,
+		ToolVersion:     version.ToolVersion,
+		RepoRoot:        repoRoot,
+		ScanStartedAt:   startedAt.UnixMilli(),
+		GeneratedAt:     finishedAt.UnixMilli(),
+		Timing:          timing,
+	}), nil
+}
+
+func auditExitCode(output audit.Output) int {
+	for _, issue := range output.Issues {
+		if issue.Severity == audit.SeverityError {
+			return 1
+		}
+	}
+	return 0
+}
+
+type stringList []string
+
+func (s *stringList) String() string {
+	return strings.Join(*s, ",")
+}
+
+func (s *stringList) Set(value string) error {
+	*s = append(*s, value)
+	return nil
 }
 
 func progressReporter(enabled bool) (func(string), func()) {
