@@ -77,7 +77,7 @@ func compilePath(kind, raw string) (pathMatcher, error) {
 	case "glob":
 		matchTarget := filepath.ToSlash(expanded)
 		pm.glob = strings.ToLower(matchTarget)
-		if _, err := doublestar.PathMatch(pm.glob, ""); err != nil {
+		if _, err := doublestar.Match(pm.glob, ""); err != nil {
 			return pm, err
 		}
 	case "regex":
@@ -108,7 +108,7 @@ func (pm pathMatcher) Match(absPath, relPath string) (bool, error) {
 	switch pm.kind {
 	case "glob":
 		candidate = strings.ToLower(candidate)
-		return doublestar.PathMatch(pm.glob, candidate)
+		return doublestar.Match(pm.glob, candidate)
 	case "regex":
 		if pm.re == nil {
 			return false, fmt.Errorf("regex matcher not compiled")
