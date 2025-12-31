@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,31 +11,36 @@ import (
 
 	"markdowntown-cli/internal/audit"
 	"markdowntown-cli/internal/scan"
+	"markdowntown-cli/internal/version"
 )
 
 func TestAuditGoldenJSON(t *testing.T) {
 	root := repoRoot(t)
 	repo := setupAuditRepo(t, root)
-	t.Setenv("MARKDOWNTOWN_REGISTRY", filepath.Join(root, "data", "ai-config-patterns.json"))
+	registryPath := filepath.Join(root, "data", "ai-config-patterns.json")
 
-	code, out := runAuditCapture(t, []string{"--repo", repo, "--repo-only", "--format", "json", "--compact"})
-	if code != 1 {
-		t.Fatalf("expected exit code 1, got %d", code)
+	stdout, stderr, exitCode := runAuditCLIWithRegistry(t, root, registryPath, nil, "audit", "--repo", repo, "--repo-only", "--format", "json", "--compact")
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1, got %d (stderr: %s)", exitCode, stderr)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
 	}
 
 	var output audit.Output
-	if err := json.Unmarshal([]byte(out), &output); err != nil {
+	if err := json.Unmarshal([]byte(stdout), &output); err != nil {
 		t.Fatalf("unmarshal output: %v", err)
 	}
-	output.AuditStartedAt = 0
-	output.GeneratedAt = 0
-	output.Input.RepoRoot = "<repoRoot>"
-	output.Input.ScanStartedAt = 0
-	output.Input.ScanGeneratedAt = 0
-	output.Input.Scans = []string{"<repoRoot>"}
+	output.Audit.AuditStartedAt = 0
+	output.Audit.GeneratedAt = 0
+	output.SourceScan.RepoRoot = "<repoRoot>"
+	output.SourceScan.ScanStartedAt = 0
+	output.SourceScan.GeneratedAt = 0
+	output.SourceScan.Scans = []scan.Root{{Scope: "repo", Root: "<repoRoot>", Exists: true}}
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
 	if err := enc.Encode(output); err != nil {
 		t.Fatalf("encode normalized: %v", err)
 	}
@@ -51,22 +55,26 @@ func TestAuditGoldenJSON(t *testing.T) {
 func TestAuditGoldenMarkdown(t *testing.T) {
 	root := repoRoot(t)
 	repo := setupAuditRepo(t, root)
-	t.Setenv("MARKDOWNTOWN_REGISTRY", filepath.Join(root, "data", "ai-config-patterns.json"))
+	registryPath := filepath.Join(root, "data", "ai-config-patterns.json")
 
-	code, out := runAuditCapture(t, []string{"--repo", repo, "--repo-only", "--format", "md"})
-	if code != 1 {
-		t.Fatalf("expected exit code 1, got %d", code)
+	stdout, stderr, exitCode := runAuditCLIWithRegistry(t, root, registryPath, nil, "audit", "--repo", repo, "--repo-only", "--format", "md")
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1, got %d (stderr: %s)", exitCode, stderr)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
 	}
 
 	golden := readFile(t, filepath.Join(root, "testdata", "golden", "audit.md"))
-	if strings.TrimSpace(out) != strings.TrimSpace(string(golden)) {
-		t.Fatalf("audit.md mismatch\nexpected: %s\nactual: %s", strings.TrimSpace(string(golden)), strings.TrimSpace(out))
+	if strings.TrimSpace(stdout) != strings.TrimSpace(string(golden)) {
+		t.Fatalf("audit.md mismatch\nexpected: %s\nactual: %s", strings.TrimSpace(string(golden)), strings.TrimSpace(stdout))
 	}
 }
 
 func TestAuditStdinInput(t *testing.T) {
+	root := repoRoot(t)
 	input := scan.Output{
-		SchemaVersion:   "1.0",
+		SchemaVersion:   version.SchemaVersion,
 		RegistryVersion: "1.0",
 		ToolVersion:     "0.1.0",
 		ScanStartedAt:   1,
@@ -79,22 +87,28 @@ func TestAuditStdinInput(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	code, out := runAuditWithStdin(t, []string{"--input", "-", "--format", "json", "--compact"}, payload)
-	if code != 0 {
-		t.Fatalf("expected exit code 0, got %d", code)
+	registryPath := filepath.Join(root, "data", "ai-config-patterns.json")
+	stdout, stderr, exitCode := runAuditCLIWithRegistry(t, root, registryPath, payload, "audit", "--input", "-", "--format", "json", "--compact")
+	if exitCode != 0 {
+		t.Fatalf("expected exit code 0, got %d (stderr: %s)", exitCode, stderr)
 	}
-	if !strings.Contains(out, "\"schemaVersion\"") {
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if !strings.Contains(stdout, "\"schemaVersion\"") {
 		t.Fatalf("expected schemaVersion in output")
 	}
 }
 
 func TestAuditInvalidInput(t *testing.T) {
-	code, err := runAuditErrorWithStdin(t, []string{"--input", "-", "--format", "json"}, []byte("not-json"))
-	if err == nil {
-		t.Fatalf("expected error")
+	root := repoRoot(t)
+	registryPath := filepath.Join(root, "data", "ai-config-patterns.json")
+	_, stderr, exitCode := runAuditCLIWithRegistry(t, root, registryPath, []byte("not-json"), "audit", "--input", "-", "--format", "json")
+	if exitCode != 1 {
+		t.Fatalf("expected exit code 1 from go run, got %d", exitCode)
 	}
-	if code != 2 {
-		t.Fatalf("expected exit code 2, got %d", code)
+	if !strings.Contains(stderr, "invalid character") {
+		t.Fatalf("expected JSON parse error in stderr, got %q", stderr)
 	}
 }
 
@@ -111,63 +125,43 @@ func setupAuditRepo(t *testing.T, root string) string {
 	return repo
 }
 
-func runAuditCapture(t *testing.T, args []string) (int, string) {
-	code, out, err := runAuditWithStdout(t, args, nil)
-	if err != nil {
-		t.Fatalf("runAudit error: %v", err)
-	}
-	return code, out
-}
+func runAuditCLIWithRegistry(t *testing.T, repoRoot string, registryPath string, stdinPayload []byte, args ...string) (string, string, int) {
+	t.Helper()
 
-func runAuditWithStdin(t *testing.T, args []string, payload []byte) (int, string) {
-	code, out, err := runAuditWithStdout(t, args, payload)
-	if err != nil {
-		t.Fatalf("runAudit error: %v", err)
-	}
-	return code, out
-}
+	cmdArgs := append([]string{"run", "./cmd/markdowntown"}, args...)
+	cmd := exec.Command("go", cmdArgs...)
+	cmd.Dir = repoRoot
 
-func runAuditErrorWithStdin(t *testing.T, args []string, payload []byte) (int, error) {
-	code, _, err := runAuditWithStdout(t, args, payload)
-	return code, err
-}
-
-func runAuditWithStdout(t *testing.T, args []string, stdinPayload []byte) (int, string, error) {
-	stdinReader, stdinWriter, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe stdin: %v", err)
-	}
-	stdoutReader, stdoutWriter, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe stdout: %v", err)
-	}
-
-	oldStdin := os.Stdin
-	oldStdout := os.Stdout
-	os.Stdin = stdinReader
-	os.Stdout = stdoutWriter
-	defer func() {
-		os.Stdin = oldStdin
-		os.Stdout = oldStdout
-	}()
+	homeDir := t.TempDir()
+	cacheDir, modCacheDir := testGoCaches(t)
+	cmd.Env = append(os.Environ(),
+		"MARKDOWNTOWN_REGISTRY="+registryPath,
+		"HOME="+homeDir,
+		"XDG_CONFIG_HOME="+filepath.Join(homeDir, ".config"),
+		"GOCACHE="+cacheDir,
+		"GOMODCACHE="+modCacheDir,
+		"GOFLAGS=-modcacherw",
+	)
 
 	if stdinPayload != nil {
-		go func() {
-			_, _ = stdinWriter.Write(stdinPayload)
-			_ = stdinWriter.Close()
-		}()
-	} else {
-		_ = stdinWriter.Close()
+		cmd.Stdin = bytes.NewReader(stdinPayload)
 	}
 
-	code, err := runAudit(args)
-	_ = stdoutWriter.Close()
+	var stdout strings.Builder
+	var stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
-	outBytes, readErr := io.ReadAll(stdoutReader)
-	if readErr != nil {
-		t.Fatalf("read stdout: %v", readErr)
+	err := cmd.Run()
+	exitCode := 0
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			t.Fatalf("run audit CLI: %v", err)
+		}
 	}
-	return code, strings.TrimSpace(string(outBytes)), err
+	return stdout.String(), stripGoToolNoise(stderr.String()), exitCode
 }
 
 func copyDir(t *testing.T, src, dst string) {
@@ -201,24 +195,4 @@ func readFile(t *testing.T, path string) []byte {
 		t.Fatalf("read file: %v", err)
 	}
 	return bytes.TrimSpace(data)
-}
-
-func repoRoot(t *testing.T) string {
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	for {
-		candidate := filepath.Join(cwd, "data", "ai-config-patterns.json")
-		if _, err := os.Stat(candidate); err == nil {
-			return cwd
-		}
-		parent := filepath.Dir(cwd)
-		if parent == cwd {
-			break
-		}
-		cwd = parent
-	}
-	t.Fatalf("repo root not found")
-	return ""
 }

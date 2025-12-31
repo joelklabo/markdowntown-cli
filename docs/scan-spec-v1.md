@@ -39,7 +39,8 @@ markdowntown tools list          # List recognized tools
 | `--repo` | path | (auto) | Explicit repo root. Required if not in a git repo. |
 | `--repo-only` | bool | false | Exclude user scope; scan repo only. |
 | `-q`, `--quiet` | bool | false | Suppress progress output; JSON only to stdout. |
-| `--include-content` | bool | false | Include file contents in output. |
+| `--include-content` | bool | true | Include file contents in output (default). |
+| `--no-content` | bool | false | Exclude file contents from output. |
 | `--stdin` | bool | false | Read additional paths from stdin (one per line). |
 | `--compact` | bool | false | Output minified JSON instead of pretty-printed. |
 | `--version` | bool | - | Output `markdowntown X.Y.Z (schema A.B.C)` |
@@ -367,7 +368,7 @@ With `--repo-only`, only repo root appears in scans array.
 | `gitignored` | bool | no | Whether file matches .gitignore |
 | `frontmatter` | object | yes | Parsed YAML frontmatter, null if none |
 | `frontmatterError` | string | yes | Error if frontmatter parsing failed |
-| `content` | string | yes | File contents (only with `--include-content`) |
+| `content` | string | yes | File contents (included by default; omitted with `--no-content`) |
 | `contentSkipped` | string | yes | Reason content was skipped (e.g., `"binary"`) |
 | `error` | string | yes | Error code if read failed (e.g., `"EACCES"`) |
 | `warning` | string | yes | Warning if issue detected (e.g., `"empty"`) |
@@ -446,18 +447,18 @@ Configs are sorted deterministically: **scope → depth → path**
 
 ## Content Handling
 
-### --include-content Flag
+### Content Inclusion
 
-When specified, include file contents in the `content` field.
+File contents are included in the `content` field by default. Use `--no-content` to omit content.
 
 ### Frontmatter Parsing
 
-**Always parse frontmatter** regardless of `--include-content` flag:
+**Always parse frontmatter** regardless of `--no-content` flag:
 - Extract YAML frontmatter between `---` delimiters
 - Include entire frontmatter as `frontmatter` object
 - If no frontmatter: `frontmatter: null`
 - If malformed: include file with `frontmatterError` field
-- When `--include-content` is set, `content` is the raw file contents (frontmatter not stripped)
+- When content is included, `content` is the raw file contents (frontmatter not stripped)
 
 ### Binary Files
 
@@ -913,7 +914,7 @@ Allow user-defined patterns in `~/.config/markdowntown/custom-patterns.json`.
 - [ ] Multi-tool files have single entry with tools array (sorted by toolId)
 - [ ] Progress shows live path scanning in TTY mode
 - [ ] Auto-disable progress in non-TTY environments
-- [ ] `--include-content` works with binary file detection
+- [ ] `--include-content`/`--no-content` works with binary file detection
 - [ ] Frontmatter always parsed and included
 - [ ] Exit 1 on fatal error (bad registry, git unavailable)
 - [ ] `markdowntown registry validate` performs full validation with JSON output

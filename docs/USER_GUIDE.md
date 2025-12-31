@@ -17,7 +17,8 @@ Flags:
 - `--repo <path>`: repo path (defaults to git root from cwd)
 - `--repo-only`: exclude user scope (scan repo only)
 - `--stdin`: read additional paths from stdin (one per line)
-- `--include-content`: include file contents in output (use with care for secrets)
+- `--include-content`: include file contents in output (default; use with care for secrets)
+- `--no-content`: exclude file contents from output
 - `--compact`: emit compact JSON (no indentation)
 - `--quiet`: disable progress output
 
@@ -31,7 +32,7 @@ Examples:
 ```bash
 markdowntown scan --repo /path/to/repo --repo-only
 markdowntown scan --stdin < extra-paths.txt
-markdowntown scan --include-content --compact
+markdowntown scan --no-content --compact
 ```
 
 ### `markdowntown audit`
@@ -54,13 +55,14 @@ Flags:
 - `--repo <path>`: repo path (defaults to git root from cwd; internal scan only)
 - `--repo-only`: exclude user scope (scan repo only)
 - `--stdin`: read additional paths from stdin (one per line)
+- `--no-content`: exclude file contents from internal scan
 
 Notes:
 
 - Exit codes: 0 when no issues at/above `--fail-severity` (default `error`), 1 when threshold met, 2 for fatal errors.
 - Repo-scope paths are emitted as `./...`; non-repo paths are redacted to `$HOME/...`, `$XDG_CONFIG_HOME/...`, or `<ABS_PATH_N>` with a `pathId`.
 - `--input` cannot be combined with scan flags (`--repo`, `--repo-only`, `--stdin`).
-- Audit is metadata-only by default; rules avoid reading file contents unless required.
+- Audit reads file contents by default when running an internal scan (content is not emitted in audit output).
 
 Examples:
 

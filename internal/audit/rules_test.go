@@ -33,6 +33,18 @@ func TestRuleConflictEmitsIssue(t *testing.T) {
 	}
 }
 
+func TestRuleConflictSkipsMultiFileKinds(t *testing.T) {
+	entries := []scan.ConfigEntry{
+		configEntry("/home/user/.codex/prompts/alpha.md", "user", "codex", "prompts"),
+		configEntry("/home/user/.codex/prompts/beta.md", "user", "codex", "prompts"),
+	}
+	ctx := testContext(entries, scan.Registry{})
+	issues := ruleConflict(ctx)
+	if len(issues) != 0 {
+		t.Fatalf("expected multi-file kinds to skip conflicts")
+	}
+}
+
 func TestRuleFrontmatterStableMessage(t *testing.T) {
 	errText := "yaml: bad"
 	entry := configEntry("/repo/AGENTS.md", "repo", "codex", "instructions")
@@ -47,6 +59,21 @@ func TestRuleFrontmatterStableMessage(t *testing.T) {
 	}
 	if issues[0].Evidence["frontmatterError"] != errText {
 		t.Fatalf("expected frontmatter error in evidence")
+	}
+}
+
+func TestRuleFrontmatterConflict(t *testing.T) {
+	entryA := configEntry("/home/user/.codex/skills/a/SKILL.md", "user", "codex", "skills")
+	entryA.Frontmatter = map[string]any{"name": "Alpha"}
+	entryB := configEntry("/home/user/.codex/skills/b/SKILL.md", "user", "codex", "skills")
+	entryB.Frontmatter = map[string]any{"name": "alpha"}
+	ctx := testContext([]scan.ConfigEntry{entryA, entryB}, scan.Registry{})
+	issues := ruleFrontmatterConflict(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one conflict issue, got %d", len(issues))
+	}
+	if issues[0].RuleID != "MD007" {
+		t.Fatalf("unexpected rule id: %s", issues[0].RuleID)
 	}
 }
 

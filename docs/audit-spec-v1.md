@@ -4,10 +4,10 @@
 
 **Command**: `markdowntown audit`
 
-`audit` turns a scan inventory into deterministic, actionable issues without modifying files. It is correctness-first: metadata-only by default, explicit about ambiguity, and fail-closed when instruction ordering is undefined.
+`audit` turns a scan inventory into deterministic, actionable issues without modifying files. It is correctness-first: content-aware by default (content is not emitted in output), explicit about ambiguity, and fail-closed when instruction ordering is undefined.
 
 **Implementation**: Go, rule-driven engine
-**First feature**: VS Code + Copilot CLI audit rules, metadata-only
+**First feature**: VS Code + Copilot CLI audit rules, metadata-only output
 
 ## Primary user case (v1)
 
@@ -39,6 +39,7 @@ markdowntown audit [flags]         # Audit scan results and emit issues
 | `--repo` | path | (auto) | Repo root used when audit runs an internal scan. |
 | `--repo-only` | bool | false | Exclude user scope when audit runs an internal scan. |
 | `--stdin` | bool | false | Add extra scan roots from stdin when audit runs an internal scan. |
+| `--no-content` | bool | false | Exclude file contents from the internal scan. |
 
 ### Exit Codes
 
@@ -62,9 +63,10 @@ markdowntown audit [flags]         # Audit scan results and emit issues
 
 1. **From scan JSON**: `--input <file|->`
    - Validates the scan schema before auditing.
-   - Uses only scan metadata and warnings; content is ignored unless a rule explicitly requires it.
+   - Uses scan metadata and warnings; content is used only when a rule explicitly requires it.
 2. **Inline scan** (default):
    - Runs an internal `scan` using `--repo`, `--repo-only`, and `--stdin` flags.
+   - Includes file content by default (use `--no-content` to suppress).
    - Uses the same registry resolution rules as `markdowntown scan`.
 
 When `--input` is provided, scan-related flags are ignored to keep behavior deterministic.
@@ -140,7 +142,7 @@ When `--input` is provided, scan-related flags are ignored to keep behavior dete
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `ruleId` | string | Stable rule identifier (MD001..MD006). |
+| `ruleId` | string | Stable rule identifier (MD001..MD007). |
 | `severity` | enum | `error`, `warning`, `info`. |
 | `title` | string | Short issue label. |
 | `message` | string | Human-readable description. |
@@ -210,18 +212,29 @@ All v1 rules are metadata-only and based on `scan` output fields. `audit` does *
 
 | Rule ID | Severity | Detection | Suggestion |
 | --- | --- | --- | --- |
-| `MD001` | error | Conflicting configs for same `(scope, toolId, kind)` (fallback grouping), or scan conflict warnings when present | Keep exactly one config for the tool/kind/scope. |
+| `MD001` | error | Conflicting configs for same `(scope, toolId, kind)` (fallback grouping), or scan conflict warnings when present. Multi-file kinds (`skills`, `prompts`) are excluded. | Keep exactly one config for the tool/kind/scope. |
 | `MD002` | warning | `configs[].scope == "repo" && configs[].gitignored == true` | Remove from `.gitignore` or relocate. |
 | `MD003` | error | `configs[].frontmatterError != ""` | Fix or remove YAML frontmatter. |
 | `MD004` | warning | `configs[].warning == "empty"` **or** `sizeBytes == 0` | Add meaningful content or delete the file. |
 | `MD005` | info | No repo configs for a `(toolId, kind)` but user/global configs exist | Add a repo-scoped config for consistent behavior. |
 | `MD006` | error/warn | `configs[].error` in (`EACCES`, `ENOENT`, `ERROR`) | Fix permissions or path; repo scope is error, user/global is warning. |
+| `MD007` | warning | Duplicate frontmatter identifiers within multi-file kinds (`skills`, `prompts`) | Ensure frontmatter identifiers are unique or consolidate duplicates. |
 
 ### MD001 conflict fallback
 
 - Group configs by `(scope, toolId, kind)` and emit a conflict when a group has more than one config.
 - Exclude known override pairs (e.g., `AGENTS.override.md` + `AGENTS.md`).
+- Skip kinds that are expected to be multi-file (`skills`, `prompts`).
 - If scan warnings include structured conflict details, prefer them and do not recompute.
+
+### MD007 frontmatter conflict detection
+
+- Applies to multi-file kinds (`skills`, `prompts`) where multiple configs are expected.
+- Extract frontmatter identifiers and normalize values (trim + lowercase).
+  - `skills`: `name`
+  - `prompts`: `name`, `title`, `id`
+- Group configs by `(scope, toolId, kind, key, value)` and emit a warning when a group has more than one config.
+- Uses frontmatter only; does not read file content.
 
 ### MD005 scope awareness
 

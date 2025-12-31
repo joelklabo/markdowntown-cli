@@ -43,7 +43,8 @@ Flags:
   --repo <path>         Repo path (defaults to git root from cwd)
   --repo-only           Exclude user scope; scan repo only
   --stdin               Read additional paths from stdin (one per line)
-  --include-content     Include file contents in output
+  --include-content     Include file contents in output (default)
+  --no-content          Exclude file contents from output
   --compact             Emit compact JSON (no indentation)
   --quiet               Disable progress output
   -h, --help            Show help
@@ -67,6 +68,7 @@ Flags:
   --repo <path>             Repo path (defaults to git root)
   --repo-only               Exclude user scope when running internal scan
   --stdin                   Read additional scan roots from stdin
+  --no-content              Exclude file contents from internal scan
   -h, --help                Show help
 `
 
@@ -125,6 +127,7 @@ func runScan(args []string) error {
 	var repoOnly bool
 	var readStdin bool
 	var includeContent bool
+	var noContent bool
 	var compact bool
 	var quiet bool
 	var help bool
@@ -132,7 +135,8 @@ func runScan(args []string) error {
 	flags.StringVar(&repoPath, "repo", "", "repo path (defaults to git root)")
 	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
 	flags.BoolVar(&readStdin, "stdin", false, "read additional paths from stdin")
-	flags.BoolVar(&includeContent, "include-content", false, "include file contents")
+	flags.BoolVar(&includeContent, "include-content", true, "include file contents")
+	flags.BoolVar(&noContent, "no-content", false, "exclude file contents")
 	flags.BoolVar(&compact, "compact", false, "emit compact JSON")
 	flags.BoolVar(&quiet, "quiet", false, "disable progress output")
 	flags.BoolVar(&help, "help", false, "show help")
@@ -154,6 +158,9 @@ func runScan(args []string) error {
 	repoRoot, err := resolveRepoRoot(repoPath)
 	if err != nil {
 		return err
+	}
+	if noContent {
+		includeContent = false
 	}
 
 	registry, _, err := scan.LoadRegistry()
@@ -224,6 +231,7 @@ func runAudit(args []string) error {
 	var repoPath string
 	var repoOnly bool
 	var readStdin bool
+	var noContent bool
 	var help bool
 	var onlyRules stringList
 	var ignoreRules stringList
@@ -241,6 +249,7 @@ func runAudit(args []string) error {
 	flags.StringVar(&repoPath, "repo", "", "repo path (defaults to git root)")
 	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
 	flags.BoolVar(&readStdin, "stdin", false, "read additional paths from stdin")
+	flags.BoolVar(&noContent, "no-content", false, "exclude file contents from internal scan")
 	flags.BoolVar(&help, "help", false, "show help")
 	flags.BoolVar(&help, "h", false, "show help")
 
@@ -307,7 +316,7 @@ func runAudit(args []string) error {
 		result, err := scan.Scan(scan.Options{
 			RepoRoot:       repoRoot,
 			RepoOnly:       repoOnly,
-			IncludeContent: false,
+			IncludeContent: !noContent,
 			Progress:       progress,
 			StdinPaths:     stdinPaths,
 			Registry:       registry,

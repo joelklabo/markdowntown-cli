@@ -73,6 +73,85 @@ func isAgentsOverridePair(paths []string) bool {
 		(baseA == "agents.override.md" && baseB == "agents.md")
 }
 
+func isMultiFileKind(kind string) bool {
+	switch strings.ToLower(kind) {
+	case "prompts", "skills":
+		return true
+	default:
+		return false
+	}
+}
+
+func frontmatterConflictKeys(kind string) []string {
+	switch strings.ToLower(kind) {
+	case "skills":
+		return []string{"name"}
+	case "prompts":
+		return []string{"name", "title", "id"}
+	default:
+		return nil
+	}
+}
+
+func frontmatterValues(frontmatter map[string]any, key string) []string {
+	if len(frontmatter) == 0 {
+		return nil
+	}
+	var value any
+	for k, v := range frontmatter {
+		if strings.EqualFold(k, key) {
+			value = v
+			break
+		}
+	}
+	if value == nil {
+		return nil
+	}
+
+	switch typed := value.(type) {
+	case string:
+		normalized := normalizeFrontmatterValue(typed)
+		if normalized == "" {
+			return nil
+		}
+		return []string{normalized}
+	case []string:
+		return normalizeFrontmatterSlice(typed)
+	case []any:
+		var values []string
+		for _, raw := range typed {
+			str, ok := raw.(string)
+			if !ok {
+				continue
+			}
+			normalized := normalizeFrontmatterValue(str)
+			if normalized == "" {
+				continue
+			}
+			values = append(values, normalized)
+		}
+		return values
+	default:
+		return nil
+	}
+}
+
+func normalizeFrontmatterSlice(values []string) []string {
+	var normalized []string
+	for _, value := range values {
+		value = normalizeFrontmatterValue(value)
+		if value == "" {
+			continue
+		}
+		normalized = append(normalized, value)
+	}
+	return normalized
+}
+
+func normalizeFrontmatterValue(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
+}
+
 func dedupePaths(paths []Path) []Path {
 	seen := make(map[string]struct{})
 	unique := make([]Path, 0, len(paths))

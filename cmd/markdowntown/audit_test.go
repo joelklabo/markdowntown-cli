@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"markdowntown-cli/internal/audit"
@@ -116,12 +117,14 @@ func runAuditCLI(t *testing.T, repoRoot string, args ...string) (string, string,
 	cmd.Dir = repoRoot
 
 	homeDir := t.TempDir()
-	cacheDir := t.TempDir()
+	cacheDir, modCacheDir := testGoCaches(t)
 	cmd.Env = append(os.Environ(),
 		"MARKDOWNTOWN_REGISTRY="+registryPath,
 		"HOME="+homeDir,
 		"XDG_CONFIG_HOME="+filepath.Join(homeDir, ".config"),
 		"GOCACHE="+cacheDir,
+		"GOMODCACHE="+modCacheDir,
+		"GOFLAGS=-modcacherw",
 	)
 
 	var stdout strings.Builder
@@ -139,7 +142,7 @@ func runAuditCLI(t *testing.T, repoRoot string, args ...string) (string, string,
 		}
 	}
 
-	return stdout.String(), stderr.String(), exitCode
+	return stdout.String(), stripGoToolNoise(stderr.String()), exitCode
 }
 
 func repoRoot(t *testing.T) string {
@@ -148,7 +151,19 @@ func repoRoot(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
 	}
-	return filepath.Dir(cwd)
+	for {
+		candidate := filepath.Join(cwd, "data", "ai-config-patterns.json")
+		if _, err := os.Stat(candidate); err == nil {
+			return cwd
+		}
+		parent := filepath.Dir(cwd)
+		if parent == cwd {
+			break
+		}
+		cwd = parent
+	}
+	t.Fatalf("repo root not found")
+	return ""
 }
 
 func normalizeOutput(t *testing.T, data []byte) audit.Output {
@@ -179,4 +194,45 @@ func assertOutputsEqual(t *testing.T, got audit.Output, want audit.Output) {
 	gotJSON, _ := json.MarshalIndent(got, "", "  ")
 	wantJSON, _ := json.MarshalIndent(want, "", "  ")
 	t.Fatalf("audit output mismatch\n--- got ---\n%s\n--- want ---\n%s", string(gotJSON), string(wantJSON))
+}
+
+func stripGoToolNoise(stderr string) string {
+	lines := strings.Split(stderr, "\n")
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "go: ") {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "exit status ") {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.Join(kept, "\n")
+}
+
+var (
+	sharedGoCacheDir string
+	sharedModCache   string
+	sharedCacheOnce  sync.Once
+)
+
+func testGoCaches(t *testing.T) (string, string) {
+	t.Helper()
+	sharedCacheOnce.Do(func() {
+		var err error
+		sharedGoCacheDir, err = os.MkdirTemp("", "markdowntown-gocache-*")
+		if err != nil {
+			t.Fatalf("make gocache: %v", err)
+		}
+		sharedModCache, err = os.MkdirTemp("", "markdowntown-modcache-*")
+		if err != nil {
+			t.Fatalf("make modcache: %v", err)
+		}
+	})
+	return sharedGoCacheDir, sharedModCache
 }

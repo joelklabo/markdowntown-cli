@@ -5,15 +5,20 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"markdowntown-cli/internal/scan"
+	"markdowntown-cli/internal/version"
 )
 
 func TestAuditCLI(t *testing.T) {
+	root := repoRoot(t)
+	t.Setenv("MARKDOWNTOWN_REGISTRY", filepath.Join(root, "data", "ai-config-patterns.json"))
+
 	input := scan.Output{
-		SchemaVersion:   "1.0",
+		SchemaVersion:   version.SchemaVersion,
 		RegistryVersion: "1.0",
 		ToolVersion:     "0.1.0",
 		ScanStartedAt:   1,
@@ -51,13 +56,10 @@ func TestAuditCLI(t *testing.T) {
 		_ = stdinWriter.Close()
 	}()
 
-	code, err := runAudit([]string{"--input", "-", "--format", "json", "--compact"})
+	err = runAudit([]string{"--input", "-", "--format", "json", "--compact"})
 	_ = stdoutWriter.Close()
 	if err != nil {
 		t.Fatalf("runAudit error: %v", err)
-	}
-	if code != 0 {
-		t.Fatalf("expected exit code 0, got %d", code)
 	}
 
 	outBytes, err := io.ReadAll(stdoutReader)

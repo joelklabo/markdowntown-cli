@@ -19,6 +19,9 @@ func NewEngine(redactor *Redactor) *Engine {
 
 // NormalizeIssues sorts nested fields, applies fingerprints, and sorts the issue list.
 func (e *Engine) NormalizeIssues(issues []Issue) []Issue {
+	if issues == nil {
+		return []Issue{}
+	}
 	for i := range issues {
 		sortPaths(issues[i].Paths)
 		sortTools(issues[i].Tools)

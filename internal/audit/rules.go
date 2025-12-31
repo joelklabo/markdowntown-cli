@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"markdowntown-cli/internal/scan"
 )
@@ -31,6 +32,7 @@ func DefaultRules() []Rule {
 		{ID: "MD004", Severity: SeverityWarning, Run: ruleEmpty},
 		{ID: "MD005", Severity: SeverityInfo, Run: ruleNoRepoConfig},
 		{ID: "MD006", Severity: SeverityWarning, Run: ruleUnreadable},
+		{ID: "MD007", Severity: SeverityWarning, Run: ruleFrontmatterConflict},
 	}
 }
 
@@ -55,6 +57,9 @@ func ruleConflict(ctx Context) []Issue {
 	var issues []Issue
 	for key, entries := range groups {
 		if len(entries) <= 1 {
+			continue
+		}
+		if isMultiFileKind(key.Kind) {
 			continue
 		}
 		paths := make([]string, 0, len(entries))
@@ -86,6 +91,97 @@ func ruleConflict(ctx Context) []Issue {
 		}
 		issues = append(issues, issue)
 	}
+	return issues
+}
+
+func ruleFrontmatterConflict(ctx Context) []Issue {
+	type conflictKey struct {
+		ToolID string
+		Scope  string
+		Kind   string
+		Field  string
+		Value  string
+	}
+
+	groups := make(map[conflictKey][]scan.ConfigEntry)
+	for _, entry := range ctx.Scan.Configs {
+		if len(entry.Frontmatter) == 0 {
+			continue
+		}
+		for _, tool := range entry.Tools {
+			keys := frontmatterConflictKeys(tool.Kind)
+			if len(keys) == 0 {
+				continue
+			}
+			for _, key := range keys {
+				values := frontmatterValues(entry.Frontmatter, key)
+				for _, value := range values {
+					groupKey := conflictKey{
+						ToolID: tool.ToolID,
+						Scope:  entry.Scope,
+						Kind:   tool.Kind,
+						Field:  key,
+						Value:  value,
+					}
+					groups[groupKey] = append(groups[groupKey], entry)
+				}
+			}
+		}
+	}
+
+	var issues []Issue
+	for key, entries := range groups {
+		if len(entries) <= 1 {
+			continue
+		}
+		paths := make([]Path, 0, len(entries))
+		for _, entry := range entries {
+			paths = append(paths, redactPath(ctx, entry.Path, entry.Scope))
+		}
+		paths = dedupePaths(paths)
+		if len(paths) == 0 {
+			continue
+		}
+		displayValue := key.Value
+		if displayValue == "" {
+			continue
+		}
+		issue := Issue{
+			RuleID:     "MD007",
+			Severity:   SeverityWarning,
+			Title:      "Duplicate frontmatter value",
+			Message:    fmt.Sprintf("Multiple %s configs for %s share %s=%q in %s scope.", key.Kind, key.ToolID, key.Field, displayValue, key.Scope),
+			Suggestion: "Ensure frontmatter identifiers are unique or consolidate duplicate configs.",
+			Paths:      paths,
+			Tools:      []Tool{{ToolID: key.ToolID, Kind: key.Kind}},
+			Evidence: map[string]any{
+				"scope": key.Scope,
+				"tool":  key.ToolID,
+				"kind":  key.Kind,
+				"field": key.Field,
+				"value": displayValue,
+				"count": len(entries),
+			},
+		}
+		issues = append(issues, issue)
+	}
+
+	sort.SliceStable(issues, func(i, j int) bool {
+		if issues[i].Tools[0].ToolID != issues[j].Tools[0].ToolID {
+			return issues[i].Tools[0].ToolID < issues[j].Tools[0].ToolID
+		}
+		if issues[i].Tools[0].Kind != issues[j].Tools[0].Kind {
+			return issues[i].Tools[0].Kind < issues[j].Tools[0].Kind
+		}
+		if issues[i].Paths[0].Scope != issues[j].Paths[0].Scope {
+			return issues[i].Paths[0].Scope < issues[j].Paths[0].Scope
+		}
+		if issues[i].Paths[0].Path != issues[j].Paths[0].Path {
+			return issues[i].Paths[0].Path < issues[j].Paths[0].Path
+		}
+		return strings.Compare(issues[i].Message, issues[j].Message) < 0
+	})
+
 	return issues
 }
 

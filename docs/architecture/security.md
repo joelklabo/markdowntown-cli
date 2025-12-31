@@ -2,7 +2,7 @@
 
 ## Scope and Data Handling
 - Scans only local filesystem paths; no network access during `scan`.
-- Output may include sensitive paths and file contents when `--include-content` is used.
+- Output includes file contents by default; use `--no-content` to suppress content in JSON output.
 - Prefer `--repo-only` in shared environments to avoid scanning user home directories.
 
 ## Symlinks and Path Traversal
@@ -17,7 +17,7 @@
 
 ## Resource Usage
 - There is no size limit for file reads or hashing; large files can increase memory and CPU use.
-- Use `--include-content` only when content is required for downstream workflows.
+- Use `--no-content` in shared environments or when content is not required for downstream workflows.
 
 ## Operational Guardrails
 - Run scans with least privilege.

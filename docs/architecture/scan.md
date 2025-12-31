@@ -34,7 +34,7 @@
    - Compute SHA256 (raw bytes).
    - Detect binary content via content type.
    - Parse YAML frontmatter from raw content.
-   - Optionally include full content when `--include-content` is set.
+   - Include full content by default; disable with `--no-content`.
 6. Gitignore checks:
    - Batch `git check-ignore` calls.
    - Annotate each config entry with gitignored boolean.
