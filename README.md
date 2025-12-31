@@ -129,9 +129,10 @@ See `docs/USER_GUIDE.md` for detailed output schema and examples.
 
 ## Audit highlights
 
-- Supports `--format json|md` and `--input <file|->` for scan JSON reuse.
-- Exit codes: 0 (no error-severity issues), 1 (error-severity issues), 2 (fatal error).
-- User-scope paths are redacted in audit output to avoid leaking home directory names.
+- Supports `--format json|md`, `--input <file|->`, and deterministic ordering.
+- Exit codes: 0 when no issues at/above `--fail-severity` (default `error`), 1 when threshold met, 2 for fatal errors.
+- Redaction modes via `--redact`; non-repo paths use `$HOME/...`, `$XDG_CONFIG_HOME/...`, or `<ABS_PATH_N>` with a `pathId`.
+- Filter rules with `--only`/`--ignore-rule`, exclude paths with `--exclude`, and include scan warnings with `--include-scan-warnings`.
 
 Audit rules surface actionable issues such as empty instructions, frontmatter errors, gitignored configs, missing instructions, and required settings.
 
