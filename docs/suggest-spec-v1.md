@@ -157,6 +157,15 @@ markdowntown audit [flags]     # Report conflicts/omissions and source coverage
 
 ---
 
+## Security Notes
+
+- Only HTTPS sources are fetched; redirects to non-HTTPS or non-allowlisted hosts are rejected.
+- Source registry hosts are strict hostnames (no schemes/paths); source URLs must be allowlisted and path-safe.
+- The CLI never accepts secrets via flags. Future authenticated sources must use environment variables or files.
+- Cache and snapshot paths must be sanitized to prevent traversal (derive paths from hashed URLs, not raw input).
+
+---
+
 ## Client Coverage (v1)
 
 - Codex (primary)
