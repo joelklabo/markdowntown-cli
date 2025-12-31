@@ -200,11 +200,6 @@ func buildSuggestReport(ctx context.Context, client instructions.Client, opts su
 		GeneratedAt: time.Now().UnixMilli(),
 	}
 
-	if opts.Offline {
-		report.Warnings = append(report.Warnings, "offline mode enabled; no fetch performed")
-		return report, nil
-	}
-
 	sources, err := loadSourcesForClient(client)
 	if err != nil {
 		return report, err
@@ -214,8 +209,23 @@ func buildSuggestReport(ctx context.Context, client instructions.Client, opts su
 		return report, nil
 	}
 
-	cache := newMemoryCache()
-	store := newMemoryMetadataStore()
+	cache := newFileCache(&report)
+	if opts.Offline {
+		report.Warnings = append(report.Warnings, "offline mode enabled; using cached data only")
+		claims := loadClaimsFromCache(&report, sources, cache)
+		summary := suggest.GenerateSuggestions(claims, sources.byID)
+		report.Suggestions = summary.Suggestions
+		report.Conflicts = summary.Conflicts
+		report.Omissions = summary.Omissions
+		if !opts.Explain {
+			for i := range report.Suggestions {
+				report.Suggestions[i].Proof = suggest.Proof{}
+			}
+		}
+		return report, nil
+	}
+
+	store := newMetadataStore(&report, opts.Refresh)
 	fetcher, err := suggest.NewFetcher(suggest.FetcherOptions{Allowlist: sources.allowlist, Store: store, Cache: cache})
 	if err != nil {
 		return report, err
@@ -238,10 +248,18 @@ func buildSuggestReport(ctx context.Context, client instructions.Client, opts su
 			}
 		}
 		if len(res.Body) == 0 {
-			report.Warnings = append(report.Warnings, fmt.Sprintf("fetch %s returned empty body", src.URL))
+			if res.NotModified {
+				report.Warnings = append(report.Warnings, fmt.Sprintf("fetch %s not modified but cache missing", src.URL))
+			} else {
+				report.Warnings = append(report.Warnings, fmt.Sprintf("fetch %s returned empty body", src.URL))
+			}
 			continue
 		}
-		cache.Put(src.URL, res.Body)
+		if cache != nil {
+			if err := cache.Put(src.URL, res.Body); err != nil {
+				report.Warnings = append(report.Warnings, fmt.Sprintf("cache %s write failed: %v", src.URL, err))
+			}
+		}
 
 		format := formatFromURL(src.URL)
 		doc, err := suggest.NormalizeDocument(string(res.Body), format)
@@ -265,6 +283,85 @@ func buildSuggestReport(ctx context.Context, client instructions.Client, opts su
 	}
 
 	return report, nil
+}
+
+type cacheWriter interface {
+	suggest.Cache
+	Put(url string, payload []byte) error
+}
+
+type metadataWriter struct {
+	store     *suggest.MetadataFileStore
+	ignoreGet bool
+}
+
+func (m metadataWriter) Get(id, url string) (suggest.MetadataRecord, bool) {
+	if m.store == nil || m.ignoreGet {
+		return suggest.MetadataRecord{}, false
+	}
+	return m.store.Get(id, url)
+}
+
+func (m metadataWriter) Put(record suggest.MetadataRecord) {
+	if m.store == nil {
+		return
+	}
+	m.store.Put(record)
+}
+
+func (m metadataWriter) Save() error {
+	if m.store == nil {
+		return nil
+	}
+	return m.store.Save()
+}
+
+func newMetadataStore(report *suggest.SuggestReport, refresh bool) suggest.MetadataWriter {
+	path, err := suggest.MetadataPath()
+	if err != nil {
+		report.Warnings = append(report.Warnings, fmt.Sprintf("metadata path failed: %v", err))
+		return nil
+	}
+	store, err := suggest.LoadMetadataStore(path)
+	if err != nil {
+		report.Warnings = append(report.Warnings, fmt.Sprintf("metadata load failed: %v", err))
+		return nil
+	}
+	return metadataWriter{store: store, ignoreGet: refresh}
+}
+
+func newFileCache(report *suggest.SuggestReport) cacheWriter {
+	cache, err := suggest.NewFileCache()
+	if err != nil {
+		report.Warnings = append(report.Warnings, fmt.Sprintf("cache init failed: %v", err))
+		return nil
+	}
+	return cache
+}
+
+func loadClaimsFromCache(report *suggest.SuggestReport, sources sourcesByClient, cache suggest.Cache) []suggest.Claim {
+	if cache == nil {
+		report.Warnings = append(report.Warnings, "offline cache unavailable; no cached bodies found")
+		return nil
+	}
+
+	var claims []suggest.Claim
+	for _, src := range sources.sources {
+		body, ok := cache.Get(src.URL)
+		if !ok {
+			report.Warnings = append(report.Warnings, fmt.Sprintf("cache miss for %s", src.URL))
+			continue
+		}
+		format := formatFromURL(src.URL)
+		doc, err := suggest.NormalizeDocument(string(body), format)
+		if err != nil {
+			report.Warnings = append(report.Warnings, fmt.Sprintf("normalize %s failed: %v", src.URL, err))
+			continue
+		}
+		snapshotID := "sha256:" + scanhash.SumHex(body)
+		claims = append(claims, suggest.ExtractClaims(doc, src, snapshotID)...)
+	}
+	return claims
 }
 
 type sourcesByClient struct {
@@ -301,44 +398,6 @@ func formatFromURL(rawURL string) string {
 	default:
 		return "markdown"
 	}
-}
-
-type memoryMetadataStore struct {
-	records map[string]suggest.MetadataRecord
-}
-
-func newMemoryMetadataStore() *memoryMetadataStore {
-	return &memoryMetadataStore{records: map[string]suggest.MetadataRecord{}}
-}
-
-func (m *memoryMetadataStore) Get(id, url string) (suggest.MetadataRecord, bool) {
-	record, ok := m.records[id+"|"+url]
-	return record, ok
-}
-
-func (m *memoryMetadataStore) Put(record suggest.MetadataRecord) {
-	m.records[record.ID+"|"+record.URL] = record
-}
-
-func (m *memoryMetadataStore) Save() error {
-	return nil
-}
-
-type memoryCache struct {
-	payloads map[string][]byte
-}
-
-func newMemoryCache() *memoryCache {
-	return &memoryCache{payloads: map[string][]byte{}}
-}
-
-func (m *memoryCache) Get(url string) ([]byte, bool) {
-	payload, ok := m.payloads[url]
-	return payload, ok
-}
-
-func (m *memoryCache) Put(url string, payload []byte) {
-	m.payloads[url] = payload
 }
 
 func parseClient(value string) (instructions.Client, error) {

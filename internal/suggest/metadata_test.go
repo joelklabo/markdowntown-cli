@@ -71,3 +71,38 @@ func TestMetadataLoadInvalidJSON(t *testing.T) {
 		t.Fatalf("expected error for invalid json")
 	}
 }
+
+func TestMetadataFileStoreGetPut(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "metadata.json")
+	store, err := LoadMetadataStore(path)
+	if err != nil {
+		t.Fatalf("load store: %v", err)
+	}
+
+	record := MetadataRecord{
+		ID:             "src",
+		URL:            "https://example.com/docs",
+		ETag:           "etag-1",
+		LastModified:   "now",
+		LastVerifiedAt: 123,
+	}
+	store.Put(record)
+	if err := store.Save(); err != nil {
+		t.Fatalf("save store: %v", err)
+	}
+
+	loaded, err := LoadMetadataStore(path)
+	if err != nil {
+		t.Fatalf("reload store: %v", err)
+	}
+	got, ok := loaded.Get(record.ID, record.URL)
+	if !ok {
+		t.Fatalf("expected record")
+	}
+	if got.ETag != record.ETag {
+		t.Fatalf("unexpected etag: %s", got.ETag)
+	}
+	if got.LastVerifiedAt != record.LastVerifiedAt {
+		t.Fatalf("unexpected last verified: %d", got.LastVerifiedAt)
+	}
+}
