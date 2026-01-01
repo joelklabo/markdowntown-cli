@@ -3,9 +3,10 @@ SHELL := /bin/sh
 BINARY_NAME ?= markdowntown
 BIN_DIR ?= bin
 GO ?= go
+PYTHON ?= python3
 GOLANGCI_LINT ?= golangci-lint
 
-.PHONY: build test lint fmt check clean install coverage coverage-html release snapshot run watch dev
+.PHONY: build test lint fmt check clean install coverage coverage-report coverage-html release snapshot run watch dev
 
 build:
 	@mkdir -p $(BIN_DIR)
@@ -31,6 +32,9 @@ install:
 
 coverage:
 	$(GO) test -coverprofile=coverage.out ./...
+
+coverage-report:
+	$(PYTHON) scripts/coverage_report.py coverage.out
 
 coverage-html: coverage
 	$(GO) tool cover -html=coverage.out -o coverage.html

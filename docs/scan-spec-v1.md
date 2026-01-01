@@ -770,6 +770,7 @@ markdowntown/
 | `make clean` | Remove build artifacts |
 | `make install` | Install to GOPATH/bin |
 | `make coverage` | Run tests with coverage |
+| `make coverage-report` | Print per-package coverage from `coverage.out` |
 | `make coverage-html` | Generate HTML coverage report |
 | `make release` | Build release with goreleaser |
 | `make snapshot` | Build snapshot release (no publish) |
@@ -851,7 +852,7 @@ Triggered on version tags.
 ### Coverage
 
 - **80%+ required** - CI fails if below threshold
-- Per-package coverage tracking
+- Per-package coverage tracking via `scripts/coverage_report.py` (`make coverage-report`)
 - HTML reports via `make coverage-html`
 
 ### Version Checks

@@ -111,7 +111,6 @@ func TestFetcherConditionalGETUsesCache(t *testing.T) {
 	fetcher, err := NewFetcher(FetcherOptions{
 		Client:    server.Client(),
 		Allowlist: []string{parsed.Hostname()},
-		Client:    server.Client(),
 		Store:     store,
 		Cache:     cache,
 		Now:       func() time.Time { return time.Unix(1, 0) },

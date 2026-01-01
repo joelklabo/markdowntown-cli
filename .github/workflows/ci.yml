@@ -33,29 +33,7 @@ jobs:
         shell: bash
         run: |
           go test -coverprofile=coverage.out ./...
-          python - <<'PY'
-          import re
-          import subprocess
-          import sys
-
-          out = subprocess.check_output([
-              "go",
-              "tool",
-              "cover",
-              "-func=coverage.out",
-          ], text=True)
-          print(out)
-          match = re.search(r"total:\s+\(statements\)\s+([0-9.]+)%", out)
-          if not match:
-              print("coverage total not found", file=sys.stderr)
-              sys.exit(1)
-          total = float(match.group(1))
-          required = 80.0
-          if total < required:
-              print(f"coverage {total:.2f}% < {required:.2f}%", file=sys.stderr)
-              sys.exit(1)
-          print(f"coverage {total:.2f}% >= {required:.2f}%")
-          PY
+          python scripts/coverage_report.py coverage.out --min 80
       - name: Build
         run: go build ./cmd/markdowntown
 
