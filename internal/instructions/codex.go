@@ -419,8 +419,8 @@ func relativeFromRoot(root, target string) (string, bool) {
 		}
 	}
 
-	rootNorm := filepath.ToSlash(rootClean)
-	targetNorm := filepath.ToSlash(targetClean)
+	rootNorm := normalizePathForCompare(rootClean)
+	targetNorm := normalizePathForCompare(targetClean)
 	rootCompare := rootNorm
 	targetCompare := targetNorm
 	if runtime.GOOS == "windows" {
@@ -444,4 +444,16 @@ func relativeFromRoot(root, target string) (string, bool) {
 	}
 
 	return "", false
+}
+
+func normalizePathForCompare(value string) string {
+	normalized := filepath.ToSlash(filepath.Clean(value))
+	if runtime.GOOS == "windows" {
+		if strings.HasPrefix(normalized, "//?/") {
+			normalized = strings.TrimPrefix(normalized, "//?/")
+		} else if strings.HasPrefix(normalized, "//./") {
+			normalized = strings.TrimPrefix(normalized, "//./")
+		}
+	}
+	return normalized
 }

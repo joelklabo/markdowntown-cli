@@ -240,7 +240,7 @@ func matchesAnyPattern(rawPath, repoRoot string, patterns []string) (bool, error
 
 func pathCandidates(rawPath, repoRoot string) []string {
 	pathValue := filepath.Clean(rawPath)
-	if !filepath.IsAbs(pathValue) {
+	if !isAbsPath(pathValue) {
 		if resolved, err := filepath.Abs(pathValue); err == nil {
 			pathValue = resolved
 		}
@@ -264,7 +264,7 @@ func pathCandidates(rawPath, repoRoot string) []string {
 
 func redactWarningPath(redactor *Redactor, repoRoot, rawPath string) string {
 	pathValue := filepath.Clean(rawPath)
-	if !filepath.IsAbs(pathValue) {
+	if !isAbsPath(pathValue) {
 		if resolved, err := filepath.Abs(pathValue); err == nil {
 			pathValue = resolved
 		}

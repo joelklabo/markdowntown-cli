@@ -46,7 +46,7 @@ func NewRedactor(repoRoot, homeDir, xdgConfigHome string, mode RedactMode) *Reda
 // RedactPath returns a redacted Path description for the provided scope.
 func (r *Redactor) RedactPath(path, scope string) Path {
 	absPath := filepath.Clean(path)
-	if !filepath.IsAbs(absPath) {
+	if !isAbsPath(absPath) {
 		if resolved, err := filepath.Abs(absPath); err == nil {
 			absPath = resolved
 		}
@@ -134,6 +134,13 @@ func isWithin(path, root string) bool {
 	}
 	_, ok := relativePath(root, path)
 	return ok
+}
+
+func isAbsPath(path string) bool {
+	if filepath.IsAbs(path) {
+		return true
+	}
+	return strings.HasPrefix(path, "/")
 }
 
 func hashPathID(path string) string {
