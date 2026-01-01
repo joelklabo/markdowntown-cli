@@ -1,3 +1,5 @@
+version: 2
+
 project_name: markdowntown
 
 before:
@@ -19,13 +21,21 @@ builds:
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
 
 archives:
-  - format: tar.gz
+  - id: default
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     files:
       - src: data/ai-config-patterns.json
         dst: ai-config-patterns.json
@@ -36,7 +46,7 @@ checksum:
   name_template: checksums.txt
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-snapshot"
+  version_template: "{{ incpatch .Version }}-snapshot"
 
 changelog:
   sort: asc

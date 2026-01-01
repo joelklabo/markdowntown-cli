@@ -57,3 +57,25 @@ make check
 ```
 
 CI must always be green before merging or releasing changes.
+
+### Release workflow (goreleaser)
+
+Install goreleaser (choose one):
+
+```bash
+brew install goreleaser
+```
+
+```bash
+go install github.com/goreleaser/goreleaser/v2@latest
+```
+
+Build a local snapshot release (no publish):
+
+```bash
+make snapshot
+```
+
+Release tags are published by GitHub Actions when you push a `vX.Y.Z` tag.
+Run `make release` locally only if you intend to publish and have a valid
+`GITHUB_TOKEN` with repo write access.

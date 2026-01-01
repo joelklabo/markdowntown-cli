@@ -935,4 +935,4 @@ Allow user-defined patterns in `~/.config/markdowntown/custom-patterns.json`.
 - [ ] Makefile provides all dev/CI targets
 - [x] Pre-commit hooks via lefthook
 - [ ] CI matrix covers Go 1.22+1.23 × all OS × all arch
-- [ ] goreleaser produces release binaries
+- [x] goreleaser produces release binaries
