@@ -41,14 +41,14 @@ func TestClaudeAdapterMemoryPrecedence(t *testing.T) {
 		t.Fatalf("expected deterministic order, got %s", res.OrderGuarantee)
 	}
 
-	paths := map[string]struct{}{}
+	paths := make([]string, 0, len(res.Applied))
 	for _, file := range res.Applied {
-		paths[file.Path] = struct{}{}
+		paths = append(paths, file.Path)
 	}
 
 	expected := []string{userClaude, projectClaude, subClaude, localClaude}
 	for _, path := range expected {
-		if _, ok := paths[path]; !ok {
+		if !containsSamePath(paths, path) {
 			t.Fatalf("expected %s in applied list", path)
 		}
 	}
@@ -91,15 +91,15 @@ func TestClaudeAdapterImports(t *testing.T) {
 		t.Fatalf("resolve: %v", err)
 	}
 
-	paths := map[string]struct{}{}
+	paths := make([]string, 0, len(res.Applied))
 	for _, file := range res.Applied {
-		paths[file.Path] = struct{}{}
+		paths = append(paths, file.Path)
 	}
 
-	if _, ok := paths[baseRule]; !ok {
+	if !containsSamePath(paths, baseRule) {
 		t.Fatalf("expected base rule applied")
 	}
-	if _, ok := paths[childRule]; !ok {
+	if !containsSamePath(paths, childRule) {
 		t.Fatalf("expected child rule applied")
 	}
 

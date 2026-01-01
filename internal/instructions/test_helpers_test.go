@@ -36,6 +36,15 @@ func samePath(a, b string) bool {
 	return false
 }
 
+func containsSamePath(paths []string, want string) bool {
+	for _, path := range paths {
+		if samePath(path, want) {
+			return true
+		}
+	}
+	return false
+}
+
 func writeTestFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {

@@ -31,6 +31,7 @@ applyTo:
 body`)
 	writeTestFile(t, filepath.Join(repo, "AGENTS.md"), "root agent")
 	writeTestFile(t, filepath.Join(repo, "sub", "AGENTS.md"), "nested agent")
+	writeTestFile(t, filepath.Join(repo, "src", "main.go"), "package main")
 
 	settings := map[string]bool{
 		vsCodeInstructionSetting: true,
