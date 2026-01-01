@@ -1,0 +1,13 @@
+$ make coverage
+exit: 0
+stdout:
+go test -coverprofile=coverage.out ./...
+ok  	markdowntown-cli/cmd/markdowntown	(cached)	coverage: 79.3% of statements
+ok  	markdowntown-cli/internal/audit	(cached)	coverage: 82.1% of statements
+ok  	markdowntown-cli/internal/git	(cached)	coverage: 80.6% of statements
+ok  	markdowntown-cli/internal/hash	(cached)	coverage: 100.0% of statements
+ok  	markdowntown-cli/internal/instructions	(cached)	coverage: 81.1% of statements
+ok  	markdowntown-cli/internal/scan	(cached)	coverage: 78.9% of statements
+ok  	markdowntown-cli/internal/suggest	(cached)	coverage: 80.4% of statements
+?   	markdowntown-cli/internal/version	[no test files]
+stderr:

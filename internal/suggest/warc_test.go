@@ -70,3 +70,24 @@ func TestWARCIndex(t *testing.T) {
 		t.Fatalf("expected record id %s", info.RecordID)
 	}
 }
+
+func TestWARCWriterMetadata(t *testing.T) {
+	buf := &bytes.Buffer{}
+	writer := NewWARCWriter(buf)
+
+	info, err := writer.WriteMetadata("https://example.com/meta", []byte(`{"ok":true}`))
+	if err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+	if info.Type != "metadata" {
+		t.Fatalf("expected metadata type, got %s", info.Type)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "WARC-Type: metadata") {
+		t.Fatalf("expected metadata record")
+	}
+	if !strings.Contains(output, "Content-Type: application/json") {
+		t.Fatalf("expected json content type")
+	}
+}

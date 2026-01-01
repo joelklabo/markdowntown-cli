@@ -87,6 +87,27 @@ func TestGeminiAdapterCustomFilenames(t *testing.T) {
 	}
 }
 
+func TestGeminiIgnoreMatch(t *testing.T) {
+	patterns := []string{
+		"docs/",
+		"*.md",
+		"notes.txt",
+	}
+
+	if !geminiIgnoreMatch("docs/readme.md", patterns) {
+		t.Fatalf("expected directory prefix match")
+	}
+	if !geminiIgnoreMatch("file.md", patterns) {
+		t.Fatalf("expected glob match")
+	}
+	if !geminiIgnoreMatch("notes.txt", patterns) {
+		t.Fatalf("expected exact match")
+	}
+	if geminiIgnoreMatch("file.txt", patterns) {
+		t.Fatalf("did not expect match")
+	}
+}
+
 func initGitRepo(t *testing.T, dir string) {
 	t.Helper()
 	cmd := exec.Command("git", "init")
