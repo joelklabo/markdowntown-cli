@@ -140,7 +140,7 @@ func isAbsPath(path string) bool {
 	if filepath.IsAbs(path) {
 		return true
 	}
-	return strings.HasPrefix(path, "/")
+	return strings.HasPrefix(path, "/") || strings.HasPrefix(path, "\\")
 }
 
 func hashPathID(path string) string {
