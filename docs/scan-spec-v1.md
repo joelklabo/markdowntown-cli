@@ -781,8 +781,9 @@ markdowntown/
 ### Pre-commit Hooks
 
 Managed by **lefthook** (Go-native, fast):
-- Runs **full lint + unit tests** on commit
+- Runs **formatting + lint + unit tests** on commit
 - Install via `lefthook install`
+- Optional for contributors; CI remains authoritative
 
 ### Linting
 
@@ -932,6 +933,6 @@ Allow user-defined patterns in `~/.config/markdowntown/custom-patterns.json`.
 - [ ] 80%+ test coverage enforced
 - [ ] `--version` outputs `markdowntown X.Y.Z (schema A.B.C)`
 - [ ] Makefile provides all dev/CI targets
-- [ ] Pre-commit hooks via lefthook
+- [x] Pre-commit hooks via lefthook
 - [ ] CI matrix covers Go 1.22+1.23 × all OS × all arch
 - [ ] goreleaser produces release binaries

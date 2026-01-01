@@ -40,6 +40,16 @@ The suggest fetcher only allows HTTPS URLs. When adding fetcher tests, use
 `httptest.NewTLSServer` and pass `server.Client()` into `FetcherOptions` so the
 test client trusts the TLS cert.
 
+### Pre-commit hooks (lefthook)
+
+Optional pre-commit hooks run formatting, lint, and unit tests:
+
+```bash
+lefthook install
+```
+
+Hooks are optional; CI remains the source of truth.
+
 ### Sanity checks
 
 ```bash
