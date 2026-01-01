@@ -82,8 +82,14 @@ type conflictKey struct {
 	root   string
 }
 
+type conflictGroup struct {
+	entries    []ConfigEntry
+	hasSingle  bool
+	hasMulti   bool
+}
+
 func conflictWarnings(configs []ConfigEntry, scans []Root) []Warning {
-	groups := make(map[conflictKey][]ConfigEntry)
+	groups := make(map[conflictKey]*conflictGroup)
 	for _, entry := range configs {
 		root := rootForEntry(entry, scans)
 		for _, tool := range entry.Tools {
@@ -93,13 +99,26 @@ func conflictWarnings(configs []ConfigEntry, scans []Root) []Warning {
 				kind:   tool.Kind,
 				root:   root,
 			}
-			groups[key] = append(groups[key], entry)
+			group := groups[key]
+			if group == nil {
+				group = &conflictGroup{}
+				groups[key] = group
+			}
+			group.entries = append(group.entries, entry)
+			if isMultiFileLoadBehavior(tool.LoadBehavior) {
+				group.hasMulti = true
+			} else {
+				group.hasSingle = true
+			}
 		}
 	}
 
 	var warnings []Warning
-	for key, entries := range groups {
-		paths := conflictPaths(entries, key.root)
+	for key, group := range groups {
+		if group.hasMulti && !group.hasSingle {
+			continue
+		}
+		paths := conflictPaths(group.entries, key.root)
 		if len(paths) <= 1 {
 			continue
 		}
@@ -108,8 +127,8 @@ func conflictWarnings(configs []ConfigEntry, scans []Root) []Warning {
 		}
 		sort.Strings(paths)
 		warningPath := key.root
-		if warningPath == "" && len(entries) > 0 {
-			warningPath = entries[0].Path
+		if warningPath == "" && len(group.entries) > 0 {
+			warningPath = group.entries[0].Path
 		}
 		warnings = append(warnings, Warning{
 			Path:    warningPath,
@@ -166,6 +185,15 @@ func isAgentsOverridePair(paths []string) bool {
 	baseB := strings.ToLower(filepath.Base(paths[1]))
 	return (baseA == "agents.md" && baseB == "agents.override.md") ||
 		(baseA == "agents.override.md" && baseB == "agents.md")
+}
+
+func isMultiFileLoadBehavior(loadBehavior string) bool {
+	switch loadBehavior {
+	case "directory-glob", "all-ancestors", "nearest-ancestor":
+		return true
+	default:
+		return false
+	}
 }
 
 func rootForEntry(entry ConfigEntry, scans []Root) string {

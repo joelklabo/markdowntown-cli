@@ -56,7 +56,7 @@
 ## Error and Warning Handling
 - Unreadable files generate a config entry with null size/hash and an error code.
 - Circular symlinks and permission errors produce warnings and skip traversal.
-- Config conflicts are inferred by tool+scope+kind with explicit override exceptions.
+- Config conflicts are inferred by tool+scope+kind with explicit override exceptions, excluding multi-file `loadBehavior` patterns.
 
 ## CLI UX
 - Progress updates stream to stderr when stdout is a TTY and `--quiet` is false.

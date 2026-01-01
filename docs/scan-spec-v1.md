@@ -431,6 +431,8 @@ Conflicts are **inferred from tool+scope+kind** matching.
 
 Do **not** warn for known override pairs where the tool specifies precedence (e.g., `AGENTS.override.md` and `AGENTS.md` in the same directory).
 
+Do **not** warn when the pattern's `loadBehavior` expects multiple files (e.g., `directory-glob`, `all-ancestors`, `nearest-ancestor`).
+
 ### Multi-Tool Files
 
 Files like `CLAUDE.md` that are recognized by multiple tools get a **single config entry** with multiple items in the `tools` array. Deduplication is by resolved absolute path.
