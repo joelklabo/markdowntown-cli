@@ -10,7 +10,7 @@ func TestFindContainingRootLongestMatch(t *testing.T) {
 	base := t.TempDir()
 	root := filepath.Join(base, "user")
 	nested := filepath.Join(root, "nested")
-	if err := os.MkdirAll(nested, 0o755); err != nil {
+	if err := os.MkdirAll(nested, 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	path := filepath.Join(nested, "file.txt")
@@ -25,10 +25,10 @@ func TestResolveScopeAndRootFallbacks(t *testing.T) {
 	base := t.TempDir()
 	repoRoot := filepath.Join(base, "repo")
 	userRoot := filepath.Join(base, "user")
-	if err := os.MkdirAll(repoRoot, 0o755); err != nil {
+	if err := os.MkdirAll(repoRoot, 0o750); err != nil {
 		t.Fatalf("mkdir repo: %v", err)
 	}
-	if err := os.MkdirAll(userRoot, 0o755); err != nil {
+	if err := os.MkdirAll(userRoot, 0o750); err != nil {
 		t.Fatalf("mkdir user: %v", err)
 	}
 
@@ -47,7 +47,7 @@ func TestResolveScopeAndRootFallbacks(t *testing.T) {
 	}
 
 	otherDir := filepath.Join(base, "other")
-	if err := os.MkdirAll(otherDir, 0o755); err != nil {
+	if err := os.MkdirAll(otherDir, 0o750); err != nil {
 		t.Fatalf("mkdir other: %v", err)
 	}
 	info, err = os.Stat(otherDir)
