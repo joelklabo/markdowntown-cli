@@ -370,6 +370,8 @@ func normalizeResolvePaths(opts ResolveOptions) (string, string, string, error) 
 
 	repoRoot = filepath.Clean(repoRoot)
 	cwd = filepath.Clean(cwd)
+	repoRoot = evalPath(repoRoot)
+	cwd = evalPath(cwd)
 
 	if _, ok := relativeFromRoot(repoRoot, cwd); !ok {
 		return "", "", "", ErrRepoRootMismatch
@@ -456,4 +458,15 @@ func normalizePathForCompare(value string) string {
 		}
 	}
 	return normalized
+}
+
+func evalPath(path string) string {
+	if runtime.GOOS != "windows" {
+		return path
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return path
+	}
+	return resolved
 }
