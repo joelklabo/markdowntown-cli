@@ -40,6 +40,24 @@ The suggest fetcher only allows HTTPS URLs. When adding fetcher tests, use
 `httptest.NewTLSServer` and pass `server.Client()` into `FetcherOptions` so the
 test client trusts the TLS cert.
 
+### CLI transcript capture (zsh-safe)
+
+Use `exit_code` (not `status`) to avoid zsh's read-only `$status` variable.
+
+```bash
+transcript="docs/cli-transcripts/<task-id>/cli.txt"
+cmd=(go run ./cmd/markdowntown scan --repo . --repo-only)
+
+mkdir -p "$(dirname "$transcript")"
+
+{
+  echo "$ ${cmd[*]}"
+  "${cmd[@]}"
+  exit_code=$?
+  echo "exit_code=$exit_code"
+} >"$transcript" 2>&1
+```
+
 ### Pre-commit hooks (lefthook)
 
 Optional pre-commit hooks run formatting, lint, and unit tests:
