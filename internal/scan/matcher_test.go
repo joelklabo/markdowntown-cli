@@ -105,7 +105,8 @@ func TestMatcherRegexCaseInsensitive(t *testing.T) {
 }
 
 func TestMatcherGlobXDGConfigExpansion(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", "/tmp/xdg config")
+	xdg := filepath.Join(t.TempDir(), "xdg config")
+	t.Setenv("XDG_CONFIG_HOME", xdg)
 	reg := Registry{
 		Version: "1",
 		Patterns: []Pattern{
@@ -128,7 +129,7 @@ func TestMatcherGlobXDGConfigExpansion(t *testing.T) {
 		t.Fatalf("CompilePatterns: %v", err)
 	}
 
-	matched, _, err := compiled[0].Match("/tmp/xdg config/copilot/config.json", "copilot/config.json")
+	matched, _, err := compiled[0].Match(filepath.Join(xdg, "copilot", "config.json"), "copilot/config.json")
 	if err != nil {
 		t.Fatalf("Match: %v", err)
 	}
@@ -136,7 +137,7 @@ func TestMatcherGlobXDGConfigExpansion(t *testing.T) {
 		t.Fatalf("expected match for expanded $XDG_CONFIG_HOME")
 	}
 
-	matched, _, err = compiled[0].Match("/tmp/xdg config/copilot/agents/alpha.md", "copilot/agents/alpha.md")
+	matched, _, err = compiled[0].Match(filepath.Join(xdg, "copilot", "agents", "alpha.md"), "copilot/agents/alpha.md")
 	if err != nil {
 		t.Fatalf("Match: %v", err)
 	}

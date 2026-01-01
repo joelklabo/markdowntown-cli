@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -370,11 +371,7 @@ func normalizeResolvePaths(opts ResolveOptions) (string, string, string, error) 
 	repoRoot = filepath.Clean(repoRoot)
 	cwd = filepath.Clean(cwd)
 
-	rel, err := filepath.Rel(repoRoot, cwd)
-	if err != nil {
-		return "", "", "", err
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	if _, ok := relativeFromRoot(repoRoot, cwd); !ok {
 		return "", "", "", ErrRepoRootMismatch
 	}
 
@@ -382,20 +379,17 @@ func normalizeResolvePaths(opts ResolveOptions) (string, string, string, error) 
 }
 
 func ancestorDirs(repoRoot, cwd string) ([]string, error) {
-	rel, err := filepath.Rel(repoRoot, cwd)
-	if err != nil {
-		return nil, err
+	rel, ok := relativeFromRoot(repoRoot, cwd)
+	if !ok {
+		return nil, ErrRepoRootMismatch
 	}
 
+	rel = filepath.ToSlash(rel)
 	if rel == "." {
 		return []string{repoRoot}, nil
 	}
 
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return nil, ErrRepoRootMismatch
-	}
-
-	parts := strings.Split(rel, string(filepath.Separator))
+	parts := strings.Split(rel, "/")
 	dirs := make([]string, 0, len(parts)+1)
 	current := repoRoot
 	dirs = append(dirs, current)
@@ -408,4 +402,46 @@ func ancestorDirs(repoRoot, cwd string) ([]string, error) {
 	}
 
 	return dirs, nil
+}
+
+func relativeFromRoot(root, target string) (string, bool) {
+	if strings.TrimSpace(root) == "" || strings.TrimSpace(target) == "" {
+		return "", false
+	}
+
+	rootClean := filepath.Clean(root)
+	targetClean := filepath.Clean(target)
+
+	rel, err := filepath.Rel(rootClean, targetClean)
+	if err == nil {
+		if rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))) {
+			return rel, true
+		}
+	}
+
+	rootNorm := filepath.ToSlash(rootClean)
+	targetNorm := filepath.ToSlash(targetClean)
+	rootCompare := rootNorm
+	targetCompare := targetNorm
+	if runtime.GOOS == "windows" {
+		rootCompare = strings.ToLower(rootNorm)
+		targetCompare = strings.ToLower(targetNorm)
+	}
+
+	if targetCompare == rootCompare {
+		return ".", true
+	}
+
+	prefixCompare := rootCompare
+	prefix := rootNorm
+	if !strings.HasSuffix(prefixCompare, "/") {
+		prefixCompare += "/"
+		prefix += "/"
+	}
+
+	if strings.HasPrefix(targetCompare, prefixCompare) {
+		return strings.TrimPrefix(targetNorm, prefix), true
+	}
+
+	return "", false
 }

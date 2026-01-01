@@ -38,6 +38,7 @@ func TestGeminiAdapterResolve(t *testing.T) {
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	if err := os.MkdirAll(filepath.Join(home, ".gemini"), 0o750); err != nil {
 		t.Fatalf("mkdir gemini home: %v", err)
 	}

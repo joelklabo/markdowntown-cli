@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -112,37 +113,75 @@ func (r *Redactor) redactNonRepo(absPath, scope string) Path {
 
 func (r *Redactor) repoRelative(absPath string) string {
 	if r.repoRoot == "" {
-		return filepath.ToSlash(absPath)
+		return normalizePath(absPath)
 	}
-	rel, err := filepath.Rel(r.repoRoot, absPath)
-	if err != nil {
-		return filepath.ToSlash(absPath)
+	if rel, ok := relativePath(r.repoRoot, absPath); ok {
+		if rel == "." {
+			return "./"
+		}
+		rel = normalizePath(rel)
+		if !strings.HasPrefix(rel, "./") {
+			rel = "./" + rel
+		}
+		return rel
 	}
-	rel = filepath.ToSlash(rel)
-	if rel == "." {
-		return "./"
-	}
-	if !strings.HasPrefix(rel, "./") {
-		rel = "./" + rel
-	}
-	return rel
+	return normalizePath(absPath)
 }
 
 func isWithin(path, root string) bool {
-	path = filepath.Clean(path)
-	root = filepath.Clean(root)
-	rel, err := filepath.Rel(root, path)
-	if err != nil {
+	if root == "" {
 		return false
 	}
-	return rel == "." || (!strings.HasPrefix(rel, "..") && rel != "..")
+	_, ok := relativePath(root, path)
+	return ok
 }
 
 func hashPathID(path string) string {
-	sum := sha256.Sum256([]byte(path))
+	normalized := filepath.ToSlash(path)
+	if runtime.GOOS == "windows" {
+		normalized = strings.ToLower(normalized)
+	}
+	sum := sha256.Sum256([]byte(normalized))
 	return "p:" + hex.EncodeToString(sum[:8])
 }
 
 func itoa(value int) string {
 	return strconv.Itoa(value)
+}
+
+func normalizePath(value string) string {
+	return filepath.ToSlash(filepath.Clean(value))
+}
+
+func relativePath(root, target string) (string, bool) {
+	if strings.TrimSpace(root) == "" || strings.TrimSpace(target) == "" {
+		return "", false
+	}
+
+	rootNorm := normalizePath(root)
+	targetNorm := normalizePath(target)
+
+	rootCompare := rootNorm
+	targetCompare := targetNorm
+	if runtime.GOOS == "windows" {
+		rootCompare = strings.ToLower(rootNorm)
+		targetCompare = strings.ToLower(targetNorm)
+	}
+
+	if targetCompare == rootCompare {
+		return ".", true
+	}
+
+	prefixCompare := rootCompare
+	prefix := rootNorm
+	if !strings.HasSuffix(prefixCompare, "/") {
+		prefixCompare += "/"
+		prefix += "/"
+	}
+
+	if strings.HasPrefix(targetCompare, prefixCompare) {
+		return strings.TrimPrefix(targetNorm, prefix), true
+	}
+
+	return "", false
 }

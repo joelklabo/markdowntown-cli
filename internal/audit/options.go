@@ -245,19 +245,17 @@ func pathCandidates(rawPath, repoRoot string) []string {
 			pathValue = resolved
 		}
 	}
-	normAbs := filepath.ToSlash(pathValue)
+	normAbs := normalizePath(pathValue)
 	candidates := []string{normAbs}
 
 	if repoRoot != "" {
-		root := filepath.Clean(repoRoot)
-		if rel, err := filepath.Rel(root, pathValue); err == nil {
-			rel = filepath.ToSlash(rel)
+		if rel, ok := relativePath(repoRoot, pathValue); ok {
 			if rel == "." {
-				rel = "./"
-			} else if !strings.HasPrefix(rel, "./") {
-				rel = "./" + rel
+				candidates = append(candidates, "./")
+			} else {
+				rel = normalizePath(rel)
+				candidates = append(candidates, "./"+rel, rel)
 			}
-			candidates = append(candidates, rel, strings.TrimPrefix(rel, "./"))
 		}
 	}
 
