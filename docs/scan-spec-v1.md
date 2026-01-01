@@ -859,6 +859,8 @@ Triggered on version tags.
 
 ### Test Cases
 
+Sanitized real-world fixture coverage lives under `testdata/repos/integration` (e.g., `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.claude/rules/*.md`).
+
 1. Pattern expansion (glob and regex)
 2. Multi-tool file deduplication
 3. Symlink resolution (including external targets, circular detection)

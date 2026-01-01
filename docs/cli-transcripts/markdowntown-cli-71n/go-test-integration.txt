@@ -1,0 +1,6 @@
+command: go test ./internal/scan -run TestScanIntegrationGolden
+exit_code: 0
+stdout:
+ok   	markdowntown-cli/internal/scan	0.334s
+
+stderr:

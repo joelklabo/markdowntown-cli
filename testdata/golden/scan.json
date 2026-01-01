@@ -52,6 +52,87 @@
       ]
     },
     {
+      "path": "\u003crepo\u003e/AGENTS.md",
+      "scope": "repo",
+      "depth": 0,
+      "sizeBytes": 72,
+      "sha256": "023fbf3567703cea2fd27ff13b60195dd9a5311c02f488132472ff956a6fa2ca",
+      "mtime": 0,
+      "gitignored": false,
+      "frontmatter": null,
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": [
+        {
+          "toolId": "codex",
+          "toolName": "Codex",
+          "kind": "instructions",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "AGENTS.md",
+          "notes": "",
+          "hints": null
+        }
+      ]
+    },
+    {
+      "path": "\u003crepo\u003e/CLAUDE.md",
+      "scope": "repo",
+      "depth": 0,
+      "sizeBytes": 68,
+      "sha256": "868ed426fb38fb9fc591a5975e43b63398b0ed19f757a3ca0572aea2191489b1",
+      "mtime": 0,
+      "gitignored": false,
+      "frontmatter": null,
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": [
+        {
+          "toolId": "claude-code",
+          "toolName": "Claude Code",
+          "kind": "instructions",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "CLAUDE.md",
+          "notes": "",
+          "hints": null
+        }
+      ]
+    },
+    {
+      "path": "\u003crepo\u003e/GEMINI.md",
+      "scope": "repo",
+      "depth": 0,
+      "sizeBytes": 59,
+      "sha256": "e56743087929ec4208f1892dc87e684bcd641538d7fefdb964e7ace3446f6905",
+      "mtime": 0,
+      "gitignored": false,
+      "frontmatter": null,
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": [
+        {
+          "toolId": "gemini-cli",
+          "toolName": "Gemini CLI",
+          "kind": "instructions",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "GEMINI.md",
+          "notes": "",
+          "hints": null
+        }
+      ]
+    },
+    {
       "path": "\u003crepo\u003e/ignored.txt",
       "scope": "repo",
       "depth": 0,
@@ -73,6 +154,33 @@
           "loadBehavior": "single",
           "application": "automatic",
           "matchedPattern": "ignored.txt",
+          "notes": "",
+          "hints": null
+        }
+      ]
+    },
+    {
+      "path": "\u003crepo\u003e/.github/copilot-instructions.md",
+      "scope": "repo",
+      "depth": 1,
+      "sizeBytes": 48,
+      "sha256": "5a954992b77f37c07f119ae3c3ae6b693b7ab417b7d6d89cbbcb3ceeb4d5f19a",
+      "mtime": 0,
+      "gitignored": false,
+      "frontmatter": null,
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": [
+        {
+          "toolId": "github-copilot",
+          "toolName": "GitHub Copilot",
+          "kind": "instructions",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": ".github/copilot-instructions.md",
           "notes": "",
           "hints": null
         }
@@ -130,6 +238,35 @@
       "error": null,
       "warning": null,
       "tools": []
+    },
+    {
+      "path": "\u003crepo\u003e/.claude/rules/quality.md",
+      "scope": "repo",
+      "depth": 2,
+      "sizeBytes": 73,
+      "sha256": "b3f7cddd48026973241b4c33e53e678c6c64aedf3bf06acccbb555aa464d9510",
+      "mtime": 0,
+      "gitignored": false,
+      "frontmatter": {
+        "when": "always"
+      },
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": [
+        {
+          "toolId": "claude-code",
+          "toolName": "Claude Code",
+          "kind": "rules",
+          "loadBehavior": "directory-glob",
+          "application": "automatic",
+          "matchedPattern": ".claude/rules/*.md",
+          "notes": "",
+          "hints": null
+        }
+      ]
     },
     {
       "path": "\u003crepo\u003e/.cursor/rules/main.md",
