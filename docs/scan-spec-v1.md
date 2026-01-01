@@ -856,6 +856,8 @@ Triggered on version tags.
 
 - Test that `schemaVersion` in output matches defined constant
 - Catch version bump oversights
+  - Scan CLI: `cmd/markdowntown/scan_cli_test.go`
+  - Audit CLI: `cmd/markdowntown/audit_cli_test.go`
 
 ### Test Cases
 

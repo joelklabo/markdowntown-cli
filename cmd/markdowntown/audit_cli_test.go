@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"markdowntown-cli/internal/audit"
 	"markdowntown-cli/internal/scan"
 	"markdowntown-cli/internal/version"
 )
@@ -70,11 +71,16 @@ func TestAuditCLI(t *testing.T) {
 	if output == "" {
 		t.Fatalf("expected output")
 	}
-	if !strings.Contains(output, "\"schemaVersion\"") {
-		t.Fatalf("expected schemaVersion in output, got %s", output)
-	}
 	if !strings.Contains(output, "\"issues\":[") {
 		t.Fatalf("expected issues array in output, got %s", output)
+	}
+
+	var parsed audit.Output
+	if err := json.Unmarshal(outBytes, &parsed); err != nil {
+		t.Fatalf("unmarshal output: %v", err)
+	}
+	if parsed.SchemaVersion != version.AuditSchemaVersion {
+		t.Fatalf("expected schemaVersion %s, got %s", version.AuditSchemaVersion, parsed.SchemaVersion)
 	}
 
 	if !bytes.HasSuffix(outBytes, []byte("\n")) {
