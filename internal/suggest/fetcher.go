@@ -173,7 +173,9 @@ func (f *Fetcher) Fetch(ctx context.Context, source FetchSource) (FetchResult, e
 	if err != nil {
 		return result, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	result.Status = resp.StatusCode
 	result.ETag = strings.TrimSpace(resp.Header.Get("ETag"))
@@ -245,7 +247,9 @@ func (f *Fetcher) robotsRules(ctx context.Context, parsed *url.URL) (RobotsRules
 		f.robots[host] = rules
 		return rules, info
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		info.Warnings = append(info.Warnings, fmt.Sprintf("robots status %d", resp.StatusCode))

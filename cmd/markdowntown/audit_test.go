@@ -113,6 +113,7 @@ func runAuditCLI(t *testing.T, repoRoot string, args ...string) (string, string,
 
 	registryPath := filepath.Join(repoRoot, "testdata", "registry", "audit.json")
 	cmdArgs := append([]string{"run", "./cmd/markdowntown"}, args...)
+	// #nosec G204 -- test harness controls command arguments.
 	cmd := exec.Command("go", cmdArgs...)
 	cmd.Dir = repoRoot
 
@@ -179,6 +180,7 @@ func normalizeOutput(t *testing.T, data []byte) audit.Output {
 
 func mustReadFile(t *testing.T, path string) []byte {
 	t.Helper()
+	// #nosec G304 -- test helper reads controlled fixture paths.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read file: %v", err)

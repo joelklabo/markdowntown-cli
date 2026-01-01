@@ -124,7 +124,7 @@ func TestLoadSourcesForClient(t *testing.T) {
     {"id":"claude-doc","tier":"tier-0","client":"claude","url":"https://example.com/claude.md","refreshHours":24}
   ]
 }`
-	if err := os.WriteFile(path, []byte(payload), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
 	t.Setenv(suggest.SourcesEnvVar, path)
@@ -148,7 +148,7 @@ func TestBuildSuggestReportOffline(t *testing.T) {
 	tmp := t.TempDir()
 	sourcesPath := filepath.Join(tmp, "doc-sources.json")
 	sourceURL := "https://example.com/docs.md"
-	if err := os.WriteFile(sourcesPath, []byte(testSourcesJSON(sourceURL)), 0o644); err != nil {
+	if err := os.WriteFile(sourcesPath, []byte(testSourcesJSON(sourceURL)), 0o600); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
 	t.Setenv(suggest.SourcesEnvVar, sourcesPath)
@@ -178,7 +178,7 @@ func TestBuildSuggestReportOffline(t *testing.T) {
 func TestBuildSuggestReportNoSources(t *testing.T) {
 	tmp := t.TempDir()
 	sourcesPath := filepath.Join(tmp, "doc-sources.json")
-	if err := os.WriteFile(sourcesPath, []byte(`{"version":"1","allowlistHosts":["example.com"],"sources":[]}`), 0o644); err != nil {
+	if err := os.WriteFile(sourcesPath, []byte(`{"version":"1","allowlistHosts":["example.com"],"sources":[]}`), 0o600); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
 	t.Setenv(suggest.SourcesEnvVar, sourcesPath)
@@ -198,7 +198,7 @@ func TestBuildSuggestReportNoClientSources(t *testing.T) {
     {"id":"claude-doc","tier":"tier-0","client":"claude","url":"https://example.com/claude.md","refreshHours":24}
   ]
 }`
-	if err := os.WriteFile(sourcesPath, []byte(payload), 0o644); err != nil {
+	if err := os.WriteFile(sourcesPath, []byte(payload), 0o600); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
 	t.Setenv(suggest.SourcesEnvVar, sourcesPath)
@@ -232,7 +232,7 @@ func TestBuildSuggestReportOnline(t *testing.T) {
 	tmp := t.TempDir()
 	sourcesPath := filepath.Join(tmp, "doc-sources.json")
 	sourceURL := "https://example.com/docs.md"
-	if err := os.WriteFile(sourcesPath, []byte(testSourcesJSON(sourceURL)), 0o644); err != nil {
+	if err := os.WriteFile(sourcesPath, []byte(testSourcesJSON(sourceURL)), 0o600); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
 	t.Setenv(suggest.SourcesEnvVar, sourcesPath)
@@ -266,7 +266,7 @@ func TestMetadataWriterLifecycle(t *testing.T) {
 		t.Fatalf("SaveMetadata: %v", err)
 	}
 
-	report := &suggest.SuggestReport{}
+	report := &suggest.Report{}
 	writer := newMetadataStore(report, false)
 	meta, ok := writer.(*metadataWriter)
 	if !ok {

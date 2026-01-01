@@ -27,6 +27,7 @@ func NewFileCache() (*FileCache, error) {
 // Get loads a cached body for the URL.
 func (c *FileCache) Get(url string) ([]byte, bool) {
 	path := c.pathFor(url)
+	// #nosec G304 -- cache path is derived from controlled hash.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, false
@@ -37,10 +38,10 @@ func (c *FileCache) Get(url string) ([]byte, bool) {
 // Put writes a cached body for the URL.
 func (c *FileCache) Put(url string, payload []byte) error {
 	path := c.pathFor(url)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("mkdir cache dir: %w", err)
 	}
-	return os.WriteFile(path, payload, 0o644)
+	return os.WriteFile(path, payload, 0o600)
 }
 
 func (c *FileCache) pathFor(url string) string {

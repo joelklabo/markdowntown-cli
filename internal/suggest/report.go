@@ -2,8 +2,8 @@ package suggest
 
 import "markdowntown-cli/internal/instructions"
 
-// SuggestReport captures suggest/audit output.
-type SuggestReport struct {
+// Report captures suggest/audit output.
+type Report struct {
 	Client      instructions.Client `json:"client"`
 	GeneratedAt int64               `json:"generatedAt"`
 	Suggestions []Suggestion        `json:"suggestions,omitempty"`

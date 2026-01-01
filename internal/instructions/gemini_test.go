@@ -18,9 +18,15 @@ func TestGeminiAdapterResolve(t *testing.T) {
 	ignoredDir := filepath.Join(subDir, "ignored")
 	gignoredDir := filepath.Join(subDir, "gignored")
 
-	os.MkdirAll(childDir, 0o755)
-	os.MkdirAll(ignoredDir, 0o755)
-	os.MkdirAll(gignoredDir, 0o755)
+	if err := os.MkdirAll(childDir, 0o750); err != nil {
+		t.Fatalf("mkdir child: %v", err)
+	}
+	if err := os.MkdirAll(ignoredDir, 0o750); err != nil {
+		t.Fatalf("mkdir ignored: %v", err)
+	}
+	if err := os.MkdirAll(gignoredDir, 0o750); err != nil {
+		t.Fatalf("mkdir gignored: %v", err)
+	}
 
 	writeTestFile(t, filepath.Join(subDir, "GEMINI.md"), "cwd")
 	writeTestFile(t, filepath.Join(childDir, "GEMINI.md"), "child")
@@ -32,7 +38,9 @@ func TestGeminiAdapterResolve(t *testing.T) {
 
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	os.MkdirAll(filepath.Join(home, ".gemini"), 0o755)
+	if err := os.MkdirAll(filepath.Join(home, ".gemini"), 0o750); err != nil {
+		t.Fatalf("mkdir gemini home: %v", err)
+	}
 	writeTestFile(t, filepath.Join(home, ".gemini", "GEMINI.md"), "global")
 
 	adapter := GeminiAdapter{}

@@ -125,6 +125,7 @@ func collectInstructionFiles(rootDir, targetRel, agent string) ([]InstructionFil
 }
 
 func parseInstructionFrontmatter(path string) ([]string, []string, error) {
+	// #nosec G304 -- path is discovered from known instruction locations.
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, nil, err

@@ -9,7 +9,7 @@ import (
 )
 
 // WriteSuggestReport renders suggest or audit output in JSON or Markdown.
-func WriteSuggestReport(w io.Writer, format string, report SuggestReport) error {
+func WriteSuggestReport(w io.Writer, format string, report Report) error {
 	switch normalizeFormat(format) {
 	case "json":
 		enc := json.NewEncoder(w)
@@ -57,7 +57,7 @@ func normalizeFormat(format string) string {
 	}
 }
 
-func renderSuggestMarkdown(report SuggestReport) (string, error) {
+func renderSuggestMarkdown(report Report) (string, error) {
 	var builder strings.Builder
 	builder.WriteString(fmt.Sprintf("# Suggestions (%s)\n\n", report.Client))
 
@@ -107,9 +107,9 @@ func renderResolveMarkdown(report ResolveReport) string {
 	if len(report.Resolution.Conflicts) > 0 {
 		builder.WriteString("\n## Conflicts\n")
 		for _, conflict := range report.Resolution.Conflicts {
-			builder.WriteString(fmt.Sprintf("- %s\n", conflict.Reason))
+			fmt.Fprintf(&builder, "- %s\n", conflict.Reason)
 			for _, path := range conflict.Paths {
-				builder.WriteString(fmt.Sprintf("  - %s\n", path))
+				fmt.Fprintf(&builder, "  - %s\n", path)
 			}
 		}
 	}
@@ -117,20 +117,20 @@ func renderResolveMarkdown(report ResolveReport) string {
 	if len(report.Resolution.SettingsRequired) > 0 {
 		builder.WriteString("\n## Settings Required\n")
 		for _, setting := range report.Resolution.SettingsRequired {
-			builder.WriteString(fmt.Sprintf("- %s\n", setting))
+			fmt.Fprintf(&builder, "- %s\n", setting)
 		}
 	}
 
 	return builder.String()
 }
 
-func appendAuditSections(builder *strings.Builder, report SuggestReport) {
+func appendAuditSections(builder *strings.Builder, report Report) {
 	if len(report.Conflicts) > 0 {
 		builder.WriteString("\n## Conflicts\n")
 		for _, conflict := range report.Conflicts {
-			builder.WriteString(fmt.Sprintf("- %s\n", conflict.Reason))
+			fmt.Fprintf(builder, "- %s\n", conflict.Reason)
 			for _, claimID := range conflict.ClaimIDs {
-				builder.WriteString(fmt.Sprintf("  - %s\n", claimID))
+				fmt.Fprintf(builder, "  - %s\n", claimID)
 			}
 		}
 	}
@@ -138,14 +138,14 @@ func appendAuditSections(builder *strings.Builder, report SuggestReport) {
 	if len(report.Omissions) > 0 {
 		builder.WriteString("\n## Omissions\n")
 		for _, omission := range report.Omissions {
-			builder.WriteString(fmt.Sprintf("- %s: %s\n", omission.ClaimID, omission.Reason))
+			fmt.Fprintf(builder, "- %s: %s\n", omission.ClaimID, omission.Reason)
 		}
 	}
 
 	if len(report.Warnings) > 0 {
 		builder.WriteString("\n## Warnings\n")
 		for _, warning := range report.Warnings {
-			builder.WriteString(fmt.Sprintf("- %s\n", warning))
+			fmt.Fprintf(builder, "- %s\n", warning)
 		}
 	}
 }

@@ -390,7 +390,7 @@ func runAudit(args []string) error {
 
 	output := audit.Output{
 		SchemaVersion:       version.AuditSchemaVersion,
-		Audit:               audit.AuditMeta{ToolVersion: version.ToolVersion, AuditStartedAt: auditStartedAt.UnixMilli(), GeneratedAt: generatedAt.UnixMilli()},
+		Audit:               audit.Meta{ToolVersion: version.ToolVersion, AuditStartedAt: auditStartedAt.UnixMilli(), GeneratedAt: generatedAt.UnixMilli()},
 		SourceScan:          audit.SourceScan{SchemaVersion: scanOutput.SchemaVersion, ToolVersion: scanOutput.ToolVersion, RegistryVersion: scanOutput.RegistryVersion, RepoRoot: scanOutput.RepoRoot, ScanStartedAt: scanOutput.ScanStartedAt, GeneratedAt: scanOutput.GeneratedAt, Scans: scanOutput.Scans},
 		RegistryVersionUsed: registry.Version,
 		PathRedaction:       audit.RedactionInfo{Mode: redact, Enabled: redact != audit.RedactNever},
@@ -643,6 +643,7 @@ func readScanInput(inputPath string) (scan.Output, error) {
 			return output, fmt.Errorf("stdin is empty")
 		}
 	} else {
+		// #nosec G304 -- input path is provided by the user or CLI flag.
 		data, err = os.ReadFile(inputPath)
 		if err != nil {
 			return output, err

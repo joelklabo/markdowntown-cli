@@ -50,7 +50,7 @@ func TestAgentExcluded(t *testing.T) {
 func TestEnsureTargetRel(t *testing.T) {
 	repo := t.TempDir()
 	target := filepath.Join(repo, "file.txt")
-	if err := os.WriteFile(target, []byte("ok"), 0o644); err != nil {
+	if err := os.WriteFile(target, []byte("ok"), 0o600); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
 
@@ -76,7 +76,7 @@ excludeAgent:
   - "codex"
 ---
 body`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
 
@@ -103,13 +103,13 @@ func TestRequiredSettingEnabled(t *testing.T) {
 
 func TestCollectAgentFiles(t *testing.T) {
 	repo := t.TempDir()
-	if err := os.WriteFile(filepath.Join(repo, "AGENTS.md"), []byte("root"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, "AGENTS.md"), []byte("root"), 0o600); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(repo, "sub"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, "sub"), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(repo, "sub", "AGENTS.md"), []byte("sub"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, "sub", "AGENTS.md"), []byte("sub"), 0o600); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
 
@@ -155,7 +155,7 @@ applyTo:
   - "src/**"
 ---
 body`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
 

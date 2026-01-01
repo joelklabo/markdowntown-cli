@@ -99,6 +99,7 @@ func MetadataPath() (string, error) {
 
 // LoadMetadata reads metadata from disk. Missing files return an empty store.
 func LoadMetadata(path string) (MetadataStore, error) {
+	// #nosec G304 -- metadata path is controlled by cache/config helpers.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -129,7 +130,7 @@ func SaveMetadata(path string, store MetadataStore) error {
 	store.UpdatedAt = time.Now().UnixMilli()
 	store.Sources = sortedMetadata(store.Sources)
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return fmt.Errorf("mkdir metadata dir: %w", err)
 	}
 
@@ -138,7 +139,7 @@ func SaveMetadata(path string, store MetadataStore) error {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, 0o600)
 }
 
 func sortedMetadata(records []SourceMetadataRecord) []SourceMetadataRecord {

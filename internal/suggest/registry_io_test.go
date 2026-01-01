@@ -10,7 +10,7 @@ import (
 func TestResolveSourcesPathOverride(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "sources.json")
-	if err := os.WriteFile(path, []byte(`{"version":"1","allowlistHosts":["example.com"],"sources":[]}`), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(`{"version":"1","allowlistHosts":["example.com"],"sources":[]}`), 0o600); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
 
@@ -41,10 +41,10 @@ func TestResolveSourcesPathConfigHome(t *testing.T) {
 	t.Setenv(SourcesEnvVar, "")
 
 	path := filepath.Join(configHome, SourcesSubdir, SourcesFile)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(path, []byte(`{"version":"1","allowlistHosts":["example.com"],"sources":[]}`), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(`{"version":"1","allowlistHosts":["example.com"],"sources":[]}`), 0o600); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
 
@@ -67,7 +67,7 @@ func TestLoadSources(t *testing.T) {
     {"id":"codex-doc","tier":"tier-0","client":"codex","url":"https://example.com/docs","refreshHours":24}
   ]
 }`
-	if err := os.WriteFile(path, []byte(payload), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
 	t.Setenv(SourcesEnvVar, path)

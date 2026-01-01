@@ -7,15 +7,18 @@ import "markdowntown-cli/internal/scan"
 type Severity string
 
 const (
-	SeverityError   Severity = "error"
+	// SeverityError marks blocking issues.
+	SeverityError Severity = "error"
+	// SeverityWarning marks non-blocking issues.
 	SeverityWarning Severity = "warning"
-	SeverityInfo    Severity = "info"
+	// SeverityInfo marks informational issues.
+	SeverityInfo Severity = "info"
 )
 
 // Output is the top-level audit output schema.
 type Output struct {
 	SchemaVersion       string        `json:"schemaVersion"`
-	Audit               AuditMeta     `json:"audit"`
+	Audit               Meta          `json:"audit"`
 	SourceScan          SourceScan    `json:"sourceScan"`
 	RegistryVersionUsed string        `json:"registryVersionUsed"`
 	PathRedaction       RedactionInfo `json:"pathRedaction"`
@@ -24,8 +27,8 @@ type Output struct {
 	ScanWarnings        []ScanWarning `json:"scanWarnings,omitempty"`
 }
 
-// AuditMeta captures metadata for the audit run.
-type AuditMeta struct {
+// Meta captures metadata for the audit run.
+type Meta struct {
 	ToolVersion    string `json:"toolVersion"`
 	AuditStartedAt int64  `json:"auditStartedAt"`
 	GeneratedAt    int64  `json:"generatedAt"`

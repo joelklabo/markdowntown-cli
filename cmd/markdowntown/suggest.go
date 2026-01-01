@@ -54,7 +54,7 @@ func runResolve(args []string) error {
 	return runResolveWithIO(os.Stdout, os.Stderr, args)
 }
 
-func runSuggestWithIO(stdout, stderr io.Writer, args []string) error {
+func runSuggestWithIO(stdout, _ io.Writer, args []string) error {
 	flags := flag.NewFlagSet("suggest", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
@@ -107,7 +107,7 @@ func runSuggestWithIO(stdout, stderr io.Writer, args []string) error {
 	return suggest.WriteSuggestReport(stdout, format, report)
 }
 
-func runResolveWithIO(stdout, stderr io.Writer, args []string) error {
+func runResolveWithIO(stdout, _ io.Writer, args []string) error {
 	flags := flag.NewFlagSet("resolve", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
@@ -193,8 +193,8 @@ type suggestRunOptions struct {
 	Explain bool
 }
 
-func buildSuggestReport(ctx context.Context, client instructions.Client, opts suggestRunOptions) (suggest.SuggestReport, error) {
-	report := suggest.SuggestReport{
+func buildSuggestReport(ctx context.Context, client instructions.Client, opts suggestRunOptions) (suggest.Report, error) {
+	report := suggest.Report{
 		Client:      client,
 		GeneratedAt: time.Now().UnixMilli(),
 	}
@@ -341,7 +341,7 @@ func (m *metadataWriter) Save() error {
 	return suggest.SaveMetadata(m.path, m.store)
 }
 
-func newMetadataStore(report *suggest.SuggestReport, refresh bool) suggest.MetadataWriter {
+func newMetadataStore(report *suggest.Report, refresh bool) suggest.MetadataWriter {
 	path, err := suggest.MetadataPath()
 	if err != nil {
 		report.Warnings = append(report.Warnings, fmt.Sprintf("metadata path failed: %v", err))
@@ -355,7 +355,7 @@ func newMetadataStore(report *suggest.SuggestReport, refresh bool) suggest.Metad
 	return &metadataWriter{path: path, store: store, ignoreGet: refresh}
 }
 
-func newFileCache(report *suggest.SuggestReport) cacheWriter {
+func newFileCache(report *suggest.Report) cacheWriter {
 	cache, err := suggest.NewFileCache()
 	if err != nil {
 		report.Warnings = append(report.Warnings, fmt.Sprintf("cache init failed: %v", err))
@@ -364,7 +364,7 @@ func newFileCache(report *suggest.SuggestReport) cacheWriter {
 	return cache
 }
 
-func loadClaimsFromCache(report *suggest.SuggestReport, sources sourcesByClient, cache suggest.Cache) []suggest.Claim {
+func loadClaimsFromCache(report *suggest.Report, sources sourcesByClient, cache suggest.Cache) []suggest.Claim {
 	if cache == nil {
 		report.Warnings = append(report.Warnings, "offline cache unavailable; no cached bodies found")
 		return nil

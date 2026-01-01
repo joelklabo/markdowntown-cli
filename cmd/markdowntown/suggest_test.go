@@ -15,7 +15,7 @@ import (
 func TestSuggestCLI(t *testing.T) {
 	tmp := t.TempDir()
 	sourcesPath := filepath.Join(tmp, "doc-sources.json")
-	if err := os.WriteFile(sourcesPath, []byte(testSourcesJSON("https://example.com/docs")), 0o644); err != nil {
+	if err := os.WriteFile(sourcesPath, []byte(testSourcesJSON("https://example.com/docs")), 0o600); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
 	t.Setenv("MARKDOWNTOWN_SOURCES", sourcesPath)
@@ -27,7 +27,7 @@ func TestSuggestCLI(t *testing.T) {
 		t.Fatalf("runSuggest failed: %v", err)
 	}
 
-	var report suggest.SuggestReport
+	var report suggest.Report
 	if err := json.Unmarshal(out.Bytes(), &report); err != nil {
 		t.Fatalf("failed to parse JSON: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestSuggestOfflineUsesCache(t *testing.T) {
 	tmp := t.TempDir()
 	sourcesPath := filepath.Join(tmp, "doc-sources.json")
 	sourceURL := "https://example.com/docs"
-	if err := os.WriteFile(sourcesPath, []byte(testSourcesJSON(sourceURL)), 0o644); err != nil {
+	if err := os.WriteFile(sourcesPath, []byte(testSourcesJSON(sourceURL)), 0o600); err != nil {
 		t.Fatalf("write sources: %v", err)
 	}
 	t.Setenv("MARKDOWNTOWN_SOURCES", sourcesPath)
@@ -65,7 +65,7 @@ func TestSuggestOfflineUsesCache(t *testing.T) {
 		t.Fatalf("runSuggest failed: %v", err)
 	}
 
-	var report suggest.SuggestReport
+	var report suggest.Report
 	if err := json.Unmarshal(out.Bytes(), &report); err != nil {
 		t.Fatalf("failed to parse JSON: %v", err)
 	}

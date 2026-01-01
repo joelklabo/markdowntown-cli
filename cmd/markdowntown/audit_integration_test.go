@@ -129,6 +129,7 @@ func runAuditCLIWithRegistry(t *testing.T, repoRoot string, registryPath string,
 	t.Helper()
 
 	cmdArgs := append([]string{"run", "./cmd/markdowntown"}, args...)
+	// #nosec G204 -- test harness controls command arguments.
 	cmd := exec.Command("go", cmdArgs...)
 	cmd.Dir = repoRoot
 
@@ -169,7 +170,7 @@ func copyDir(t *testing.T, src, dst string) {
 	if err != nil {
 		t.Fatalf("read dir: %v", err)
 	}
-	if err := os.MkdirAll(dst, 0o755); err != nil {
+	if err := os.MkdirAll(dst, 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	for _, entry := range entries {
@@ -179,17 +180,19 @@ func copyDir(t *testing.T, src, dst string) {
 			copyDir(t, srcPath, dstPath)
 			continue
 		}
+		// #nosec G304 -- test fixture copy uses controlled paths.
 		data, err := os.ReadFile(srcPath)
 		if err != nil {
 			t.Fatalf("read file: %v", err)
 		}
-		if err := os.WriteFile(dstPath, data, 0o644); err != nil {
+		if err := os.WriteFile(dstPath, data, 0o600); err != nil {
 			t.Fatalf("write file: %v", err)
 		}
 	}
 }
 
 func readFile(t *testing.T, path string) []byte {
+	// #nosec G304 -- test helper reads controlled fixture paths.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read file: %v", err)

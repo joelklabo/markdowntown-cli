@@ -160,6 +160,7 @@ func loadClaudeRule(rootDir, path, targetRel string, scope Scope, maxDepth int, 
 	}
 	visited[path] = struct{}{}
 
+	// #nosec G304 -- path comes from validated instruction discovery.
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, nil, err

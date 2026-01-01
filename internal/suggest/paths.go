@@ -12,6 +12,7 @@ const (
 	dataSubdir   = "markdowntown"
 )
 
+// ConfigDir returns the XDG config directory for suggest data.
 func ConfigDir() (string, error) {
 	home, err := xdgConfigHome()
 	if err != nil {
@@ -20,6 +21,7 @@ func ConfigDir() (string, error) {
 	return filepath.Join(home, configSubdir), nil
 }
 
+// CacheDir returns the XDG cache directory for suggest data.
 func CacheDir() (string, error) {
 	home, err := xdgCacheHome()
 	if err != nil {
@@ -28,6 +30,7 @@ func CacheDir() (string, error) {
 	return filepath.Join(home, cacheSubdir), nil
 }
 
+// DataDir returns the XDG data directory for suggest data.
 func DataDir() (string, error) {
 	home, err := xdgDataHome()
 	if err != nil {

@@ -5,26 +5,35 @@ package instructions
 type Client string
 
 const (
-	ClientCodex   Client = "codex"
+	// ClientCodex identifies the Codex client.
+	ClientCodex Client = "codex"
+	// ClientCopilot identifies the GitHub Copilot client.
 	ClientCopilot Client = "copilot"
-	ClientVSCode  Client = "vscode"
-	ClientClaude  Client = "claude"
-	ClientGemini  Client = "gemini"
+	// ClientVSCode identifies the VS Code client.
+	ClientVSCode Client = "vscode"
+	// ClientClaude identifies the Claude client.
+	ClientClaude Client = "claude"
+	// ClientGemini identifies the Gemini client.
+	ClientGemini Client = "gemini"
 )
 
 // OrderGuarantee describes whether a merge order is deterministic.
 type OrderGuarantee string
 
 const (
+	// OrderDeterministic indicates a deterministic merge order.
 	OrderDeterministic OrderGuarantee = "deterministic"
-	OrderUndefined     OrderGuarantee = "undefined"
+	// OrderUndefined indicates no guaranteed merge order.
+	OrderUndefined OrderGuarantee = "undefined"
 )
 
 // Scope identifies where an instruction file originates.
 type Scope string
 
 const (
+	// ScopeUser indicates a user-scope instruction file.
 	ScopeUser Scope = "user"
+	// ScopeRepo indicates a repo-scope instruction file.
 	ScopeRepo Scope = "repo"
 )
 
@@ -32,8 +41,11 @@ const (
 type InstructionReason string
 
 const (
+	// ReasonOverride indicates an override file took precedence.
 	ReasonOverride InstructionReason = "override"
-	ReasonPrimary  InstructionReason = "primary"
+	// ReasonPrimary indicates a primary instruction file.
+	ReasonPrimary InstructionReason = "primary"
+	// ReasonFallback indicates a fallback instruction file.
 	ReasonFallback InstructionReason = "fallback"
 )
 

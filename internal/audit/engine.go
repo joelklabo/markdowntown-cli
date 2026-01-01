@@ -172,7 +172,7 @@ func fingerprintPaths(paths []Path) []fingerprintPath {
 func fingerprintTools(tools []Tool) []fingerprintTool {
 	fp := make([]fingerprintTool, 0, len(tools))
 	for _, tool := range tools {
-		fp = append(fp, fingerprintTool{ToolID: tool.ToolID, Kind: tool.Kind})
+		fp = append(fp, fingerprintTool(tool))
 	}
 	sort.SliceStable(fp, func(i, j int) bool {
 		if fp[i].ToolID != fp[j].ToolID {

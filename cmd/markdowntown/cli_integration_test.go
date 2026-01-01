@@ -45,16 +45,20 @@ func TestResolveCLIGoldenJSON(t *testing.T) {
 	writeFile(t, filepath.Join(repoRoot, "AGENTS.md"), "root")
 
 	codexHome := filepath.Join(repoRoot, ".codex")
-	if err := os.MkdirAll(codexHome, 0o755); err != nil {
+	if err := os.MkdirAll(codexHome, 0o750); err != nil {
 		t.Fatalf("mkdir codex home: %v", err)
 	}
-	os.Setenv("CODEX_HOME", codexHome)
+	t.Setenv("CODEX_HOME", codexHome)
 
 	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
 	}
-	defer os.Chdir(cwd)
+	t.Cleanup(func() {
+		if err := os.Chdir(cwd); err != nil {
+			t.Fatalf("restore cwd: %v", err)
+		}
+	})
 	if err := os.Chdir(repoRoot); err != nil {
 		t.Fatalf("chdir: %v", err)
 	}
@@ -125,6 +129,7 @@ func readGolden(t *testing.T, name string) string {
 	t.Helper()
 	repoRoot := repoRootFromCaller(t)
 	path := filepath.Join(repoRoot, "testdata", "golden", name)
+	// #nosec G304 -- test helper reads controlled fixture paths.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read golden %s: %v", name, err)
@@ -143,10 +148,10 @@ func initGitRepo(t *testing.T, dir string) {
 
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
 }

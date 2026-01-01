@@ -314,7 +314,7 @@ func TestResolveRepoRootFromCwd(t *testing.T) {
 	repo := t.TempDir()
 	initGitRepo(t, repo)
 	subdir := filepath.Join(repo, "sub")
-	if err := os.MkdirAll(subdir, 0o755); err != nil {
+	if err := os.MkdirAll(subdir, 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
@@ -322,7 +322,11 @@ func TestResolveRepoRootFromCwd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
 	}
-	defer os.Chdir(cwd)
+	t.Cleanup(func() {
+		if err := os.Chdir(cwd); err != nil {
+			t.Fatalf("restore cwd: %v", err)
+		}
+	})
 	if err := os.Chdir(subdir); err != nil {
 		t.Fatalf("chdir: %v", err)
 	}
@@ -562,7 +566,11 @@ func TestProgressReporterEnabled(t *testing.T) {
 	if err != nil {
 		t.Skipf("dev null unavailable: %v", err)
 	}
-	defer devNull.Close()
+	t.Cleanup(func() {
+		if err := devNull.Close(); err != nil {
+			t.Fatalf("close dev null: %v", err)
+		}
+	})
 
 	oldStdout := os.Stdout
 	os.Stdout = devNull

@@ -12,9 +12,12 @@ import (
 type RedactMode string
 
 const (
-	RedactAuto   RedactMode = "auto"
+	// RedactAuto redacts non-repo paths and keeps repo paths intact.
+	RedactAuto RedactMode = "auto"
+	// RedactAlways redacts all paths, including repo paths.
 	RedactAlways RedactMode = "always"
-	RedactNever  RedactMode = "never"
+	// RedactNever disables redaction for all paths.
+	RedactNever RedactMode = "never"
 )
 
 // Redactor redacts paths based on scope and configured mode.

@@ -194,6 +194,7 @@ func matchesGeminiFilename(name string, filenames []string) bool {
 
 func loadGeminiIgnore(repoRoot string) ([]string, error) {
 	path := filepath.Join(repoRoot, geminiIgnoreFilename)
+	// #nosec G304 -- path is derived from repo root and known filename.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {

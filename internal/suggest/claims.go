@@ -11,10 +11,14 @@ import (
 type NormativeStrength string
 
 const (
-	StrengthMust   NormativeStrength = "MUST"
+	// StrengthMust indicates a mandatory requirement.
+	StrengthMust NormativeStrength = "MUST"
+	// StrengthShould indicates a recommended requirement.
 	StrengthShould NormativeStrength = "SHOULD"
-	StrengthMay    NormativeStrength = "MAY"
-	StrengthInfo   NormativeStrength = "INFO"
+	// StrengthMay indicates an optional requirement.
+	StrengthMay NormativeStrength = "MAY"
+	// StrengthInfo indicates an informational statement.
+	StrengthInfo NormativeStrength = "INFO"
 )
 
 // ProofSpan references a span within a normalized section.

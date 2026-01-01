@@ -83,9 +83,9 @@ type conflictKey struct {
 }
 
 type conflictGroup struct {
-	entries    []ConfigEntry
-	hasSingle  bool
-	hasMulti   bool
+	entries   []ConfigEntry
+	hasSingle bool
+	hasMulti  bool
 }
 
 func conflictWarnings(configs []ConfigEntry, scans []Root) []Warning {

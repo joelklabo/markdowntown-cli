@@ -127,6 +127,7 @@ func loadCodexConfig(codexHome string) (codexConfig, string, error) {
 	}
 
 	path := filepath.Join(codexHome, codexConfigFilename)
+	// #nosec G304 -- path is derived from codex home/config file.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {

@@ -10,7 +10,7 @@ import (
 )
 
 func TestWriteSuggestReportJSON(t *testing.T) {
-	report := SuggestReport{
+	report := Report{
 		Client: "codex",
 		Suggestions: []Suggestion{
 			{ID: "S1", Text: "Do thing", Sources: []string{"https://example.com"}},
@@ -22,7 +22,7 @@ func TestWriteSuggestReportJSON(t *testing.T) {
 		t.Fatalf("WriteSuggestReport: %v", err)
 	}
 
-	var decoded SuggestReport
+	var decoded Report
 	if err := json.Unmarshal(buf.Bytes(), &decoded); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
@@ -32,7 +32,7 @@ func TestWriteSuggestReportJSON(t *testing.T) {
 }
 
 func TestWriteSuggestReportMarkdown(t *testing.T) {
-	report := SuggestReport{
+	report := Report{
 		Client: "copilot",
 		Suggestions: []Suggestion{
 			{ID: "S1", Text: "Use pnpm", Sources: []string{"https://example.com"}},
@@ -120,7 +120,7 @@ func TestNormalizeFormat(t *testing.T) {
 
 func TestWriteSuggestReportUnsupportedFormat(t *testing.T) {
 	var buf bytes.Buffer
-	if err := WriteSuggestReport(&buf, "xml", SuggestReport{}); err == nil {
+	if err := WriteSuggestReport(&buf, "xml", Report{}); err == nil {
 		t.Fatalf("expected error for unsupported format")
 	}
 }

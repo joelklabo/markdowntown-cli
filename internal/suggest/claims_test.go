@@ -150,6 +150,7 @@ func contains(values []string, target string) bool {
 func readFixture(t *testing.T, name string) string {
 	t.Helper()
 	path := filepath.Join("..", "..", "testdata", "instructions", name)
+	// #nosec G304 -- test fixture path is controlled.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read fixture %s: %v", name, err)

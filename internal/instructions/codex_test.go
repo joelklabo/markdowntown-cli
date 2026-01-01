@@ -11,12 +11,12 @@ import (
 func TestCodexAdapterResolveOrder(t *testing.T) {
 	repo := t.TempDir()
 	cwd := filepath.Join(repo, "service")
-	if err := os.MkdirAll(cwd, 0o755); err != nil {
+	if err := os.MkdirAll(cwd, 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
 	codexHome := filepath.Join(t.TempDir(), "codex")
-	if err := os.MkdirAll(codexHome, 0o755); err != nil {
+	if err := os.MkdirAll(codexHome, 0o750); err != nil {
 		t.Fatalf("mkdir codex home: %v", err)
 	}
 	t.Setenv("CODEX_HOME", codexHome)
@@ -62,7 +62,7 @@ func TestCodexAdapterResolveOrder(t *testing.T) {
 func TestCodexAdapterOverrideEmptyUsesPrimary(t *testing.T) {
 	repo := t.TempDir()
 	codexHome := filepath.Join(t.TempDir(), "codex")
-	if err := os.MkdirAll(codexHome, 0o755); err != nil {
+	if err := os.MkdirAll(codexHome, 0o750); err != nil {
 		t.Fatalf("mkdir codex home: %v", err)
 	}
 	t.Setenv("CODEX_HOME", codexHome)
@@ -88,7 +88,7 @@ func TestCodexAdapterOverrideEmptyUsesPrimary(t *testing.T) {
 func TestCodexAdapterSizeLimit(t *testing.T) {
 	repo := t.TempDir()
 	codexHome := filepath.Join(t.TempDir(), "codex")
-	if err := os.MkdirAll(codexHome, 0o755); err != nil {
+	if err := os.MkdirAll(codexHome, 0o750); err != nil {
 		t.Fatalf("mkdir codex home: %v", err)
 	}
 	writeFile(t, filepath.Join(codexHome, codexConfigFilename), "project_doc_max_bytes = 5\n")
@@ -144,7 +144,7 @@ func TestResolveCodexHome(t *testing.T) {
 func TestNormalizeResolvePaths(t *testing.T) {
 	repo := t.TempDir()
 	cwd := filepath.Join(repo, "service")
-	if err := os.MkdirAll(cwd, 0o755); err != nil {
+	if err := os.MkdirAll(cwd, 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
@@ -170,7 +170,7 @@ func TestNormalizeResolvePaths(t *testing.T) {
 func TestNormalizeResolvePathsMismatch(t *testing.T) {
 	repo := t.TempDir()
 	other := t.TempDir()
-	if err := os.MkdirAll(repo, 0o755); err != nil {
+	if err := os.MkdirAll(repo, 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
@@ -215,10 +215,10 @@ func TestParseStringArrayInvalid(t *testing.T) {
 
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
 }
