@@ -1,0 +1,6 @@
+command: go test ./cmd/markdowntown -run Test
+exit_code: 0
+stdout:
+ok   	markdowntown-cli/cmd/markdowntown	7.312s
+
+stderr:

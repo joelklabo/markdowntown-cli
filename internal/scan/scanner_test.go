@@ -71,6 +71,78 @@ func TestScanWarnsOnCircularSymlink(t *testing.T) {
 	}
 }
 
+func TestPopulateEntryContentMissingFile(t *testing.T) {
+	entry := &ConfigEntry{}
+	missingPath := filepath.Join(t.TempDir(), "missing.txt")
+
+	populateEntryContent(entry, missingPath, true)
+
+	if entry.Error == nil || *entry.Error != "ENOENT" {
+		t.Fatalf("expected ENOENT error, got %#v", entry.Error)
+	}
+	if entry.SizeBytes != nil || entry.Sha256 != nil {
+		t.Fatalf("expected no size or sha on missing file")
+	}
+}
+
+func TestPopulateEntryContentEmptyFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "empty.md")
+	if err := os.WriteFile(path, []byte{}, 0o600); err != nil {
+		t.Fatalf("write empty file: %v", err)
+	}
+
+	entry := &ConfigEntry{}
+	populateEntryContent(entry, path, false)
+
+	if entry.Warning == nil || *entry.Warning != "empty" {
+		t.Fatalf("expected empty warning, got %#v", entry.Warning)
+	}
+}
+
+func TestPopulateEntryContentFrontmatterError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bad.md")
+	content := []byte("---\nkey: value\n")
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatalf("write bad frontmatter: %v", err)
+	}
+
+	entry := &ConfigEntry{}
+	populateEntryContent(entry, path, false)
+
+	if entry.FrontmatterError == nil {
+		t.Fatalf("expected frontmatter error for missing delimiter")
+	}
+}
+
+func TestScanUserRootMissing(t *testing.T) {
+	repoRoot := copyFixture(t, "security")
+	missingRoot := filepath.Join(t.TempDir(), "missing-root")
+
+	result, err := Scan(Options{
+		RepoRoot: repoRoot,
+		UserRoots: []string{
+			missingRoot,
+		},
+		Registry: testRegistry(),
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	found := false
+	for _, scan := range result.Scans {
+		if scan.Scope == "user" && scan.Root == missingRoot {
+			found = true
+			if scan.Exists {
+				t.Fatalf("expected missing user root to have Exists=false")
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected user scan entry for %s", missingRoot)
+	}
+}
+
 func hasWarning(warnings []Warning, path string, code string) bool {
 	for _, warning := range warnings {
 		if warning.Code == code && warning.Path == path {

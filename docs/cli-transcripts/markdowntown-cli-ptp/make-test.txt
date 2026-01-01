@@ -1,0 +1,12 @@
+command: make test
+exit_code: 0
+stdout:
+go test ./...
+ok   	markdowntown-cli/cmd/markdowntown	(cached)
+ok   	markdowntown-cli/internal/audit	(cached)
+ok   	markdowntown-cli/internal/git	(cached)
+?    	markdowntown-cli/internal/hash	[no test files]
+ok   	markdowntown-cli/internal/scan	1.840s
+?    	markdowntown-cli/internal/version	[no test files]
+
+stderr:

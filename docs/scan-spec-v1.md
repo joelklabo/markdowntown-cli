@@ -861,17 +861,17 @@ Triggered on version tags.
 
 Sanitized real-world fixture coverage lives under `testdata/repos/integration` (e.g., `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.claude/rules/*.md`).
 
-1. Pattern expansion (glob and regex)
-2. Multi-tool file deduplication
-3. Symlink resolution (including external targets, circular detection)
-4. Error handling (permission denied, missing files)
-5. Empty file detection
-6. Sorting determinism
-7. User-scope root existence detection
-8. Frontmatter parsing (valid, invalid, missing)
-9. Conflict detection (including Codex override precedence)
-10. stdin path handling
-11. Codex prompts/skills discovery
+1. Pattern expansion (glob and regex) — `internal/scan/matcher_test.go` (glob + regex tests)
+2. Multi-tool file deduplication — `internal/scan/scanner_integration_test.go` (shared/config.json)
+3. Symlink resolution (including external targets, circular detection) — `internal/scan/scanner_test.go` (circular symlink warning)
+4. Error handling (permission denied, missing files) — `internal/scan/scanner_test.go` (EACCES + ENOENT)
+5. Empty file detection — `internal/scan/scanner_test.go` (empty warning)
+6. Sorting determinism — `internal/scan/scanner_integration_test.go` (golden output)
+7. User-scope root existence detection — `internal/scan/scanner_test.go` (missing user root)
+8. Frontmatter parsing (valid, invalid, missing) — `internal/scan/scanner_integration_test.go` + `internal/scan/scanner_test.go`
+9. Conflict detection (including Codex override precedence) — `internal/scan/scanner_integration_test.go`
+10. stdin path handling — `internal/scan/scanner_integration_test.go` (UNRECOGNIZED_STDIN)
+11. Codex prompts/skills discovery — `internal/scan/scanner_integration_test.go` (user .codex fixtures)
 
 ---
 

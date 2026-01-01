@@ -1,0 +1,6 @@
+command: go test ./internal/scan -run Test
+exit_code: 0
+stdout:
+ok   	markdowntown-cli/internal/scan	1.873s
+
+stderr:

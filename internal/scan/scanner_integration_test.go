@@ -23,6 +23,8 @@ func TestScanIntegrationGolden(t *testing.T) {
 
 	userRoot := t.TempDir()
 	writeTestFile(t, filepath.Join(userRoot, "AGENTS.md"), "User instructions")
+	writeTestFile(t, filepath.Join(userRoot, ".codex", "prompts", "refactor.md"), "Refactor prompt")
+	writeTestFile(t, filepath.Join(userRoot, ".codex", "skills", "review", "SKILL.md"), "Review skill")
 
 	stdinPath := filepath.Join(repoRoot, "stdin", "unmatched.txt")
 	registry := integrationRegistry()
@@ -161,6 +163,18 @@ func integrationRegistry() Registry {
 				Docs:         []string{"https://example.com"},
 			},
 			{
+				ID:           "codex-repo-agents-override",
+				ToolID:       "codex",
+				ToolName:     "Codex",
+				Kind:         "instructions",
+				Scope:        "repo",
+				Paths:        []string{"AGENTS.override.md"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+			{
 				ID:           "copilot-instructions",
 				ToolID:       "github-copilot",
 				ToolName:     "GitHub Copilot",
@@ -206,6 +220,30 @@ func integrationRegistry() Registry {
 				Type:         "glob",
 				LoadBehavior: "single",
 				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+			{
+				ID:           "codex-prompts-user",
+				ToolID:       "codex",
+				ToolName:     "Codex",
+				Kind:         "prompts",
+				Scope:        "user",
+				Paths:        []string{".codex/prompts/*.md"},
+				Type:         "glob",
+				LoadBehavior: "directory-glob",
+				Application:  "selected",
+				Docs:         []string{"https://example.com"},
+			},
+			{
+				ID:           "codex-skills-user",
+				ToolID:       "codex",
+				ToolName:     "Codex",
+				Kind:         "skills",
+				Scope:        "user",
+				Paths:        []string{".codex/skills/**/SKILL.md"},
+				Type:         "glob",
+				LoadBehavior: "directory-glob",
+				Application:  "invoked",
 				Docs:         []string{"https://example.com"},
 			},
 		},

@@ -79,6 +79,33 @@
       ]
     },
     {
+      "path": "\u003crepo\u003e/AGENTS.override.md",
+      "scope": "repo",
+      "depth": 0,
+      "sizeBytes": 80,
+      "sha256": "e809ab0f0bbf5b37646c3c170ee16a4cfdf1ab2a8585840fb38f146672f45052",
+      "mtime": 0,
+      "gitignored": false,
+      "frontmatter": null,
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": [
+        {
+          "toolId": "codex",
+          "toolName": "Codex",
+          "kind": "instructions",
+          "loadBehavior": "single",
+          "application": "automatic",
+          "matchedPattern": "AGENTS.override.md",
+          "notes": "",
+          "hints": null
+        }
+      ]
+    },
+    {
       "path": "\u003crepo\u003e/CLAUDE.md",
       "scope": "repo",
       "depth": 0,
@@ -317,6 +344,60 @@
           "loadBehavior": "single",
           "application": "automatic",
           "matchedPattern": "AGENTS.md",
+          "notes": "",
+          "hints": null
+        }
+      ]
+    },
+    {
+      "path": "\u003cuser\u003e/.codex/prompts/refactor.md",
+      "scope": "user",
+      "depth": 2,
+      "sizeBytes": 15,
+      "sha256": "eea5469dde9874a871b80a1278b5472d2736b9abb90e34726e28fc2944415987",
+      "mtime": 0,
+      "gitignored": false,
+      "frontmatter": null,
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": [
+        {
+          "toolId": "codex",
+          "toolName": "Codex",
+          "kind": "prompts",
+          "loadBehavior": "directory-glob",
+          "application": "selected",
+          "matchedPattern": ".codex/prompts/*.md",
+          "notes": "",
+          "hints": null
+        }
+      ]
+    },
+    {
+      "path": "\u003cuser\u003e/.codex/skills/review/SKILL.md",
+      "scope": "user",
+      "depth": 3,
+      "sizeBytes": 12,
+      "sha256": "95e5a7cfdb022ecbadbf25867ee2ebedd1d01ed8fedef7d6dea8dda47c2b3f1f",
+      "mtime": 0,
+      "gitignored": false,
+      "frontmatter": null,
+      "frontmatterError": null,
+      "content": null,
+      "contentSkipped": null,
+      "error": null,
+      "warning": null,
+      "tools": [
+        {
+          "toolId": "codex",
+          "toolName": "Codex",
+          "kind": "skills",
+          "loadBehavior": "directory-glob",
+          "application": "invoked",
+          "matchedPattern": ".codex/skills/**/SKILL.md",
           "notes": "",
           "hints": null
         }
