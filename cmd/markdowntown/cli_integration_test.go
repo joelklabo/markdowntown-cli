@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"os"
 	"os/exec"
@@ -10,6 +11,9 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"markdowntown-cli/internal/instructions"
+	"markdowntown-cli/internal/suggest"
 )
 
 func TestSuggestCLIGoldenJSON(t *testing.T) {
@@ -68,9 +72,7 @@ func TestResolveCLIGoldenJSON(t *testing.T) {
 		t.Fatalf("runResolve failed: %v", err)
 	}
 
-	normalized := normalizeGeneratedAt(out.String())
-	normalized = strings.ReplaceAll(normalized, "/private"+repoRoot, "<REPO>")
-	normalized = strings.ReplaceAll(normalized, repoRoot, "<REPO>")
+	normalized := normalizeResolveReport(t, repoRoot, out.String())
 	expected := readGolden(t, "resolve.json")
 	if strings.TrimSpace(normalized) != strings.TrimSpace(expected) {
 		t.Fatalf("resolve json mismatch\nexpected:\n%s\n\nactual:\n%s", expected, normalized)
@@ -113,6 +115,101 @@ func setSuggestEnv(t *testing.T) {
 func normalizeGeneratedAt(input string) string {
 	re := regexp.MustCompile(`"generatedAt"\s*:\s*\d+`)
 	return re.ReplaceAllString(input, "\"generatedAt\": 0")
+}
+
+func normalizeResolveReport(t *testing.T, repoRoot, output string) string {
+	t.Helper()
+	var report suggest.ResolveReport
+	if err := json.Unmarshal([]byte(output), &report); err != nil {
+		t.Fatalf("unmarshal resolve output: %v", err)
+	}
+	report.GeneratedAt = 0
+	normalizeResolutionPaths(&report.Resolution, repoRoot)
+
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(report); err != nil {
+		t.Fatalf("marshal resolve output: %v", err)
+	}
+	return strings.TrimSpace(buf.String())
+}
+
+func normalizeResolutionPaths(resolution *instructions.Resolution, repoRoot string) {
+	if resolution == nil {
+		return
+	}
+	resolution.RepoRoot = normalizeRepoPath(resolution.RepoRoot, repoRoot)
+	resolution.Cwd = normalizeRepoPath(resolution.Cwd, repoRoot)
+	resolution.TargetPath = normalizeRepoPath(resolution.TargetPath, repoRoot)
+	resolution.CodexHome = normalizeRepoPath(resolution.CodexHome, repoRoot)
+	resolution.ConfigPath = normalizeRepoPath(resolution.ConfigPath, repoRoot)
+
+	for i := range resolution.Applied {
+		resolution.Applied[i].Path = normalizeRepoPath(resolution.Applied[i].Path, repoRoot)
+		resolution.Applied[i].Dir = normalizeRepoPath(resolution.Applied[i].Dir, repoRoot)
+	}
+}
+
+func normalizeRepoPath(path, repoRoot string) string {
+	if path == "" || repoRoot == "" {
+		return path
+	}
+	rel, ok := relativeFromRoot(repoRoot, path)
+	if !ok {
+		return path
+	}
+	if rel == "." {
+		return "<REPO>"
+	}
+	return filepath.ToSlash(filepath.Join("<REPO>", rel))
+}
+
+func relativeFromRoot(root, target string) (string, bool) {
+	rootClean := filepath.Clean(root)
+	targetClean := filepath.Clean(target)
+
+	rel, err := filepath.Rel(rootClean, targetClean)
+	if err == nil {
+		if rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))) {
+			return rel, true
+		}
+	}
+
+	return relativeFromFS(rootClean, targetClean)
+}
+
+func relativeFromFS(root, target string) (string, bool) {
+	rootInfo, err := os.Stat(root)
+	if err != nil {
+		return "", false
+	}
+
+	current := target
+	var parts []string
+	for {
+		info, err := os.Stat(current)
+		if err != nil {
+			return "", false
+		}
+		if os.SameFile(rootInfo, info) {
+			if len(parts) == 0 {
+				return ".", true
+			}
+			for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
+				parts[i], parts[j] = parts[j], parts[i]
+			}
+			return filepath.Join(parts...), true
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", false
+		}
+		parts = append(parts, filepath.Base(current))
+		current = parent
+	}
 }
 
 func repoRootFromCaller(t *testing.T) string {

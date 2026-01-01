@@ -445,6 +445,10 @@ func relativeFromRoot(root, target string) (string, bool) {
 		return strings.TrimPrefix(targetNorm, prefix), true
 	}
 
+	if rel, ok := relativeFromFS(rootClean, targetClean); ok {
+		return rel, true
+	}
+
 	return "", false
 }
 
@@ -469,4 +473,36 @@ func evalPath(path string) string {
 		return path
 	}
 	return resolved
+}
+
+func relativeFromFS(root, target string) (string, bool) {
+	rootInfo, err := os.Stat(root)
+	if err != nil {
+		return "", false
+	}
+
+	current := target
+	var parts []string
+	for {
+		info, err := os.Stat(current)
+		if err != nil {
+			return "", false
+		}
+		if os.SameFile(rootInfo, info) {
+			if len(parts) == 0 {
+				return ".", true
+			}
+			for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
+				parts[i], parts[j] = parts[j], parts[i]
+			}
+			return filepath.Join(parts...), true
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", false
+		}
+		parts = append(parts, filepath.Base(current))
+		current = parent
+	}
 }

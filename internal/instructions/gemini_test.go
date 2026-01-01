@@ -70,9 +70,7 @@ func TestGeminiAdapterResolve(t *testing.T) {
 		t.Fatalf("expected %d files, got %d", len(expected), len(paths))
 	}
 	for i, path := range expected {
-		if paths[i] != path {
-			t.Fatalf("expected %s at %d, got %s", path, i, paths[i])
-		}
+		assertSamePath(t, paths[i], path)
 	}
 }
 
@@ -91,9 +89,7 @@ func TestGeminiAdapterCustomFilenames(t *testing.T) {
 	if len(res.Applied) != 1 {
 		t.Fatalf("expected 1 applied file, got %d", len(res.Applied))
 	}
-	if res.Applied[0].Path != filepath.Join(repoRoot, "CUSTOM.md") {
-		t.Fatalf("expected CUSTOM.md, got %s", res.Applied[0].Path)
-	}
+	assertSamePath(t, res.Applied[0].Path, filepath.Join(repoRoot, "CUSTOM.md"))
 }
 
 func TestGeminiIgnoreMatch(t *testing.T) {

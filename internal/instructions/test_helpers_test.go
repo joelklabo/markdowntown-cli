@@ -3,8 +3,38 @@ package instructions
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
+
+func assertSamePath(t *testing.T, got, want string) {
+	t.Helper()
+	if !samePath(got, want) {
+		t.Fatalf("expected %s, got %s", want, got)
+	}
+}
+
+func samePath(a, b string) bool {
+	if a == b {
+		return true
+	}
+	aClean := filepath.Clean(a)
+	bClean := filepath.Clean(b)
+	if runtime.GOOS == "windows" {
+		aClean = strings.ToLower(aClean)
+		bClean = strings.ToLower(bClean)
+	}
+	if aClean == bClean {
+		return true
+	}
+	infoA, errA := os.Stat(a)
+	infoB, errB := os.Stat(b)
+	if errA == nil && errB == nil {
+		return os.SameFile(infoA, infoB)
+	}
+	return false
+}
 
 func writeTestFile(t *testing.T, path, content string) {
 	t.Helper()

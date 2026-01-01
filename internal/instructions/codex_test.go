@@ -50,9 +50,7 @@ func TestCodexAdapterResolveOrder(t *testing.T) {
 		t.Fatalf("expected fallback in subdir, got %s", res.Applied[2].Reason)
 	}
 
-	if res.Applied[1].Path != filepath.Join(repo, codexAgentsOverrideFilename) {
-		t.Fatalf("unexpected repo root path: %s", res.Applied[1].Path)
-	}
+	assertSamePath(t, res.Applied[1].Path, filepath.Join(repo, codexAgentsOverrideFilename))
 
 	if len(res.FallbackFilenames) != 1 || res.FallbackFilenames[0] != "INSTRUCTIONS.md" {
 		t.Fatalf("unexpected fallback filenames: %v", res.FallbackFilenames)
@@ -156,12 +154,8 @@ func TestNormalizeResolvePaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("normalizeResolvePaths: %v", err)
 	}
-	if repoRoot != repo {
-		t.Fatalf("expected repo root %s, got %s", repo, repoRoot)
-	}
-	if resolvedCwd != cwd {
-		t.Fatalf("unexpected cwd %s", resolvedCwd)
-	}
+	assertSamePath(t, repoRoot, repo)
+	assertSamePath(t, resolvedCwd, cwd)
 	if targetPath != filepath.Join(cwd, "file.txt") {
 		t.Fatalf("unexpected target path %s", targetPath)
 	}
