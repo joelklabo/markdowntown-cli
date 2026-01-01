@@ -294,6 +294,9 @@ func ruleNoRepoConfig(ctx Context) []Issue {
 		sort.Strings(detectedScopes)
 
 		candidatePaths := candidateRepoPaths(ctx.Registry, key)
+		if len(candidatePaths) == 0 {
+			continue
+		}
 		issue := Issue{
 			RuleID:     "MD005",
 			Severity:   SeverityInfo,

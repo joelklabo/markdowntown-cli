@@ -1,0 +1,4 @@
+# Gemini CLI ignore rules for this repo.
+# Patterns follow .gitignore syntax.
+.git/
+.beads/
