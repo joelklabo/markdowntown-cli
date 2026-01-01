@@ -228,12 +228,12 @@ func ensureTargetRel(repoRoot, targetPath string) (string, error) {
 	if targetPath == "" {
 		return "", nil
 	}
-	rel, err := filepath.Rel(repoRoot, targetPath)
-	if err != nil {
-		return "", err
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	rel, ok := relativeFromRoot(repoRoot, targetPath)
+	if !ok {
 		return "", ErrRepoRootMismatch
+	}
+	if rel == "." {
+		return "", nil
 	}
 	return rel, nil
 }
