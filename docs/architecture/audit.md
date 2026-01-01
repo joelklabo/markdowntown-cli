@@ -2,7 +2,7 @@
 
 ## Goals
 - Deterministic audit output suitable for CI and automation.
-- Metadata-only analysis by default; avoid content reads unless a rule requires it.
+- Internal scans read file contents by default for completeness, but audit analysis remains metadata-only.
 - Privacy-aware reporting for non-repo paths (redaction + pathId).
 - Fail-closed behavior when instruction ordering is undefined.
 
@@ -18,7 +18,7 @@
 1. Parse CLI flags into audit.Options.
 2. Resolve input mode:
    - If `--input` provided: read scan JSON from file/stdin and validate schema.
-   - Else: run internal scan (using `--repo`, `--repo-only`, `--stdin`).
+   - Else: run internal scan (using `--repo`, `--repo-only`, `--stdin`); content is read by default unless `--no-content` is set.
 3. Normalize scan metadata into audit input structures (audit/sourceScan provenance).
 4. Apply exclusion filters (`--exclude`) and rule filters (`--only`, `--ignore-rule`).
 5. Execute rules in deterministic order; each rule emits zero or more issues.
@@ -30,7 +30,7 @@
 ## Rule Engine
 - Rules are pure functions: input scan metadata + config/tool entries → issues.
 - Rules must be deterministic and side-effect free.
-- v1 rules are metadata-only and should not read `content`.
+- v1 rules are metadata-only and must not rely on `content`, even when internal scans include it.
 - Conflict detection prefers scan warnings; if structured warnings are absent, rules may group configs as a fallback.
 
 ## Redaction & Privacy
