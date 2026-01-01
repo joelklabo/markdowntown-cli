@@ -413,6 +413,20 @@ func relativeFromRoot(root, target string) (string, bool) {
 
 	rootClean := filepath.Clean(root)
 	targetClean := filepath.Clean(target)
+	if runtime.GOOS == "windows" {
+		rootClean = evalPath(rootClean)
+		if _, err := os.Stat(targetClean); err == nil {
+			targetClean = evalPath(targetClean)
+		} else {
+			parent := filepath.Dir(targetClean)
+			if parent != targetClean {
+				if _, err := os.Stat(parent); err == nil {
+					parent = evalPath(parent)
+					targetClean = filepath.Join(parent, filepath.Base(targetClean))
+				}
+			}
+		}
+	}
 
 	rel, err := filepath.Rel(rootClean, targetClean)
 	if err == nil {
