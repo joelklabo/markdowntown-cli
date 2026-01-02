@@ -163,10 +163,101 @@ func TestLoadRegistryMalformed(t *testing.T) {
 	path := filepath.Join(root, "registry.json")
 	writeRegistryFile(t, path, "{not-json}")
 	t.Setenv(RegistryEnvVar, path)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
 	_, _, err := LoadRegistry()
 	if err == nil {
 		t.Fatal("expected error for malformed registry")
+	}
+}
+
+func TestLoadRegistryWithCustomPatterns(t *testing.T) {
+	root := t.TempDir()
+	registryPath := filepath.Join(root, "registry.json")
+	writeRegistryFile(t, registryPath, `{
+  "version": "base",
+  "patterns": [
+    {
+      "id": "base-1",
+      "toolId": "base",
+      "toolName": "Base",
+      "kind": "config",
+      "scope": "repo",
+      "paths": ["base.json"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": ["https://example.com"]
+    }
+  ]
+}`)
+	t.Setenv(RegistryEnvVar, registryPath)
+
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	customPath := filepath.Join(xdg, RegistrySubdir, CustomPatternsFile)
+	writeRegistryFile(t, customPath, `{
+  "version": "custom",
+  "patterns": [
+    {
+      "id": "base-1",
+      "toolId": "override",
+      "toolName": "Override",
+      "kind": "config",
+      "scope": "repo",
+      "paths": ["override.json"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": ["https://example.com"]
+    },
+    {
+      "id": "custom-1",
+      "toolId": "custom",
+      "toolName": "Custom",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": ["CUSTOM.md"],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": ["https://example.com"]
+    }
+  ]
+}`)
+
+	reg, _, err := LoadRegistry()
+	if err != nil {
+		t.Fatalf("LoadRegistry: %v", err)
+	}
+	if reg.Version != "base" {
+		t.Fatalf("expected base version, got %s", reg.Version)
+	}
+	if len(reg.Patterns) != 2 {
+		t.Fatalf("expected 2 patterns, got %d", len(reg.Patterns))
+	}
+	if reg.Patterns[0].ToolID != "override" {
+		t.Fatalf("expected override pattern at index 0, got %s", reg.Patterns[0].ToolID)
+	}
+	if reg.Patterns[1].ID != "custom-1" {
+		t.Fatalf("expected custom pattern appended, got %s", reg.Patterns[1].ID)
+	}
+}
+
+func TestLoadRegistryCustomPatternsInvalid(t *testing.T) {
+	root := t.TempDir()
+	registryPath := filepath.Join(root, "registry.json")
+	writeRegistryFile(t, registryPath, `{"version":"base","patterns":[]}`)
+	t.Setenv(RegistryEnvVar, registryPath)
+
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	customPath := filepath.Join(xdg, RegistrySubdir, CustomPatternsFile)
+	writeRegistryFile(t, customPath, `{"version":"custom","patterns":[{"id":"bad"}]}`)
+
+	_, _, err := LoadRegistry()
+	if err == nil {
+		t.Fatalf("expected error for invalid custom patterns")
 	}
 }
 

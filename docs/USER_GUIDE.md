@@ -245,6 +245,12 @@ Registry resolution order:
 
 If multiple registries are found without an override, the scan fails.
 
+Custom overlays:
+
+- `$XDG_CONFIG_HOME/markdowntown/custom-patterns.json` (or `~/.config/markdowntown/custom-patterns.json`)
+- Patterns merge deterministically; matching IDs replace built-in patterns, new IDs append.
+- Invalid overlays fail the scan with a clear error.
+
 ## Suggestion source registry
 
 Suggestion sources are defined in `doc-sources.json` and discovered in this order:

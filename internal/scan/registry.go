@@ -15,6 +15,8 @@ const (
 	RegistryEnvVar = "MARKDOWNTOWN_REGISTRY"
 	// RegistryFile is the default registry filename.
 	RegistryFile = "ai-config-patterns.json"
+	// CustomPatternsFile is the optional overlay file name.
+	CustomPatternsFile = "custom-patterns.json"
 	// RegistrySubdir is the XDG config subdirectory for markdowntown.
 	RegistrySubdir = "markdowntown"
 	// RegistryEtcPath is the system-level registry directory.
@@ -45,6 +47,14 @@ func LoadRegistry() (Registry, string, error) {
 	var reg Registry
 	if err := json.Unmarshal(data, &reg); err != nil {
 		return Registry{}, "", fmt.Errorf("parse registry: %w", err)
+	}
+
+	customReg, customPath, err := LoadCustomPatterns()
+	if err != nil {
+		return Registry{}, "", fmt.Errorf("custom patterns (%s): %w", customPath, err)
+	}
+	if len(customReg.Patterns) > 0 {
+		reg = MergeRegistries(reg, customReg)
 	}
 
 	return reg, path, nil
@@ -196,4 +206,98 @@ func expandXDGConfigHomeRaw(path string) string {
 	}
 	path = strings.ReplaceAll(path, "${XDG_CONFIG_HOME}", xdg)
 	return strings.ReplaceAll(path, "$XDG_CONFIG_HOME", xdg)
+}
+
+// LoadCustomPatterns loads optional custom pattern overlays from XDG config.
+func LoadCustomPatterns() (Registry, string, error) {
+	path, err := customPatternsPath()
+	if err != nil {
+		return Registry{}, "", err
+	}
+
+	data, err := ReadRegistryFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Registry{}, path, nil
+		}
+		return Registry{}, path, err
+	}
+
+	var reg Registry
+	if err := json.Unmarshal(data, &reg); err != nil {
+		return Registry{}, path, fmt.Errorf("parse custom patterns: %w", err)
+	}
+
+	if err := validateCustomRegistry(reg); err != nil {
+		return Registry{}, path, err
+	}
+
+	return reg, path, nil
+}
+
+// MergeRegistries overlays patterns from overlay on top of base deterministically.
+func MergeRegistries(base Registry, overlay Registry) Registry {
+	if len(overlay.Patterns) == 0 {
+		return base
+	}
+
+	merged := Registry{
+		Version:  base.Version,
+		Patterns: append([]Pattern(nil), base.Patterns...),
+	}
+	if merged.Version == "" {
+		merged.Version = overlay.Version
+	}
+
+	index := make(map[string]int, len(merged.Patterns))
+	for i, pattern := range merged.Patterns {
+		if pattern.ID == "" {
+			continue
+		}
+		if _, ok := index[pattern.ID]; !ok {
+			index[pattern.ID] = i
+		}
+	}
+
+	for _, pattern := range overlay.Patterns {
+		if pattern.ID != "" {
+			if idx, ok := index[pattern.ID]; ok {
+				merged.Patterns[idx] = pattern
+				continue
+			}
+		}
+		merged.Patterns = append(merged.Patterns, pattern)
+	}
+
+	return merged
+}
+
+func customPatternsPath() (string, error) {
+	configHome, err := xdgConfigHome()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(configHome, RegistrySubdir, CustomPatternsFile), nil
+}
+
+func validateCustomRegistry(reg Registry) error {
+	details := validateSchema(reg)
+	details = append(details, validatePatterns(reg)...)
+	details = append(details, validateUniqueIDs(reg)...)
+	if len(details) == 0 {
+		return nil
+	}
+
+	first := details[0]
+	message := first.Error
+	if first.PatternID != "" {
+		message = fmt.Sprintf("pattern %s: %s", first.PatternID, message)
+	}
+	if first.Field != "" {
+		message = fmt.Sprintf("%s (field %s)", message, first.Field)
+	}
+	if message == "" {
+		message = "invalid custom patterns"
+	}
+	return errors.New(message)
 }

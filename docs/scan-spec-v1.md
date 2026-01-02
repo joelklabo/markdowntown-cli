@@ -904,9 +904,11 @@ Implemented via `markdowntown scan --format jsonl` (or `--jsonl`) to support
 `--watch` or streaming large results. Each line contains a full scan output
 object using the same schema as JSON output.
 
-### Custom Patterns
+### Custom Patterns (Implemented)
 
-Allow user-defined patterns in `~/.config/markdowntown/custom-patterns.json`.
+User-defined patterns in `~/.config/markdowntown/custom-patterns.json` overlay the
+built-in registry. Matching IDs replace built-in patterns; new IDs append
+deterministically.
 
 ---
 
