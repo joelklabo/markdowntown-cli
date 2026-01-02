@@ -75,9 +75,10 @@ func TestScanWarnsOnCircularSymlink(t *testing.T) {
 
 func TestPopulateEntryContentMissingFile(t *testing.T) {
 	entry := &ConfigEntry{}
-	missingPath := filepath.Join(t.TempDir(), "missing.txt")
+	fs := afero.NewMemMapFs()
+	missingPath := "/missing.txt"
 
-	populateEntryContent(afero.NewOsFs(), entry, missingPath, true)
+	populateEntryContent(fs, entry, missingPath, true)
 
 	if entry.Error == nil || *entry.Error != "ENOENT" {
 		t.Fatalf("expected ENOENT error, got %#v", entry.Error)
@@ -88,13 +89,14 @@ func TestPopulateEntryContentMissingFile(t *testing.T) {
 }
 
 func TestPopulateEntryContentEmptyFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "empty.md")
-	if err := os.WriteFile(path, []byte{}, 0o600); err != nil {
+	fs := afero.NewMemMapFs()
+	path := "/empty.md"
+	if err := afero.WriteFile(fs, path, []byte{}, 0o600); err != nil {
 		t.Fatalf("write empty file: %v", err)
 	}
 
 	entry := &ConfigEntry{}
-	populateEntryContent(afero.NewOsFs(), entry, path, false)
+	populateEntryContent(fs, entry, path, false)
 
 	if entry.Warning == nil || *entry.Warning != "empty" {
 		t.Fatalf("expected empty warning, got %#v", entry.Warning)
@@ -102,14 +104,15 @@ func TestPopulateEntryContentEmptyFile(t *testing.T) {
 }
 
 func TestPopulateEntryContentFrontmatterError(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "bad.md")
+	fs := afero.NewMemMapFs()
+	path := "/bad.md"
 	content := []byte("---\nkey: value\n")
-	if err := os.WriteFile(path, content, 0o600); err != nil {
+	if err := afero.WriteFile(fs, path, content, 0o600); err != nil {
 		t.Fatalf("write bad frontmatter: %v", err)
 	}
 
 	entry := &ConfigEntry{}
-	populateEntryContent(afero.NewOsFs(), entry, path, false)
+	populateEntryContent(fs, entry, path, false)
 
 	if entry.FrontmatterError == nil {
 		t.Fatalf("expected frontmatter error for missing delimiter")

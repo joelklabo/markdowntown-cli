@@ -16,6 +16,7 @@ import (
 
 	"markdowntown-cli/internal/audit"
 	"markdowntown-cli/internal/git"
+	"markdowntown-cli/internal/lsp"
 	"markdowntown-cli/internal/scan"
 	"markdowntown-cli/internal/version"
 
@@ -31,6 +32,7 @@ Usage:
   markdowntown suggest [flags]     # Generate evidence-backed suggestions
   markdowntown resolve [flags]     # Resolve effective instruction chain
   markdowntown audit [flags]       # Audit scan results
+  markdowntown serve               # Start LSP server
   markdowntown registry validate   # Validate pattern registry
   markdowntown tools list          # List recognized tools
 
@@ -129,6 +131,11 @@ func main() {
 		return
 	case "audit":
 		if err := runAudit(args[1:]); err != nil {
+			exitWithError(err)
+		}
+		return
+	case "serve":
+		if err := runServe(args[1:]); err != nil {
 			exitWithError(err)
 		}
 		return
@@ -355,6 +362,20 @@ func runScanRemote(args []string) error {
 	}
 	enc.SetEscapeHTML(false)
 	return enc.Encode(output)
+}
+
+func runServe(args []string) error {
+	// CRITICAL: Prevent stdout pollution. LSP uses stdout for JSON-RPC.
+	// Redirect os.Stdout to os.Stderr early.
+	oldStdout := os.Stdout
+	os.Stdout = os.Stderr
+
+	// Restore os.Stdout when exiting if needed, though usually process ends.
+	defer func() {
+		os.Stdout = oldStdout
+	}()
+
+	return lsp.RunServer(version.ToolVersion)
 }
 
 func runAudit(args []string) error {

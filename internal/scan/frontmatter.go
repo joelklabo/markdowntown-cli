@@ -18,7 +18,7 @@ type Range struct {
 
 // ParsedFrontmatter contains the frontmatter data and its locations.
 type ParsedFrontmatter struct {
-	Data      map[string]any `json:"data"`
+	Data      map[string]any   `json:"data"`
 	Locations map[string]Range `json:"locations"`
 }
 
@@ -49,6 +49,7 @@ func ParseFrontmatter(content []byte) (*ParsedFrontmatter, bool, error) {
 
 			var node yaml.Node
 			if err := yaml.Unmarshal([]byte(yamlText), &node); err != nil {
+				// For now, we'll just return the error and let the caller handle it.
 				return nil, true, err
 			}
 
@@ -78,7 +79,8 @@ func ParseFrontmatter(content []byte) (*ParsedFrontmatter, bool, error) {
 }
 
 func walkYAMLNode(node *yaml.Node, prefix string, parsed *ParsedFrontmatter, offset int) {
-	if node.Kind == yaml.MappingNode {
+	switch node.Kind {
+	case yaml.MappingNode:
 		for i := 0; i < len(node.Content); i += 2 {
 			keyNode := node.Content[i]
 			valNode := node.Content[i+1]
@@ -95,7 +97,7 @@ func walkYAMLNode(node *yaml.Node, prefix string, parsed *ParsedFrontmatter, off
 
 			walkYAMLNode(valNode, key, parsed, offset)
 		}
-	} else if node.Kind == yaml.SequenceNode {
+	case yaml.SequenceNode:
 		for i, itemNode := range node.Content {
 			key := fmt.Sprintf("%s[%d]", prefix, i)
 			parsed.Locations[key] = Range{
