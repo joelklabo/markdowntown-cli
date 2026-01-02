@@ -893,9 +893,10 @@ those paths to the user-scope scan roots. Relative entries resolve from the repo
 Read `project_doc_fallback_filenames` from `~/.codex/config.toml` (or `CODEX_HOME`) to include
 custom instruction filenames in scanning.
 
-### Multi-Root Workspaces
+### Multi-Root Workspaces (Implemented)
 
-Support for VS Code-style `.code-workspace` files with multiple roots.
+VS Code-style `.code-workspace` files at the repo root are parsed and each folder
+is added as an additional repo-scope scan root.
 
 ### JSONL Output
 

@@ -311,6 +311,8 @@ Notes:
 - Ordering is undefined when multiple instruction types coexist; treat conflicts as ambiguous.
 - `chat.instructionsFilesLocations` values from `settings.json` are discovered automatically and appended
   to scan roots. Relative paths resolve from the repo root.
+- `.code-workspace` files at the repo root are parsed and their folders are appended as additional repo
+  scan roots.
 
 ## Codex CLI niceties
 

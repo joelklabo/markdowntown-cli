@@ -82,17 +82,45 @@ func Scan(opts Options) (Result, error) {
 
 	entries := make(map[string]*ConfigEntry)
 
+	repoRoots := []string{repoRoot}
+	workspaceRoots, workspaceWarnings := discoverWorkspaceRoots(fs, repoRoot)
+	if len(workspaceWarnings) > 0 {
+		result.Warnings = append(result.Warnings, workspaceWarnings...)
+	}
+	if len(workspaceRoots) > 0 {
+		repoRoots = append(repoRoots, workspaceRoots...)
+	}
+
+	var repoRootsAbs []string
+	repoRootSeen := make(map[string]struct{})
+	for _, root := range repoRoots {
+		root = expandHomePath(root)
+		absRoot, err := filepath.Abs(root)
+		if err != nil {
+			result.Warnings = append(result.Warnings, warningForError(root, err))
+			continue
+		}
+		absRoot = filepath.Clean(absRoot)
+		if _, ok := repoRootSeen[absRoot]; ok {
+			continue
+		}
+		repoRootSeen[absRoot] = struct{}{}
+		repoRootsAbs = append(repoRootsAbs, absRoot)
+	}
+
 	var userRootsAbs []string
 
-	repoInfo, repoErr := fs.Stat(repoRoot)
-	repoExists := repoErr == nil && repoInfo.IsDir()
-	result.Scans = append(result.Scans, Root{Scope: "repo", Root: repoRoot, Exists: repoExists})
-	if repoErr != nil && !os.IsNotExist(repoErr) {
-		result.Warnings = append(result.Warnings, warningForError(repoRoot, repoErr))
-	}
-	if repoExists {
-		walkState := newWalkState(fs, repoRoot, opts.IncludeContent, opts.Progress)
-		scanDir(repoRoot, repoRoot, repoRoot, "repo", repoInfo, patterns, entries, &result, walkState, false, false)
+	for _, root := range repoRootsAbs {
+		repoInfo, repoErr := fs.Stat(root)
+		repoExists := repoErr == nil && repoInfo.IsDir()
+		result.Scans = append(result.Scans, Root{Scope: "repo", Root: root, Exists: repoExists})
+		if repoErr != nil && !os.IsNotExist(repoErr) {
+			result.Warnings = append(result.Warnings, warningForError(root, repoErr))
+		}
+		if repoExists {
+			walkState := newWalkState(fs, root, opts.IncludeContent, opts.Progress)
+			scanDir(root, root, root, "repo", repoInfo, patterns, entries, &result, walkState, false, false)
+		}
 	}
 
 	if !opts.RepoOnly {
@@ -146,7 +174,7 @@ func Scan(opts Options) (Result, error) {
 			result.Warnings = append(result.Warnings, warningForError(absPath, err))
 			continue
 		}
-		scope, root := resolveScopeAndRoot(absPath, repoRoot, userRootsAbs, info)
+		scope, root := resolveScopeAndRoot(absPath, repoRootsAbs, userRootsAbs, info)
 		walkState := newWalkState(fs, root, opts.IncludeContent, opts.Progress)
 		scanPath(absPath, absPath, root, scope, patterns, entries, &result, walkState, true)
 	}
@@ -467,8 +495,8 @@ func isSubmodule(fs afero.Fs, path string) bool {
 	return err == nil
 }
 
-func resolveScopeAndRoot(path string, repoRoot string, userRoots []string, info os.FileInfo) (string, string) {
-	if isWithinRoot(path, repoRoot) {
+func resolveScopeAndRoot(path string, repoRoots []string, userRoots []string, info os.FileInfo) (string, string) {
+	if repoRoot := findContainingRoot(path, repoRoots); repoRoot != "" {
 		return "repo", repoRoot
 	}
 	if userRoot := findContainingRoot(path, userRoots); userRoot != "" {
