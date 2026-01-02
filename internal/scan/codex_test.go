@@ -40,8 +40,9 @@ func TestLoadCodexFallbackFilenames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadCodexFallbackFilenames: %v", err)
 	}
-	if configPath != "/codex/config.toml" {
-		t.Fatalf("expected config path /codex/config.toml, got %s", configPath)
+	expectedPath := filepath.Clean("/codex/config.toml")
+	if configPath != expectedPath {
+		t.Fatalf("expected config path %s, got %s", expectedPath, configPath)
 	}
 	expected := []string{"INSTRUCTIONS.md"}
 	if !reflect.DeepEqual(fallback, expected) {

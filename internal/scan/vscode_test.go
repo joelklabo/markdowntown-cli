@@ -1,7 +1,7 @@
 package scan
 
 import (
-	"fmt"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -62,8 +62,17 @@ func TestDiscoverVSCodeInstructionPathsResolvesAndDedupes(t *testing.T) {
 	}
 
 	settingsPath := filepath.Join(userRoot, "settings.json")
-	settings := fmt.Sprintf(`{"chat.instructionsFilesLocations": {"%s": true, ".github/instructions": true}}`, existingRoot)
-	if err := os.WriteFile(settingsPath, []byte(settings), 0o600); err != nil {
+	payload := map[string]any{
+		"chat.instructionsFilesLocations": map[string]any{
+			existingRoot:           true,
+			".github/instructions": true,
+		},
+	}
+	settings, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal settings: %v", err)
+	}
+	if err := os.WriteFile(settingsPath, settings, 0o600); err != nil {
 		t.Fatalf("write settings: %v", err)
 	}
 

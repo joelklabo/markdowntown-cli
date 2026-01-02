@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -58,5 +59,28 @@ func TestDiscoverWorkspaceRoots(t *testing.T) {
 	}
 	if !reflect.DeepEqual(roots, expected) {
 		t.Fatalf("expected %v, got %v", expected, roots)
+	}
+}
+
+func TestResolveWorkspaceFolderHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	got := resolveWorkspaceFolder("", "~/project")
+	expected := filepath.Join(home, "project")
+	if got != expected {
+		t.Fatalf("expected %s, got %s", expected, got)
+	}
+}
+
+func TestResolveWorkspaceURI(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file:// URI paths vary on Windows")
+	}
+	got := resolveWorkspaceURI("file:///tmp/workspace")
+	expected := filepath.Clean("/tmp/workspace")
+	if got != expected {
+		t.Fatalf("expected %s, got %s", expected, got)
 	}
 }
