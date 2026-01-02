@@ -99,8 +99,8 @@ Flags:
 - `--fail-severity <level>`: exit 1 when issues meet severity (`error|warning|info`)
 - `--redact <mode>`: path redaction mode (`auto|always|never`)
 - `--only <id>`: run only these rule IDs (repeatable)
-- `--ignore-rule <id>`: suppress a rule by ID (repeatable)
-- `--exclude <glob>`: exclude matching paths (repeatable)
+- `--ignore-rule <id>`: exclude specific rules from running (by ID)
+- `--exclude <glob>`: exclude specific file paths from being audited
 - `--include-scan-warnings`: include raw scan warnings in output
 - `--repo <path>`: repo path (defaults to git root from cwd; internal scan only)
 - `--repo-only`: exclude user scope (scan repo only)
@@ -110,7 +110,8 @@ Flags:
 Notes:
 
 - Exit codes: 0 when no issues at/above `--fail-severity` (default `error`), 1 when threshold met, 2 for fatal errors.
-- Repo-scope paths are emitted as `./...`; non-repo paths are redacted to `$HOME/...`, `$XDG_CONFIG_HOME/...`, or `<ABS_PATH_N>` with a `pathId`.
+- Repo-scope paths are emitted as `./...`.
+- Non-repo paths are redacted with precedence: `$XDG_CONFIG_HOME` > `$HOME` > `<ABS_PATH_N>` (deterministic per run).
 - `--input` cannot be combined with scan flags (`--repo`, `--repo-only`, `--stdin`).
 - Audit reads file contents by default when running an internal scan (content is not emitted in audit output).
 

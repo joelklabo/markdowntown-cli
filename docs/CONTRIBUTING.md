@@ -76,6 +76,46 @@ make check
 
 CI must always be green before merging or releasing changes.
 
+### Writing Integration Tests
+
+Integration tests using `go run` or `exec.Command` must ensure a writable environment for the subprocess.
+Always set `HOME` and `GOCACHE` to temporary directories to avoid polluting the user's environment or failing in read-only sandboxes.
+
+Use helpers like `testGoCaches(t)` (if available) or create temp dirs:
+
+```go
+home := t.TempDir()
+cmd.Env = append(os.Environ(), "HOME="+home, "GOCACHE="+home+"/.cache/go")
+```
+
+### Troubleshooting
+
+#### Push failures (403)
+
+If `git push` fails with a 403 error, your environment might have a read-only `GITHUB_TOKEN` set. Unset it for the command:
+
+```bash
+env -u GITHUB_TOKEN git push origin main
+```
+
+#### Git worktree locks
+
+If git operations fail with worktree lock errors, try cleaning up or creating a fresh clone.
+When checking out a new branch fails, ensure you are branching from `origin/main` to avoid local state issues:
+
+```bash
+git fetch origin
+git checkout -b my-branch origin/main
+```
+
+#### Test command quoting
+
+When using `go test -run` with regex patterns containing pipes (`|`), ensure you quote the pattern to avoid shell interpretation:
+
+```bash
+go test -run "TestA|TestB" ./...
+```
+
 ### Release workflow (goreleaser)
 
 Install goreleaser (choose one):
