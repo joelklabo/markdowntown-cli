@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -112,16 +114,9 @@ func runAuditCLI(t *testing.T, repoRoot string, args ...string) (string, string,
 	t.Helper()
 
 	registryPath := filepath.Join(repoRoot, "testdata", "registry", "audit.json")
-	binaryPath := filepath.Join(repoRoot, "bin", "markdowntown")
-	var cmd *exec.Cmd
-	if _, err := os.Stat(binaryPath); err == nil {
-		// #nosec G204 -- test harness controls command arguments.
-		cmd = exec.Command(binaryPath, args...)
-	} else {
-		cmdArgs := append([]string{"run", "./cmd/markdowntown"}, args...)
-		// #nosec G204 -- test harness controls command arguments.
-		cmd = exec.Command("go", cmdArgs...)
-	}
+	cmdArgs := append([]string{"run", "./cmd/markdowntown"}, args...)
+	// #nosec G204 -- test harness controls command arguments.
+	cmd := exec.Command("go", cmdArgs...)
 	cmd.Dir = repoRoot
 
 	homeDir := t.TempDir()
@@ -151,7 +146,9 @@ func runAuditCLI(t *testing.T, repoRoot string, args ...string) (string, string,
 		}
 	}
 
-	return stdout.String(), stripGoToolNoise(stderr.String()), exitCode
+	rawStderr := stderr.String()
+	exitCode = normalizeGoRunExitCode(cmd, exitCode, rawStderr)
+	return stdout.String(), stripGoToolNoise(rawStderr), exitCode
 }
 
 func repoRoot(t *testing.T) string {
@@ -223,6 +220,26 @@ func stripGoToolNoise(stderr string) string {
 		kept = append(kept, line)
 	}
 	return strings.Join(kept, "\n")
+}
+
+var exitStatusRe = regexp.MustCompile(`exit status (\d+)`)
+
+func normalizeGoRunExitCode(cmd *exec.Cmd, exitCode int, stderr string) int {
+	if exitCode != 1 {
+		return exitCode
+	}
+	if filepath.Base(cmd.Path) != "go" {
+		return exitCode
+	}
+	match := exitStatusRe.FindStringSubmatch(stderr)
+	if len(match) != 2 {
+		return exitCode
+	}
+	parsed, err := strconv.Atoi(match[1])
+	if err != nil {
+		return exitCode
+	}
+	return parsed
 }
 
 var (

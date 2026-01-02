@@ -23,6 +23,16 @@ func TestResolveRegistryPathEnvOverride(t *testing.T) {
 	}
 }
 
+func TestResolveRegistryPathEnvOverrideMissing(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "missing.json")
+	t.Setenv(RegistryEnvVar, missing)
+
+	_, err := ResolveRegistryPath()
+	if err == nil || !errors.Is(err, ErrRegistryPathMissing) {
+		t.Fatalf("expected ErrRegistryPathMissing, got %v", err)
+	}
+}
+
 func TestResolveRegistryPathMissing(t *testing.T) {
 	t.Setenv(RegistryEnvVar, "")
 	xdg := t.TempDir()
@@ -67,6 +77,82 @@ func TestResolveRegistryPathMultiple(t *testing.T) {
 	_, err = ResolveRegistryPath()
 	if err == nil || !errors.Is(err, ErrMultipleRegistries) {
 		t.Fatalf("expected ErrMultipleRegistries, got %v", err)
+	}
+}
+
+func TestXDGConfigHomeDefault(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	got, err := xdgConfigHome()
+	if err != nil {
+		t.Fatalf("xdgConfigHome: %v", err)
+	}
+	expected := filepath.Join(home, ".config")
+	if got != expected {
+		t.Fatalf("expected %s, got %s", expected, got)
+	}
+}
+
+func TestExpandHomeCases(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	got, err := expandHome("~")
+	if err != nil {
+		t.Fatalf("expandHome: %v", err)
+	}
+	if got != home {
+		t.Fatalf("expected %s, got %s", home, got)
+	}
+
+	got, err = expandHome("~/docs")
+	if err != nil {
+		t.Fatalf("expandHome: %v", err)
+	}
+	if got != filepath.Join(home, "docs") {
+		t.Fatalf("expected expanded path, got %s", got)
+	}
+
+	got, err = expandHome("relative")
+	if err != nil {
+		t.Fatalf("expandHome: %v", err)
+	}
+	if got != "relative" {
+		t.Fatalf("expected relative path, got %s", got)
+	}
+
+	got, err = expandHome("~someone/docs")
+	if err != nil {
+		t.Fatalf("expandHome: %v", err)
+	}
+	if got != "~someone/docs" {
+		t.Fatalf("expected untouched path, got %s", got)
+	}
+}
+
+func TestExpandXDGConfigHome(t *testing.T) {
+	xdg := filepath.Join(t.TempDir(), "config")
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	got := expandXDGConfigHome("$XDG_CONFIG_HOME/markdowntown/registry.json")
+	expected := filepath.Join(xdg, "markdowntown", "registry.json")
+	if got != expected {
+		t.Fatalf("expected %s, got %s", expected, got)
+	}
+}
+
+func TestExpandRegistryPath(t *testing.T) {
+	xdg := filepath.Join(t.TempDir(), "config")
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	got, err := expandRegistryPath("$XDG_CONFIG_HOME/markdowntown/registry.json")
+	if err != nil {
+		t.Fatalf("expandRegistryPath: %v", err)
+	}
+	expected := filepath.Join(xdg, "markdowntown", "registry.json")
+	if got != expected {
+		t.Fatalf("expected %s, got %s", expected, got)
 	}
 }
 

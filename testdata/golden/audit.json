@@ -44,6 +44,12 @@
       "message": "Invalid YAML frontmatter.",
       "suggestion": "Fix the YAML frontmatter syntax or remove it entirely.",
       "fingerprint": "sha256:67b87359a290369cd4287ece50693ae5e1560ce50dc45ba1619fdbed20b63489",
+      "range": {
+        "startLine": 1,
+        "startCol": 1,
+        "endLine": 1,
+        "endCol": 1
+      },
       "paths": [
         {
           "path": "./CLAUDE.md",

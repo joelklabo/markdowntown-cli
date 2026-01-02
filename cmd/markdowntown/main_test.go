@@ -165,6 +165,14 @@ func TestPrintScanUsage(t *testing.T) {
 	}
 }
 
+func TestPrintScanRemoteUsage(t *testing.T) {
+	var buf bytes.Buffer
+	printScanRemoteUsage(&buf)
+	if !strings.Contains(buf.String(), "markdowntown scan-remote") {
+		t.Fatalf("expected scan-remote usage output")
+	}
+}
+
 func TestPrintVersion(t *testing.T) {
 	var buf bytes.Buffer
 	printVersion(&buf)
@@ -216,6 +224,13 @@ func TestRunToolsListOutputsJSON(t *testing.T) {
 	}
 	if len(summaries) != 1 {
 		t.Fatalf("expected 1 summary, got %d", len(summaries))
+	}
+}
+
+func TestRunToolsListMissingRegistry(t *testing.T) {
+	t.Setenv(scan.RegistryEnvVar, filepath.Join(t.TempDir(), "missing.json"))
+	if err := runToolsList(); err == nil {
+		t.Fatalf("expected error for missing registry")
 	}
 }
 
@@ -384,6 +399,22 @@ func TestReadScanInputInvalidSchema(t *testing.T) {
 	}
 }
 
+func TestReadScanInputMissingSchema(t *testing.T) {
+	output := scan.Output{}
+	data, err := json.Marshal(output)
+	if err != nil {
+		t.Fatalf("marshal output: %v", err)
+	}
+	path := filepath.Join(t.TempDir(), "scan.json")
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatalf("write scan: %v", err)
+	}
+
+	if _, err := readScanInput(path); err == nil {
+		t.Fatalf("expected error for missing schema")
+	}
+}
+
 func TestReadScanInputInvalidJSON(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "scan.json")
 	if err := os.WriteFile(path, []byte("{invalid"), 0o600); err != nil {
@@ -391,6 +422,12 @@ func TestReadScanInputInvalidJSON(t *testing.T) {
 	}
 	if _, err := readScanInput(path); err == nil {
 		t.Fatalf("expected error for invalid json")
+	}
+}
+
+func TestReadScanInputMissingFile(t *testing.T) {
+	if _, err := readScanInput(filepath.Join(t.TempDir(), "missing.json")); err == nil {
+		t.Fatalf("expected error for missing file")
 	}
 }
 
@@ -447,7 +484,10 @@ func TestStringListSet(t *testing.T) {
 	if err := list.Set("gamma"); err != nil {
 		t.Fatalf("set list: %v", err)
 	}
-	if got := list.String(); got != "alpha,beta,gamma" {
+	if err := list.Set("delta,,"); err != nil {
+		t.Fatalf("set list: %v", err)
+	}
+	if got := list.String(); got != "alpha,beta,gamma,delta" {
 		t.Fatalf("unexpected list: %s", got)
 	}
 }
@@ -553,6 +593,17 @@ func TestNewCLIError(t *testing.T) {
 	}
 }
 
+func TestCLIErrorNilReceiver(t *testing.T) {
+	var err *cliError
+	if err.Error() != "" {
+		t.Fatalf("expected empty error string for nil receiver")
+	}
+	empty := &cliError{}
+	if empty.Error() != "" {
+		t.Fatalf("expected empty error string for nil err")
+	}
+}
+
 func TestProgressReporterDisabled(t *testing.T) {
 	write, finish := progressReporter(false)
 	if write != nil {
@@ -582,6 +633,19 @@ func TestProgressReporterEnabled(t *testing.T) {
 	}
 	write("/repo/path")
 	finish()
+}
+
+func TestIsTerminalClosedFile(t *testing.T) {
+	file, err := os.CreateTemp(t.TempDir(), "term")
+	if err != nil {
+		t.Fatalf("create temp: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close temp: %v", err)
+	}
+	if isTerminal(file) {
+		t.Fatalf("expected closed file to be non-terminal")
+	}
 }
 
 func captureStdout(t *testing.T, fn func()) string {

@@ -128,16 +128,9 @@ func setupAuditRepo(t *testing.T, root string) string {
 func runAuditCLIWithRegistry(t *testing.T, repoRoot string, registryPath string, stdinPayload []byte, args ...string) (string, string, int) {
 	t.Helper()
 
-	binaryPath := filepath.Join(repoRoot, "bin", "markdowntown")
-	var cmd *exec.Cmd
-	if _, err := os.Stat(binaryPath); err == nil {
-		// #nosec G204 -- test harness controls command arguments.
-		cmd = exec.Command(binaryPath, args...)
-	} else {
-		cmdArgs := append([]string{"run", "./cmd/markdowntown"}, args...)
-		// #nosec G204 -- test harness controls command arguments.
-		cmd = exec.Command("go", cmdArgs...)
-	}
+	cmdArgs := append([]string{"run", "./cmd/markdowntown"}, args...)
+	// #nosec G204 -- test harness controls command arguments.
+	cmd := exec.Command("go", cmdArgs...)
 	cmd.Dir = repoRoot
 
 	homeDir := t.TempDir()
@@ -170,7 +163,9 @@ func runAuditCLIWithRegistry(t *testing.T, repoRoot string, registryPath string,
 			t.Fatalf("run audit CLI: %v", err)
 		}
 	}
-	return stdout.String(), stripGoToolNoise(stderr.String()), exitCode
+	rawStderr := stderr.String()
+	exitCode = normalizeGoRunExitCode(cmd, exitCode, rawStderr)
+	return stdout.String(), stripGoToolNoise(rawStderr), exitCode
 }
 
 func copyDir(t *testing.T, src, dst string) {
