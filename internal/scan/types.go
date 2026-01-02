@@ -61,23 +61,23 @@ type Root struct {
 
 // ConfigEntry represents a single matched config file.
 type ConfigEntry struct {
-	Path             string         `json:"path"`
-	Resolved         string         `json:"-"`
-	FromStdin        bool           `json:"-"`
-	Scope            string         `json:"scope"`
-	Depth            int            `json:"depth"`
-	SizeBytes        *int64         `json:"sizeBytes"`
-	Sha256           *string        `json:"sha256"`
-	Mtime            int64          `json:"mtime"`
-	Gitignored       bool           `json:"gitignored"`
-	Frontmatter      map[string]any `json:"frontmatter"`
+	Path                 string           `json:"path"`
+	Resolved             string           `json:"-"`
+	FromStdin            bool             `json:"-"`
+	Scope                string           `json:"scope"`
+	Depth                int              `json:"depth"`
+	SizeBytes            *int64           `json:"sizeBytes"`
+	Sha256               *string          `json:"sha256"`
+	Mtime                int64            `json:"mtime"`
+	Gitignored           bool             `json:"gitignored"`
+	Frontmatter          map[string]any   `json:"frontmatter"`
 	FrontmatterLocations map[string]Range `json:"frontmatterLocations,omitempty"`
-	FrontmatterError *string        `json:"frontmatterError"`
-	Content          *string        `json:"content"`
-	ContentSkipped   *string        `json:"contentSkipped"`
-	Error            *string        `json:"error"`
-	Warning          *string        `json:"warning"`
-	Tools            []ToolEntry    `json:"tools"`
+	FrontmatterError     *string          `json:"frontmatterError"`
+	Content              *string          `json:"content"`
+	ContentSkipped       *string          `json:"contentSkipped"`
+	Error                *string          `json:"error"`
+	Warning              *string          `json:"warning"`
+	Tools                []ToolEntry      `json:"tools"`
 }
 
 // ToolEntry captures tool metadata for a matched config.

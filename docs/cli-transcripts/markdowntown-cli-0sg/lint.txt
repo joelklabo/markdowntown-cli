@@ -1,0 +1,16 @@
+internal/lsp/server.go:4:2: "context" imported and not used (typecheck)
+	"context"
+	^
+internal/lsp/server.go:5:2: "os" imported and not used (typecheck)
+	"os"
+	^
+internal/lsp/server.go:8:4: could not import github.com/tliron/commonlog/handler (internal/lsp/server.go:8:2: no required module provides package github.com/tliron/commonlog/handler; to add it:
+	go get github.com/tliron/commonlog/handler) (typecheck)
+	_ "github.com/tliron/commonlog/handler"
+	  ^
+internal/lsp/server.go:11:2: could not import github.com/tliron/glsp/server (/Users/honk/go/pkg/mod/github.com/tliron/glsp@v0.2.2/server/handle.go:7:2: could not import github.com/sourcegraph/jsonrpc2 (../../go/pkg/mod/github.com/tliron/glsp@v0.2.2/server/handle.go:7:2: missing go.sum entry for module providing package github.com/sourcegraph/jsonrpc2 (imported by github.com/tliron/glsp/server); to add:
+	go get github.com/tliron/glsp/server@v0.2.2)) (typecheck)
+	"github.com/tliron/glsp/server"
+	^
+4 issues:
+* typecheck: 4

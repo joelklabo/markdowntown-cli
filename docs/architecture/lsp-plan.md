@@ -66,3 +66,92 @@ The LSP uses `os.Stdout` for JSON-RPC messages. Any accidental `fmt.Println` or 
 4.  **LSP Scaffold**: Implement `markdowntown serve`.
 5.  **Diagnostic Loop**: Wire up file changes to real-time audit diagnostics.
 6.  **Navigation**: Implement Hover and Definition providers.
+
+## VS Code Integration Strategy
+
+To enable immediate testing and usage in VS Code, we will create a lightweight "Generic LSP Client" extension.
+
+### 1. Extension Architecture
+*   **Type**: External Language Server.
+*   **Role**: Spawns the `markdowntown serve` binary and pipes stdin/stdout.
+*   **Languages**: Activates on `markdown` and `json` files.
+
+### 2. Configuration (`package.json`)
+```json
+{
+  "name": "markdowntown-vscode",
+  "displayName": "Markdowntown AI Config",
+  "engines": { "vscode": "^1.80.0" },
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onLanguage:json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "Markdowntown",
+      "properties": {
+        "markdowntown.serverPath": {
+          "type": "string",
+          "default": "markdowntown",
+          "description": "Path to the markdowntown executable"
+        },
+        "markdowntown.trace.server": {
+          "type": "string",
+          "enum": ["off", "messages", "verbose"],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server."
+        }
+      }
+    }
+  }
+}
+```
+
+### 3. Client Logic (`extension.ts`)
+The client must explicitly select the document types it cares about to avoid flooding the server with irrelevant files.
+
+```typescript
+import { workspace, ExtensionContext } from 'vscode';
+import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
+
+let client: LanguageClient;
+
+export function activate(context: ExtensionContext) {
+  // 1. Get server path from config or default to PATH
+  const config = workspace.getConfiguration('markdowntown');
+  const serverPath = config.get<string>('serverPath') || 'markdowntown';
+
+  // 2. Configure Server (stdio)
+  const serverOptions: ServerOptions = {
+    command: serverPath,
+    args: ["serve"], // Crucial: Pass the 'serve' subcommand
+    transport: TransportKind.stdio,
+  };
+
+  // 3. Configure Client (Selector & Watchers)
+  const clientOptions: LanguageClientOptions = {
+    documentSelector: [
+      { scheme: 'file', language: 'markdown' },
+      { scheme: 'file', language: 'json' } // For ai-config-patterns.json
+    ],
+    synchronize: {
+      fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
+    }
+  };
+
+  client = new LanguageClient('markdowntownLSP', 'Markdowntown LSP', serverOptions, clientOptions);
+  client.start();
+}
+
+export function deactivate(): Thenable<void> | undefined {
+  return client ? client.stop() : undefined;
+}
+```
+
+### 4. Debugging Strategy
+1.  **Build Binary**: `go build -o markdowntown ./cmd/markdowntown` (with race detector enabled).
+2.  **Config**: Set `"markdowntown.serverPath": "${workspaceFolder}/markdowntown"` in VS Code settings.
+3.  **Launch**: Press `F5` in the extension project to open a new "Extension Development Host" window.
+4.  **Output**: View "Markdowntown LSP" channel in the Output tab to see JSON-RPC logs (if trace is enabled).

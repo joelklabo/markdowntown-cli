@@ -37,6 +37,10 @@ type Server struct {
 	// Diagnostics state
 	diagnosticsMu    sync.Mutex
 	diagnosticTimers map[string]*time.Timer
+
+	// Cache state
+	cacheMu          sync.Mutex
+	frontmatterCache map[string]*scan.ParsedFrontmatter
 }
 
 func NewServer(version string) *Server {
@@ -45,6 +49,7 @@ func NewServer(version string) *Server {
 		overlay:          afero.NewMemMapFs(),
 		base:             afero.NewOsFs(),
 		diagnosticTimers: make(map[string]*time.Timer),
+		frontmatterCache: make(map[string]*scan.ParsedFrontmatter),
 	}
 	s.fs = afero.NewCopyOnWriteFs(s.base, s.overlay)
 
@@ -55,8 +60,9 @@ func NewServer(version string) *Server {
 		SetTrace:               s.setTrace,
 		TextDocumentDidOpen:    s.didOpen,
 		TextDocumentDidChange: s.didChange,
-		TextDocumentDidSave:   s.didSave,
 		TextDocumentDidClose:  s.didClose,
+		TextDocumentHover:      s.hover,
+		TextDocumentDefinition: s.definition,
 	}
 
 	s.server = server.NewServer(s.handler, serverName, false)
@@ -79,6 +85,8 @@ func (s *Server) initialize(context *glsp.Context, params *protocol.InitializePa
 
 	capabilities := protocol.ServerCapabilities{
 		TextDocumentSync: protocol.TextDocumentSyncKindFull,
+		HoverProvider:    true,
+		DefinitionProvider: true,
 	}
 
 	return protocol.InitializeResult{
@@ -113,6 +121,13 @@ func (s *Server) didOpen(context *glsp.Context, params *protocol.DidOpenTextDocu
 	if err != nil {
 		return err
 	}
+
+	// Cache frontmatter
+	parsed, _, _ := scan.ParseFrontmatter([]byte(params.TextDocument.Text))
+	s.cacheMu.Lock()
+	s.frontmatterCache[params.TextDocument.URI] = parsed
+	s.cacheMu.Unlock()
+
 	s.triggerDiagnostics(context, params.TextDocument.URI)
 	return nil
 }
@@ -124,14 +139,24 @@ func (s *Server) didChange(context *glsp.Context, params *protocol.DidChangeText
 	}
 
 	// Handle full content sync first as per task notes
+	var lastContent string
 	for _, change := range params.ContentChanges {
 		if c, ok := change.(protocol.TextDocumentContentChangeEvent); ok {
+			lastContent = c.Text
 			err = afero.WriteFile(s.overlay, path, []byte(c.Text), 0644)
 			if err != nil {
 				return err
 			}
 		}
 	}
+
+	if lastContent != "" {
+		parsed, _, _ := scan.ParseFrontmatter([]byte(lastContent))
+		s.cacheMu.Lock()
+		s.frontmatterCache[params.TextDocument.URI] = parsed
+		s.cacheMu.Unlock()
+	}
+
 	s.triggerDiagnostics(context, params.TextDocument.URI)
 	return nil
 }
@@ -141,12 +166,127 @@ func (s *Server) didSave(context *glsp.Context, params *protocol.DidSaveTextDocu
 	return nil
 }
 
-func (s *Server) didClose(context *glsp.Context, params *protocol.DidCloseTextDocumentParams) error {
-	path, err := urlToPath(params.TextDocument.URI)
-	if err != nil {
-		return err
+func (s *Server) hover(context *glsp.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
+	s.cacheMu.Lock()
+	parsed := s.frontmatterCache[params.TextDocument.URI]
+	s.cacheMu.Unlock()
+
+	if parsed == nil {
+		return nil, nil
 	}
-	return s.overlay.Remove(path)
+
+	// 1. Find key under cursor
+	// LSP line/col is 0-indexed. Our locations are 1-indexed.
+	line := int(params.Position.Line + 1)
+	col := int(params.Position.Character + 1)
+
+	var foundKey string
+	for key, loc := range parsed.Locations {
+		// Very simple check: same line and close to start of key or value?
+		// YAML keys usually start at loc.Col.
+		if loc.Line == line {
+			// If it's on the same line, assume it's this key/value for now.
+			// Better logic would check ranges.
+			foundKey = key
+			break
+		}
+	}
+
+	if foundKey == "" {
+		return nil, nil
+	}
+
+	// 2. If it's toolId, look up in registry
+	if strings.Contains(foundKey, "toolId") {
+		val, ok := getValue(parsed.Data, foundKey)
+		if ok {
+			toolID, _ := val.(string)
+			if toolID != "" {
+				registry, _, err := scan.LoadRegistry()
+				if err == nil {
+					for _, p := range registry.Patterns {
+						if p.ToolID == toolID {
+							content := fmt.Sprintf("**%s**\n\n%s\n\nDocs: %s", p.ToolName, p.Notes, strings.Join(p.Docs, ", "))
+							return &protocol.Hover{
+								Contents: protocol.MarkupContent{
+									Kind:  protocol.MarkupKindMarkdown,
+									Value: content,
+								},
+							}, nil
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func (s *Server) definition(context *glsp.Context, params *protocol.DefinitionParams) (any, error) {
+	s.cacheMu.Lock()
+	parsed := s.frontmatterCache[params.TextDocument.URI]
+	s.cacheMu.Unlock()
+
+	if parsed == nil {
+		return nil, nil
+	}
+
+	line := int(params.Position.Line + 1)
+	var foundKey string
+	for key, loc := range parsed.Locations {
+		if loc.Line == line {
+			foundKey = key
+			break
+		}
+	}
+
+	if foundKey == "" {
+		return nil, nil
+	}
+
+	if strings.Contains(foundKey, "toolId") {
+		val, ok := getValue(parsed.Data, foundKey)
+		if ok {
+			toolID, _ := val.(string)
+			if toolID != "" {
+				// Link to registry if it's a file?
+				// Task said: "return location of that tool in ai-config-patterns.json (if mapped) or a link."
+				// Better: link to AGENTS.md if found.
+				repoRoot := s.rootPath
+				if repoRoot != "" {
+					agentsPath := filepath.Join(repoRoot, "AGENTS.md")
+					if _, err := s.fs.Stat(agentsPath); err == nil {
+						return protocol.Location{
+							URI: "file://" + agentsPath,
+							Range: protocol.Range{
+								Start: protocol.Position{Line: 0, Character: 0},
+								End:   protocol.Position{Line: 0, Character: 0},
+							},
+						}, nil
+					}
+				}
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func getValue(data map[string]any, keyPath string) (any, bool) {
+	parts := strings.Split(keyPath, ".")
+	var current any = data
+	for _, part := range parts {
+		m, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = m[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
 }
 
 func (s *Server) triggerDiagnostics(context *glsp.Context, uri string) {
