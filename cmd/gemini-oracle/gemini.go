@@ -10,6 +10,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+var execCommandContext = exec.CommandContext
+
 func runGemini(name string, prompt string, _ chan modelResult) tea.Cmd {
 	return func() tea.Msg {
 		modelArg := ""
@@ -31,7 +33,7 @@ func runGemini(name string, prompt string, _ chan modelResult) tea.Cmd {
 		defer cancel()
 
 		// Use --approval-mode yolo to prevent blocking on confirmations
-		cmd := exec.CommandContext(ctx, "gemini", "-m", modelArg, prompt, "--output-format", "text", "--approval-mode", "yolo")
+		cmd := execCommandContext(ctx, "gemini", "-m", modelArg, prompt, "--output-format", "text", "--approval-mode", "yolo")
 		var out bytes.Buffer
 		var stderr bytes.Buffer
 		cmd.Stdout = &out
