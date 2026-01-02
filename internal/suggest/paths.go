@@ -3,7 +3,6 @@ package suggest
 import (
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 const (
@@ -91,8 +90,7 @@ func expandHome(path string) (string, error) {
 	if path == "~" {
 		return home, nil
 	}
-
-	if strings.HasPrefix(path, "~/") {
+	if len(path) > 1 && (path[1] == '/' || path[1] == '\\') {
 		return filepath.Join(home, path[2:]), nil
 	}
 

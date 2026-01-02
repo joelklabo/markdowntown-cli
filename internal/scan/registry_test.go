@@ -83,6 +83,7 @@ func TestResolveRegistryPathMultiple(t *testing.T) {
 func TestXDGConfigHomeDefault(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	got, err := xdgConfigHome()
 	if err != nil {
@@ -97,6 +98,7 @@ func TestXDGConfigHomeDefault(t *testing.T) {
 func TestExpandHomeCases(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 
 	got, err := expandHome("~")
 	if err != nil {

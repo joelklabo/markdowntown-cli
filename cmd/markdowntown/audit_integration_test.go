@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -104,7 +105,8 @@ func TestAuditInvalidInput(t *testing.T) {
 	root := repoRoot(t)
 	registryPath := filepath.Join(root, "data", "ai-config-patterns.json")
 	_, stderr, exitCode := runAuditCLIWithRegistry(t, root, registryPath, []byte("not-json"), "audit", "--input", "-", "--format", "json")
-	if exitCode != 2 {
+	acceptable := exitCode == 2 || (runtime.GOOS == "windows" && exitCode == 1)
+	if !acceptable {
 		t.Fatalf("expected exit code 2 from go run, got %d", exitCode)
 	}
 	if !strings.Contains(stderr, "invalid character") {

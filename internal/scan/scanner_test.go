@@ -223,6 +223,10 @@ func copyDir(src string, dest string) error {
 func TestScanWithMemMapFs(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	repoRoot := "/repo"
+	if runtime.GOOS == "windows" {
+		volume := filepath.VolumeName(os.TempDir())
+		repoRoot = filepath.Join(volume+string(os.PathSeparator), "repo")
+	}
 	if err := fs.MkdirAll(repoRoot, 0o755); err != nil {
 		t.Fatal(err)
 	}

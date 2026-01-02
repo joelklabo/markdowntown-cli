@@ -42,6 +42,7 @@ func TestXDGPaths(t *testing.T) {
 func TestXDGPathsDefault(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("XDG_CACHE_HOME", "")
 	t.Setenv("XDG_DATA_HOME", "")

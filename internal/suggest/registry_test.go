@@ -111,6 +111,7 @@ func TestResolveSourcesPathOverrideOk(t *testing.T) {
 func TestResolveSourcesPathOverrideExpandsHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	path := filepath.Join(home, "docs", "sources.json")
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)

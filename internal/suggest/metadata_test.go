@@ -82,6 +82,7 @@ func TestMetadataPathUsesXDG(t *testing.T) {
 func TestMetadataPathDefault(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CACHE_HOME", "")
 
 	path, err := MetadataPath()

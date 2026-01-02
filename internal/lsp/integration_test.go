@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -238,6 +239,15 @@ func buildMarkdowntownBinary(t *testing.T) string {
 	cmd.Dir = repoRoot
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("go build failed: %v\nOutput: %s", err, out)
+	}
+	if runtime.GOOS == "windows" {
+		if _, err := os.Stat(binPath); err != nil {
+			exePath := binPath + ".exe"
+			if _, exeErr := os.Stat(exePath); exeErr == nil {
+				return exePath
+			}
+			t.Fatalf("expected windows binary at %s", exePath)
+		}
 	}
 	return binPath
 }

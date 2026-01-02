@@ -156,8 +156,7 @@ func expandHome(path string) (string, error) {
 	if path == "~" {
 		return home, nil
 	}
-
-	if strings.HasPrefix(path, "~/") {
+	if len(path) > 1 && (path[1] == '/' || path[1] == '\\') {
 		return filepath.Join(home, path[2:]), nil
 	}
 
@@ -175,9 +174,9 @@ func expandRegistryPath(path string) (string, error) {
 func expandXDGConfigHome(path string) string {
 	xdg := os.Getenv("XDG_CONFIG_HOME")
 	if xdg == "" {
-		return path
+		return filepath.Clean(filepath.FromSlash(path))
 	}
 	path = strings.ReplaceAll(path, "${XDG_CONFIG_HOME}", xdg)
 	path = strings.ReplaceAll(path, "$XDG_CONFIG_HOME", xdg)
-	return path
+	return filepath.Clean(filepath.FromSlash(path))
 }
