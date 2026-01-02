@@ -883,10 +883,6 @@ Sanitized real-world fixture coverage lives under `testdata/repos/integration` (
 
 ## Future Considerations (Out of v1 Scope)
 
-### Effective Config Computation
-
-Add `--for-file <path>` flag to filter output to configs that would apply to a specific file, using loadBehavior/precedence logic.
-
 ### VS Code Custom Paths
 
 Consider reading `settings.json` to discover custom `chat.instructionsFilesLocations`.
@@ -911,24 +907,24 @@ Allow user-defined patterns in `~/.config/markdowntown/custom-patterns.json`.
 
 ## Acceptance Criteria
 
-- [ ] `markdowntown scan` produces deterministic JSON for all documented patterns
-- [ ] Pattern registry is external JSON with versioning and docs links
-- [ ] Registry loaded from XDG paths with proper error on ambiguity
-- [ ] Scans array shows only actually scanned roots with existence status
-- [ ] Multi-tool files have single entry with tools array (sorted by toolId)
-- [ ] Progress shows live path scanning in TTY mode
-- [ ] Auto-disable progress in non-TTY environments
-- [ ] `--include-content`/`--no-content` works with binary file detection
-- [ ] Frontmatter always parsed and included
-- [ ] Exit 1 on fatal error (bad registry, git unavailable)
-- [ ] `markdowntown registry validate` performs full validation with JSON output
-- [ ] `markdowntown tools list` outputs JSON array with docs
-- [ ] Tests use sanitized real-world repo samples
-- [ ] Golden file tests for output stability
-- [ ] Fuzz testing for pattern matching
-- [ ] 80%+ test coverage enforced
-- [ ] `--version` outputs `markdowntown X.Y.Z (schema A.B.C)`
-- [ ] Makefile provides all dev/CI targets
+- [x] `markdowntown scan` produces deterministic JSON for all documented patterns
+- [x] Pattern registry is external JSON with versioning and docs links
+- [x] Registry loaded from XDG paths with proper error on ambiguity
+- [x] Scans array shows only actually scanned roots with existence status
+- [x] Multi-tool files have single entry with tools array (sorted by toolId)
+- [x] Progress shows live path scanning in TTY mode
+- [x] Auto-disable progress in non-TTY environments
+- [x] `--include-content`/`--no-content` works with binary file detection
+- [x] Frontmatter always parsed and included
+- [x] Exit 1 on fatal error (bad registry, git unavailable)
+- [x] `markdowntown registry validate` performs full validation with JSON output
+- [x] `markdowntown tools list` outputs JSON array with docs
+- [x] Tests use sanitized real-world repo samples
+- [x] Golden file tests for output stability
+- [x] Fuzz testing for pattern matching
+- [x] 80%+ test coverage enforced
+- [x] `--version` outputs `markdowntown X.Y.Z (schema A.B.C)`
+- [x] Makefile provides all dev/CI targets
 - [x] Pre-commit hooks via lefthook
-- [ ] CI matrix covers Go 1.22+1.23 × all OS × all arch
+- [x] CI matrix covers Go 1.22+1.23 × all OS × all arch
 - [x] goreleaser produces release binaries

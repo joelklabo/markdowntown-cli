@@ -38,10 +38,10 @@ Flags:
 - `--repo <path>`: repo path (defaults to git root from cwd)
 - `--repo-only`: exclude user scope (scan repo only)
 - `--stdin`: read additional paths from stdin (one per line)
-- `--include-content`: include file contents in output (default; use with care for secrets)
 - `--no-content`: exclude file contents from output
 - `--compact`: emit compact JSON (no indentation)
 - `--quiet`: disable progress output
+- `--for-file <path>`: filter output to configs applicable to path (e.g. `src/app.ts`)
 
 Notes:
 

@@ -362,7 +362,7 @@
       "toolName": "Gemini CLI",
       "kind": "instructions",
       "scope": "repo",
-      "paths": ["GEMINI.md"],
+      "paths": ["**/GEMINI.md"],
       "type": "glob",
       "loadBehavior": "nearest-ancestor",
       "application": "automatic",

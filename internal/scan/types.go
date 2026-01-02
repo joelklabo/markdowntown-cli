@@ -81,14 +81,15 @@ type ConfigEntry struct {
 
 // ToolEntry captures tool metadata for a matched config.
 type ToolEntry struct {
-	ToolID         string        `json:"toolId"`
-	ToolName       string        `json:"toolName"`
-	Kind           string        `json:"kind"`
-	LoadBehavior   string        `json:"loadBehavior"`
-	Application    string        `json:"application"`
-	MatchedPattern string        `json:"matchedPattern"`
-	Notes          string        `json:"notes"`
-	Hints          []PatternHint `json:"hints"`
+	ToolID           string        `json:"toolId"`
+	ToolName         string        `json:"toolName"`
+	Kind             string        `json:"kind"`
+	LoadBehavior     string        `json:"loadBehavior"`
+	Application      string        `json:"application"`
+	ApplicationField string        `json:"applicationField,omitempty"`
+	MatchedPattern   string        `json:"matchedPattern"`
+	Notes            string        `json:"notes"`
+	Hints            []PatternHint `json:"hints"`
 }
 
 // Warning describes a scan warning entry.

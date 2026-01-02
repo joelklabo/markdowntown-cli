@@ -50,6 +50,7 @@ Flags:
   --no-content          Exclude file contents from output
   --compact             Emit compact JSON (no indentation)
   --quiet               Disable progress output
+  --for-file <path>     Filter output to configs applicable to path
   -h, --help            Show help
 `
 
@@ -164,6 +165,7 @@ func runScan(args []string) error {
 	var compact bool
 	var quiet bool
 	var help bool
+	var forFile string
 
 	flags.StringVar(&repoPath, "repo", "", "repo path (defaults to git root)")
 	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
@@ -172,6 +174,7 @@ func runScan(args []string) error {
 	flags.BoolVar(&noContent, "no-content", false, "exclude file contents")
 	flags.BoolVar(&compact, "compact", false, "emit compact JSON")
 	flags.BoolVar(&quiet, "quiet", false, "disable progress output")
+	flags.StringVar(&forFile, "for-file", "", "filter output to configs applicable to path")
 	flags.BoolVar(&help, "help", false, "show help")
 	flags.BoolVar(&help, "h", false, "show help")
 
@@ -224,6 +227,11 @@ func runScan(args []string) error {
 	if err != nil {
 		return err
 	}
+
+	if forFile != "" {
+		result = scan.FilterForFile(result, forFile)
+	}
+
 	finishedAt := time.Now()
 
 	timing := scan.Timing{

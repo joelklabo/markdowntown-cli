@@ -366,14 +366,15 @@ func matchTools(patterns []CompiledPattern, scope string, absPath string, relPat
 			continue
 		}
 		tools = append(tools, ToolEntry{
-			ToolID:         compiled.Pattern.ToolID,
-			ToolName:       compiled.Pattern.ToolName,
-			Kind:           compiled.Pattern.Kind,
-			LoadBehavior:   compiled.Pattern.LoadBehavior,
-			Application:    compiled.Pattern.Application,
-			MatchedPattern: pattern,
-			Notes:          compiled.Pattern.Notes,
-			Hints:          compiled.Pattern.Hints,
+			ToolID:           compiled.Pattern.ToolID,
+			ToolName:         compiled.Pattern.ToolName,
+			Kind:             compiled.Pattern.Kind,
+			LoadBehavior:     compiled.Pattern.LoadBehavior,
+			Application:      compiled.Pattern.Application,
+			ApplicationField: compiled.Pattern.ApplicationField,
+			MatchedPattern:   pattern,
+			Notes:            compiled.Pattern.Notes,
+			Hints:            compiled.Pattern.Hints,
 		})
 	}
 
