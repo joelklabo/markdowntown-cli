@@ -2,6 +2,9 @@ package lsp
 
 import (
 	"math"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"markdowntown-cli/internal/audit"
@@ -47,6 +50,11 @@ func TestIssueToProtocolRange(t *testing.T) {
 		t.Fatalf("expected zero range for nil")
 	}
 
+	zero := issueToProtocolRange(&scan.Range{StartLine: 0, StartCol: 0, EndLine: 0, EndCol: 0})
+	if zero.Start.Line != 0 || zero.Start.Character != 0 {
+		t.Fatalf("expected zero range for StartLine=0, got %+v", zero.Start)
+	}
+
 	r := &scan.Range{StartLine: 2, StartCol: 3, EndLine: 4, EndCol: 5}
 	got := issueToProtocolRange(r)
 	if got.Start.Line != 1 || got.Start.Character != 2 {
@@ -77,8 +85,58 @@ func TestURLToPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("urlToPath: %v", err)
 	}
-	if path != "/tmp/test.md" {
+	if runtime.GOOS != "windows" && path != "/tmp/test.md" {
 		t.Fatalf("expected /tmp/test.md, got %s", path)
+	}
+
+	if runtime.GOOS == "windows" {
+		winPath, err := urlToPath("file:///C:/Temp/space%20here.md")
+		if err != nil {
+			t.Fatalf("urlToPath windows: %v", err)
+		}
+		if winPath != `C:\Temp\space here.md` {
+			t.Fatalf("expected C:\\Temp\\space here.md, got %s", winPath)
+		}
+
+		uncPath, err := urlToPath("file://server/share/space%20here.md")
+		if err != nil {
+			t.Fatalf("urlToPath UNC: %v", err)
+		}
+		if uncPath != `\\server\share\space here.md` {
+			t.Fatalf("expected \\\\server\\share\\space here.md, got %s", uncPath)
+		}
+
+		doubleEscaped, err := urlToPath("file:///C:/Temp/percent%2520space.md")
+		if err != nil {
+			t.Fatalf("urlToPath double escaped: %v", err)
+		}
+		if doubleEscaped != `C:\Temp\percent%20space.md` {
+			t.Fatalf("expected C:\\Temp\\percent%%20space.md, got %s", doubleEscaped)
+		}
+	} else {
+		escaped, err := urlToPath("file:///tmp/space%20here.md")
+		if err != nil {
+			t.Fatalf("urlToPath escaped: %v", err)
+		}
+		if escaped != "/tmp/space here.md" {
+			t.Fatalf("expected /tmp/space here.md, got %s", escaped)
+		}
+
+		localhost, err := urlToPath("file://localhost/tmp/space%20here.md")
+		if err != nil {
+			t.Fatalf("urlToPath localhost: %v", err)
+		}
+		if localhost != "/tmp/space here.md" {
+			t.Fatalf("expected /tmp/space here.md from localhost, got %s", localhost)
+		}
+
+		doubleEscaped, err := urlToPath("file:///tmp/percent%2520space.md")
+		if err != nil {
+			t.Fatalf("urlToPath double escaped: %v", err)
+		}
+		if doubleEscaped != "/tmp/percent%20space.md" {
+			t.Fatalf("expected /tmp/percent%%20space.md, got %s", doubleEscaped)
+		}
 	}
 
 	other, err := urlToPath("not-a-file")
@@ -88,6 +146,45 @@ func TestURLToPath(t *testing.T) {
 	if other != "not-a-file" {
 		t.Fatalf("expected passthrough, got %s", other)
 	}
+
+	t.Run("Negative", func(t *testing.T) {
+		// 1. Malformed percent encoding
+		_, err := urlToPath("file:///tmp/%GG")
+		if err == nil {
+			t.Error("expected error for malformed percent encoding")
+		}
+
+		// 2. Query and Fragment should be ignored in path
+		path, err := urlToPath("file:///tmp/test.md?query=1#frag")
+		if err != nil {
+			t.Fatalf("urlToPath with query/frag: %v", err)
+		}
+		if !strings.HasSuffix(path, "test.md") || strings.Contains(path, "query") {
+			t.Errorf("expected path without query/frag, got %s", path)
+		}
+
+		// 3. Non-file scheme
+		path, err = urlToPath("http://example.com/file.md")
+		if err != nil {
+			t.Fatalf("urlToPath non-file: %v", err)
+		}
+		if path != "http://example.com/file.md" {
+			t.Errorf("expected passthrough for non-file scheme, got %s", path)
+		}
+
+		// 4. Path traversal hardening
+		path, err = urlToPath("file:///tmp/../etc/passwd")
+		if err != nil {
+			t.Fatalf("urlToPath traversal: %v", err)
+		}
+		expected := filepath.FromSlash("/etc/passwd")
+		if runtime.GOOS == "windows" {
+			expected = filepath.FromSlash(`\etc\passwd`)
+		}
+		if path != expected {
+			t.Errorf("expected cleaned path %s, got %s", expected, path)
+		}
+	})
 }
 
 func TestClampToUint32(t *testing.T) {

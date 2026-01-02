@@ -3,7 +3,9 @@ package lsp
 
 import (
 	"fmt"
+	"net/url"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -410,12 +412,43 @@ func severityToProtocolSeverity(s audit.Severity) *protocol.DiagnosticSeverity {
 	return &sev
 }
 
-//nolint:unparam // reserved for future URI validation
+// urlToPath converts a file URI to a filesystem path.
+// It supports file:// scheme with localhost or empty host.
+// It handles percent-encoded characters and platform-specific path formats.
+// Non-file URIs are returned as-is for fallback handling.
 func urlToPath(uri string) (string, error) {
 	if !strings.HasPrefix(uri, "file://") {
 		return uri, nil
 	}
-	return strings.TrimPrefix(uri, "file://"), nil
+	parsed, err := url.Parse(uri)
+	if err != nil {
+		return "", err
+	}
+
+	if parsed.Scheme != "file" {
+		return uri, nil
+	}
+
+	path := parsed.EscapedPath()
+	if path == "" {
+		path = parsed.Path
+	}
+
+	if parsed.Host != "" && parsed.Host != "localhost" {
+		// UNC path or non-localhost authority
+		path = "//" + parsed.Host + path
+	}
+
+	path, err = url.PathUnescape(path)
+	if err != nil {
+		return "", fmt.Errorf("invalid percent encoding: %w", err)
+	}
+
+	if runtime.GOOS == "windows" && len(path) >= 3 && path[0] == '/' && path[2] == ':' {
+		path = path[1:]
+	}
+
+	return filepath.Clean(filepath.FromSlash(path)), nil
 }
 
 func clampToUint32(value int) uint32 {
