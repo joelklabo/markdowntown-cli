@@ -130,17 +130,27 @@ func parseInstructionFrontmatter(path string) ([]string, []string, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	frontmatter, ok, err := scan.ParseFrontmatter(content)
+	parsed, ok, err := scan.ParseFrontmatter(content)
 	if err != nil {
 		return nil, nil, err
 	}
-	if !ok {
+	if !ok || parsed == nil {
 		return nil, nil, nil
 	}
 
-	applyTo := normalizeStringSlice(frontmatter["applyTo"])
-	excludeAgent := normalizeStringSlice(frontmatter["excludeAgent"])
-	return applyTo, excludeAgent, nil
+	var applyTo []string
+	if val, ok := parsed.Data["applyTo"]; ok {
+		applyTo = normalizeStringSlice(val)
+	}
+
+	var excludeAgents []string
+	if val, ok := parsed.Data["excludeAgents"]; ok {
+		excludeAgents = normalizeStringSlice(val)
+	} else if val, ok := parsed.Data["excludeAgent"]; ok {
+		excludeAgents = normalizeStringSlice(val)
+	}
+
+	return applyTo, excludeAgents, nil
 }
 
 func normalizeStringSlice(value any) []string {

@@ -277,6 +277,12 @@
       "frontmatter": {
         "when": "always"
       },
+      "frontmatterLocations": {
+        "when": {
+          "line": 2,
+          "col": 1
+        }
+      },
       "frontmatterError": null,
       "content": null,
       "contentSkipped": null,

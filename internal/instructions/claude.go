@@ -166,13 +166,13 @@ func loadClaudeRule(rootDir, path, targetRel string, scope Scope, maxDepth int, 
 		return nil, nil, err
 	}
 
-	frontmatter, ok, err := scan.ParseFrontmatter(content)
+	parsed, ok, err := scan.ParseFrontmatter(content)
 	if err != nil {
 		return nil, nil, err
 	}
 	paths := normalizeStringSlice(nil)
-	if ok {
-		paths = normalizeStringSlice(frontmatter["paths"])
+	if ok && parsed != nil {
+		paths = normalizeStringSlice(parsed.Data["paths"])
 	}
 
 	if len(paths) > 0 && !applyToMatches(paths, targetRel) {

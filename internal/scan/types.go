@@ -71,6 +71,7 @@ type ConfigEntry struct {
 	Mtime            int64          `json:"mtime"`
 	Gitignored       bool           `json:"gitignored"`
 	Frontmatter      map[string]any `json:"frontmatter"`
+	FrontmatterLocations map[string]Range `json:"frontmatterLocations,omitempty"`
 	FrontmatterError *string        `json:"frontmatterError"`
 	Content          *string        `json:"content"`
 	ContentSkipped   *string        `json:"contentSkipped"`

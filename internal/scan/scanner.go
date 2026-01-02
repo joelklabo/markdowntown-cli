@@ -329,8 +329,9 @@ func populateEntryContent(fs afero.Fs, entry *ConfigEntry, resolvedPath string, 
 	}
 
 	frontmatter, hasFrontmatter, fmErr := ParseFrontmatter(data)
-	if hasFrontmatter {
-		entry.Frontmatter = frontmatter
+	if hasFrontmatter && frontmatter != nil {
+		entry.Frontmatter = frontmatter.Data
+		entry.FrontmatterLocations = frontmatter.Locations
 	}
 	if fmErr != nil {
 		errText := fmErr.Error()
