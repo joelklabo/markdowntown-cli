@@ -8,15 +8,7 @@ import (
 )
 
 func TestRunGeminiSuccess(t *testing.T) {
-	execCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
-		cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=TestGeminiHelperProcess")
-		cmd.Env = append(os.Environ(),
-			"GO_WANT_GEMINI_HELPER=1",
-			"GEMINI_HELPER_MODE=stdout",
-		)
-		return cmd
-	}
-	t.Cleanup(func() { execCommandContext = exec.CommandContext })
+	withGeminiHelper(t, "stdout")
 
 	cmd := runGemini("flash", "hello", nil)
 	msg := cmd()
@@ -33,15 +25,7 @@ func TestRunGeminiSuccess(t *testing.T) {
 }
 
 func TestRunGeminiErrorUsesStderr(t *testing.T) {
-	execCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
-		cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=TestGeminiHelperProcess")
-		cmd.Env = append(os.Environ(),
-			"GO_WANT_GEMINI_HELPER=1",
-			"GEMINI_HELPER_MODE=stderr",
-		)
-		return cmd
-	}
-	t.Cleanup(func() { execCommandContext = exec.CommandContext })
+	withGeminiHelper(t, "stderr")
 
 	cmd := runGemini("pro", "hello", nil)
 	msg := cmd()
@@ -58,15 +42,7 @@ func TestRunGeminiErrorUsesStderr(t *testing.T) {
 }
 
 func TestRunGeminiDefaultModel(t *testing.T) {
-	execCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
-		cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=TestGeminiHelperProcess")
-		cmd.Env = append(os.Environ(),
-			"GO_WANT_GEMINI_HELPER=1",
-			"GEMINI_HELPER_MODE=stdout",
-		)
-		return cmd
-	}
-	t.Cleanup(func() { execCommandContext = exec.CommandContext })
+	withGeminiHelper(t, "stdout")
 
 	cmd := runGemini("unknown", "hello", nil)
 	msg := cmd()
@@ -82,7 +58,7 @@ func TestRunGeminiDefaultModel(t *testing.T) {
 	}
 }
 
-func TestGeminiHelperProcess(t *testing.T) {
+func TestGeminiHelperProcess(_ *testing.T) {
 	if os.Getenv("GO_WANT_GEMINI_HELPER") != "1" {
 		return
 	}
@@ -96,4 +72,18 @@ func TestGeminiHelperProcess(t *testing.T) {
 	default:
 		os.Exit(2)
 	}
+}
+
+func withGeminiHelper(t *testing.T, mode string) {
+	t.Helper()
+	execCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+		//nolint:gosec // test helper uses current test binary
+		cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=TestGeminiHelperProcess")
+		cmd.Env = append(os.Environ(),
+			"GO_WANT_GEMINI_HELPER=1",
+			"GEMINI_HELPER_MODE="+mode,
+		)
+		return cmd
+	}
+	t.Cleanup(func() { execCommandContext = exec.CommandContext })
 }
