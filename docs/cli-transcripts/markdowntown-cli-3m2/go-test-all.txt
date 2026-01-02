@@ -1,0 +1,9 @@
+ok  	markdowntown-cli/cmd/markdowntown	13.174s
+ok  	markdowntown-cli/internal/audit	(cached)
+ok  	markdowntown-cli/internal/git	(cached)
+ok  	markdowntown-cli/internal/hash	(cached)
+ok  	markdowntown-cli/internal/instructions	(cached)
+ok  	markdowntown-cli/internal/lsp	16.589s
+ok  	markdowntown-cli/internal/scan	3.820s
+ok  	markdowntown-cli/internal/suggest	(cached)
+?   	markdowntown-cli/internal/version	[no test files]

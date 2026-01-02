@@ -41,6 +41,7 @@ type Server struct {
 	// Diagnostics state
 	diagnosticsMu    sync.Mutex
 	diagnosticTimers map[string]*time.Timer
+	Debounce         time.Duration
 
 	// Cache state
 	cacheMu          sync.Mutex
@@ -54,6 +55,7 @@ func NewServer(version string) *Server {
 		overlay:          afero.NewMemMapFs(),
 		base:             afero.NewOsFs(),
 		diagnosticTimers: make(map[string]*time.Timer),
+		Debounce:         debounceTimeout,
 		frontmatterCache: make(map[string]*scan.ParsedFrontmatter),
 	}
 	s.fs = afero.NewCopyOnWriteFs(s.base, s.overlay)
@@ -287,7 +289,11 @@ func (s *Server) triggerDiagnostics(context *glsp.Context, uri string) {
 		timer.Stop()
 	}
 
-	s.diagnosticTimers[uri] = time.AfterFunc(debounceTimeout, func() {
+	delay := s.Debounce
+	if delay <= 0 {
+		delay = debounceTimeout
+	}
+	s.diagnosticTimers[uri] = time.AfterFunc(delay, func() {
 		s.runDiagnostics(context, uri)
 	})
 }

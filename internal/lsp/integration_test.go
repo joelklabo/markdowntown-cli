@@ -21,6 +21,7 @@ import (
 
 func TestDiagnosticsOverPipe(t *testing.T) {
 	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
 	repoRoot := t.TempDir()
 	runGit(t, repoRoot, "init")
 	setRegistryEnv(t)
@@ -88,8 +89,153 @@ func TestDiagnosticsOverPipe(t *testing.T) {
 		if !found {
 			t.Fatalf("expected frontmatter diagnostic, got %#v", params.Diagnostics)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("timed out waiting for diagnostics")
+	}
+}
+
+func TestDiagnosticsOverlayOnly(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := "file://" + repoRoot
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := "file://" + filepath.Join(repoRoot, "GEMINI.md")
+	content := "---\nkey: value\ninvalid: [\n---\n# Hello"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	if len(params.Diagnostics) == 0 {
+		t.Fatal("expected diagnostics for overlay-only file, got none")
+	}
+}
+
+func TestDiagnosticsDebounceLastChange(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := "file://" + repoRoot
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := "file://" + filepath.Join(repoRoot, "GEMINI.md")
+	valid := "---\ntoolId: gemini-cli\n---\n# Hello"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: valid,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	// Drain initial diagnostics from didOpen.
+	_ = waitForDiagnostics(t, diagnostics, uri)
+
+	invalid := "---\nkey: value\ninvalid: [\n---\n# Hello"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidChange, protocol.DidChangeTextDocumentParams{
+		TextDocument: protocol.VersionedTextDocumentIdentifier{
+			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+		},
+		ContentChanges: []any{
+			protocol.TextDocumentContentChangeEvent{Text: invalid},
+		},
+	}); err != nil {
+		t.Fatalf("didChange notify failed: %v", err)
+	}
+
+	valid2 := "---\ntoolId: gemini-cli\n---\n# Updated"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidChange, protocol.DidChangeTextDocumentParams{
+		TextDocument: protocol.VersionedTextDocumentIdentifier{
+			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+		},
+		ContentChanges: []any{
+			protocol.TextDocumentContentChangeEvent{Text: valid2},
+		},
+	}); err != nil {
+		t.Fatalf("didChange notify failed: %v", err)
+	}
+
+	final := waitForDiagnostics(t, diagnostics, uri)
+	for _, diag := range final.Diagnostics {
+		if diag.Message == "Invalid YAML frontmatter." {
+			t.Fatalf("expected final diagnostics to reflect last change, got %q", diag.Message)
+		}
+	}
+
+	select {
+	case <-diagnostics:
+		t.Fatalf("expected only one diagnostics publish after debounce")
+	case <-time.After(150 * time.Millisecond):
 	}
 }
 
@@ -155,6 +301,20 @@ func TestServeCanary(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatalf("timed out waiting for serve process to exit (stderr: %s)", stderr.String())
 	}
+}
+
+func waitForDiagnostics(t *testing.T, diagnostics <-chan protocol.PublishDiagnosticsParams, uri string) protocol.PublishDiagnosticsParams {
+	t.Helper()
+	select {
+	case params := <-diagnostics:
+		if params.URI != uri {
+			t.Fatalf("expected diagnostics for %s, got %s", uri, params.URI)
+		}
+		return params
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for diagnostics")
+	}
+	return protocol.PublishDiagnosticsParams{}
 }
 
 func newServerRPC(t *testing.T, s *Server, conn io.ReadWriteCloser) *jsonrpc2.Conn {
