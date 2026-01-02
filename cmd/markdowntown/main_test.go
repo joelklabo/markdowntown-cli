@@ -273,6 +273,13 @@ func TestRunRegistryValidateOutputsJSON(t *testing.T) {
 	}
 }
 
+func TestRunRegistryValidateMissingRegistry(t *testing.T) {
+	t.Setenv(scan.RegistryEnvVar, filepath.Join(t.TempDir(), "missing.json"))
+	if err := runRegistryValidate(); err == nil {
+		t.Fatalf("expected error for missing registry")
+	}
+}
+
 func TestRunRegistryRequiresSubcommand(t *testing.T) {
 	if err := runRegistry([]string{}); err == nil {
 		t.Fatalf("expected error for missing registry subcommand")
@@ -322,6 +329,12 @@ func TestResolveRepoRoot(t *testing.T) {
 	}
 	if resolved != expected {
 		t.Fatalf("expected repo root %s, got %s", expected, resolved)
+	}
+}
+
+func TestResolveRepoRootMissingPath(t *testing.T) {
+	if _, err := resolveRepoRoot(filepath.Join(t.TempDir(), "missing")); err == nil {
+		t.Fatalf("expected error for missing repo path")
 	}
 }
 
@@ -540,6 +553,39 @@ func TestRunAuditInvalidFormat(t *testing.T) {
 	}
 	if cliErr.Error() == "" {
 		t.Fatalf("expected error message")
+	}
+}
+
+func TestRunAuditInvalidSeverity(t *testing.T) {
+	err := runAudit([]string{"--fail-severity", "nope"})
+	var cliErr *cliError
+	if !errors.As(err, &cliErr) {
+		t.Fatalf("expected cliError, got %v", err)
+	}
+	if cliErr.code != 2 {
+		t.Fatalf("expected exit code 2, got %d", cliErr.code)
+	}
+}
+
+func TestRunAuditInvalidRedactMode(t *testing.T) {
+	err := runAudit([]string{"--redact", "nope"})
+	var cliErr *cliError
+	if !errors.As(err, &cliErr) {
+		t.Fatalf("expected cliError, got %v", err)
+	}
+	if cliErr.code != 2 {
+		t.Fatalf("expected exit code 2, got %d", cliErr.code)
+	}
+}
+
+func TestRunAuditInvalidRuleFilter(t *testing.T) {
+	err := runAudit([]string{"--only", "NOPE"})
+	var cliErr *cliError
+	if !errors.As(err, &cliErr) {
+		t.Fatalf("expected cliError, got %v", err)
+	}
+	if cliErr.code != 2 {
+		t.Fatalf("expected exit code 2, got %d", cliErr.code)
 	}
 }
 
