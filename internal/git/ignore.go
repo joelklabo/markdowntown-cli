@@ -1,6 +1,8 @@
 package git
 
 import (
+	"errors"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -17,10 +19,25 @@ func CheckIgnore(repoRoot string, paths []string) (map[string]bool, error) {
 		return result, nil
 	}
 
-	stdin := strings.NewReader(strings.Join(filtered, "\x00") + "\x00")
-	stdout, exitCode, err := runGit(repoRoot, stdin, "check-ignore", "-z", "--stdin")
-	if err != nil && exitCode != 1 {
-		return nil, err
+	stdinStr := strings.Join(filtered, "\x00") + "\x00"
+	stdin := strings.NewReader(stdinStr)
+	stdout, _, err := runGit(repoRoot, stdin, "check-ignore", "-z", "--stdin")
+	if err != nil {
+		// git check-ignore returns 1 if no files are ignored.
+		// We only swallow the error if it's a clean exit with code 1 from the git process
+		// and NO error message on stderr.
+		isExit1 := false
+		var gerr *commandError
+		if errors.As(err, &gerr) {
+			_, isExitErr := gerr.cause.(*exec.ExitError)
+			if isExitErr && gerr.exitCode == 1 && gerr.stderr == "" {
+				isExit1 = true
+			}
+		}
+
+		if !isExit1 {
+			return nil, err
+		}
 	}
 
 	for _, rel := range strings.Split(stdout, "\x00") {
