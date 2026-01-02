@@ -18,22 +18,21 @@ linters:
     - unparam
     - forbidigo
 
-linters-settings:
-  forbidigo:
-    forbid:
-      - p: ^fmt\.Print.*$
-        pkg: ^internal/.*$
-        msg: "Do not use fmt.Print in internal packages; use a logger or return values."
-      - p: ^os\.Stdout$
-        pkg: ^internal/.*$
-        msg: "Do not use os.Stdout in internal packages."
+  settings:
+    forbidigo:
+      forbid:
+        - pattern: ^fmt\.Print.*$
+          pkg: ^internal/.*$
+          msg: "Do not use fmt.Print in internal packages; use a logger or return values."
+        - pattern: ^os\.Stdout$
+          pkg: ^internal/.*$
+          msg: "Do not use os.Stdout in internal packages."
+  exclusions:
+    rules:
+      - path: "cmd/.*"
+        linters:
+          - forbidigo
 
 formatters:
   enable:
     - gofmt
-
-issues:
-  exclude-rules:
-    - path: "cmd/.*"
-      linters:
-        - forbidigo
