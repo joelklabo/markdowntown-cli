@@ -1,0 +1,42 @@
+{
+  "name": "markdowntown",
+  "displayName": "markdowntown",
+  "description": "Language Server Protocol client for markdowntown.",
+  "version": "0.0.1",
+  "publisher": "markdowntown",
+  "engines": {
+    "vscode": "^1.107.0"
+  },
+  "categories": [
+    "Linters"
+  ],
+  "activationEvents": [
+    "onLanguage:markdown",
+    "onLanguage:json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "markdowntown",
+      "properties": {
+        "markdowntown.serverPath": {
+          "type": "string",
+          "default": "markdowntown",
+          "description": "Path to the markdowntown CLI binary."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p ./",
+    "watch": "tsc -p ./ -w"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "@types/vscode": "^1.107.0",
+    "typescript": "^5.9.3"
+  }
+}
