@@ -21,7 +21,7 @@ func CheckIgnore(repoRoot string, paths []string) (map[string]bool, error) {
 
 	stdinStr := strings.Join(filtered, "\x00") + "\x00"
 	stdin := strings.NewReader(stdinStr)
-	stdout, _, err := runGit(repoRoot, stdin, "check-ignore", "-z", "--stdin")
+	stdout, err := runGit(repoRoot, stdin, "check-ignore", "-z", "--stdin")
 	if err != nil {
 		// git check-ignore returns 1 if no files are ignored.
 		// We only swallow the error if it's a clean exit with code 1 from the git process

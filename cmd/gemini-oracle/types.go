@@ -23,35 +23,33 @@ const (
 )
 
 type oracleModel struct {
-	prompt          string
-	
+	prompt string
+
 	// Input mode components
-	inputMode       bool
-	textarea        textarea.Model
-	
+	inputMode bool
+	textarea  textarea.Model
+
 	// Execution components
-	flashState      modelState
-	flashOutput     string
-	flashSpinner    spinner.Model
-	
-	proState        modelState
-	proOutput       string
-	proSpinner      spinner.Model
-	
-	synthState      modelState
-	synthOutput     string
-	synthSpinner    spinner.Model
-	synthViewport   viewport.Model
-	
-	err             error
-	
+	flashState   modelState
+	flashOutput  string
+	flashSpinner spinner.Model
+
+	proState   modelState
+	proOutput  string
+	proSpinner spinner.Model
+
+	synthState    modelState
+	synthOutput   string
+	synthSpinner  spinner.Model
+	synthViewport viewport.Model
+
 	// Channels
 	flashResultChan chan modelResult
 	proResultChan   chan modelResult
 	synthResultChan chan modelResult
-	
+
 	// Metrics
-	startTime       time.Time
-	width           int
-	height          int
+	startTime time.Time
+	width     int
+	height    int
 }

@@ -70,19 +70,19 @@ func TestRenderModelState(t *testing.T) {
 	m := initialModel("test")
 
 	// Test thinking
-	thinking := renderModelState("Test", stateThinking, "", m.flashSpinner)
+	thinking := renderModelState("Test", stateThinking, "", m.flashSpinner, 0)
 	if !strings.Contains(thinking, "Thinking...") {
 		t.Errorf("rendered thinking state should contain 'Thinking...'")
 	}
 
 	// Test done
-	done := renderModelState("Test", stateDone, "some output", m.flashSpinner)
+	done := renderModelState("Test", stateDone, "some output", m.flashSpinner, 0)
 	if !strings.Contains(done, "Complete") || !strings.Contains(done, "some output") {
 		t.Errorf("rendered done state should contain 'Complete' and output")
 	}
 
 	// Test error
-	err := renderModelState("Test", stateError, "error message", m.flashSpinner)
+	err := renderModelState("Test", stateError, "error message", m.flashSpinner, 0)
 	if !strings.Contains(err, "Error: error message") {
 		t.Errorf("rendered error state should contain error message")
 	}

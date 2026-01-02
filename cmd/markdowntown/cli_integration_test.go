@@ -81,7 +81,15 @@ func TestResolveCLIGoldenJSON(t *testing.T) {
 
 func TestSuggestCLIUnknownClientExitCode(t *testing.T) {
 	repoRoot := repoRootFromCaller(t)
-	cmd := exec.Command("go", "run", "./cmd/markdowntown", "suggest", "--client", "nope")
+	binaryPath := filepath.Join(repoRoot, "bin", "markdowntown")
+	var cmd *exec.Cmd
+	if _, err := os.Stat(binaryPath); err == nil {
+		// #nosec G204 -- test harness controls command arguments.
+		cmd = exec.Command(binaryPath, "suggest", "--client", "nope")
+	} else {
+		// #nosec G204 -- test harness controls command arguments.
+		cmd = exec.Command("go", "run", "./cmd/markdowntown", "suggest", "--client", "nope")
+	}
 	cmd.Dir = repoRoot
 
 	var stderr bytes.Buffer

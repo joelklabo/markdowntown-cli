@@ -31,7 +31,7 @@ func (err *commandError) Unwrap() error {
 	return err.cause
 }
 
-func runGit(dir string, stdin io.Reader, args ...string) (string, int, error) {
+func runGit(dir string, stdin io.Reader, args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
 	cmd.Stdin = stdin
@@ -46,11 +46,11 @@ func runGit(dir string, stdin io.Reader, args ...string) (string, int, error) {
 	errOut := strings.TrimSpace(stderr.String())
 
 	if err == nil {
-		return out, 0, nil
+		return out, nil
 	}
 
 	if errors.Is(err, exec.ErrNotFound) {
-		return out, 127, ErrGitNotFound
+		return out, ErrGitNotFound
 	}
 
 	exitCode := 1
@@ -58,7 +58,7 @@ func runGit(dir string, stdin io.Reader, args ...string) (string, int, error) {
 		exitCode = exitErr.ExitCode()
 	}
 
-	return out, exitCode, &commandError{
+	return out, &commandError{
 		command:  strings.Join(args, " "),
 		exitCode: exitCode,
 		stderr:   errOut,

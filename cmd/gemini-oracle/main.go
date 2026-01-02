@@ -24,9 +24,5 @@ func main() {
 
 	// Print final result to stdout if it finished (optional, as TUI shows it now)
 	finalModel := m.(oracleModel)
-	if finalModel.synthState == stateDone {
-		// We could output raw text here if needed, but TUI handles it nicely.
-		// Un-commenting below would duplicate output after TUI exit.
-		// fmt.Println(finalModel.synthOutput)
-	}
+	_ = finalModel
 }

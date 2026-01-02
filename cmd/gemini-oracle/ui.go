@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 // Styles
 var (
 	subtle    = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	dot       = lipgloss.NewStyle().Foreground(lipgloss.Color("236")).SetString(" • ")
 	title     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212")).MarginBottom(1)
 	modelName = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("63"))
 	status    = lipgloss.NewStyle().Foreground(lipgloss.Color("86"))
@@ -83,8 +83,7 @@ func (m oracleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Handle input mode
 	if m.inputMode {
-		switch msg := msg.(type) {
-		case tea.KeyMsg:
+		if msg, ok := msg.(tea.KeyMsg); ok {
 			if msg.Type == tea.KeyCtrlC || msg.Type == tea.KeyEsc {
 				return m, tea.Quit
 			}
@@ -92,7 +91,7 @@ func (m oracleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.inputMode = false
 				m.prompt = m.textarea.Value()
 				m.startTime = time.Now()
-				cmds = append(cmds, 
+				cmds = append(cmds,
 					m.flashSpinner.Tick,
 					m.proSpinner.Tick,
 					m.synthSpinner.Tick,
@@ -101,7 +100,7 @@ func (m oracleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					tickCmd(),
 				)
 				return m, tea.Batch(cmds...)
-		}
+			}
 		}
 		var cmd tea.Cmd
 		m.textarea, cmd = m.textarea.Update(msg)
@@ -114,6 +113,31 @@ func (m oracleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" || msg.String() == "q" {
 			return m, tea.Quit
+		}
+		
+		if msg.String() == "ctrl+s" && m.synthState == stateDone {
+			// Save to file
+			_ = os.WriteFile("oracle_output.md", []byte(m.synthOutput), 0600)
+			// Visual feedback could be added here, but for now just save
+		}
+
+		if msg.String() == "r" {
+			// Retry
+			m.startTime = time.Now()
+			m.flashState = stateThinking
+			m.proState = stateThinking
+			m.synthState = stateThinking
+			m.flashOutput = ""
+			m.proOutput = ""
+			m.synthOutput = ""
+			m.synthViewport.SetContent("")
+			
+			cmds = append(cmds, 
+				runGemini("flash", m.prompt, m.flashResultChan),
+				runGemini("pro", m.prompt, m.proResultChan),
+				tickCmd(),
+			)
+			return m, tea.Batch(cmds...)
 		}
 		
 	case tea.WindowSizeMsg:
@@ -131,21 +155,22 @@ func (m oracleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case modelResult:
-		if msg.name == "flash" {
+		switch msg.name {
+		case "flash":
 			m.flashState = stateDone
 			m.flashOutput = msg.content
 			if msg.err != nil {
 				m.flashState = stateError
 				m.flashOutput = msg.err.Error()
 			}
-		} else if msg.name == "pro" {
+		case "pro":
 			m.proState = stateDone
 			m.proOutput = msg.content
 			if msg.err != nil {
 				m.proState = stateError
 				m.proOutput = msg.err.Error()
 			}
-		} else if msg.name == "synth" {
+		case "synth":
 			m.synthState = stateDone
 			m.synthOutput = msg.content
 			if msg.err != nil {
@@ -163,8 +188,6 @@ func (m oracleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			
 			// Auto-scroll to top
 			m.synthViewport.GotoTop()
-			
-			// We don't quit automatically anymore, letting user read the result
 		}
 
 		// Check if we can start synthesis
@@ -234,20 +257,22 @@ func (m oracleModel) View() string {
 	ss.WriteString("\n\n")
 
 	// Grid layout simulated
-	flashView := renderModelState("Flash", m.flashState, m.flashOutput, m.flashSpinner)
-	proView := renderModelState("Pro", m.proState, m.proOutput, m.proSpinner)
+	elapsed := time.Since(m.startTime)
+	flashView := renderModelState("Flash", m.flashState, m.flashOutput, m.flashSpinner, elapsed)
+	proView := renderModelState("Pro", m.proState, m.proOutput, m.proSpinner, elapsed)
 	
 	ss.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, flashView, proView))
 	ss.WriteString("\n\n")
 
-	if m.synthState == stateDone {
+	sswitch {
+	case m.synthState == stateDone:
 		ss.WriteString(modelName.Render("Gemini 3 Pro Preview (Synthesizer)"))
 		ss.WriteString("\n")
 		ss.WriteString(box.Render(m.synthViewport.View()))
-	} else if m.flashState != stateThinking && m.proState != stateThinking {
+	case m.flashState != stateThinking && m.proState != stateThinking:
 		// Synthesis in progress
 		ss.WriteString(fmt.Sprintf("%s %s", m.synthSpinner.View(), subtle.Render("Synthesizing final answer with Gemini 3 Pro Preview...")))
-	} else {
+	default:
 		ss.WriteString(subtle.Render("Waiting for analysis models to finish..."))
 	}
 
@@ -255,33 +280,49 @@ func (m oracleModel) View() string {
 	ss.WriteString(subtle.Render(fmt.Sprintf("Time elapsed: %s", time.Since(m.startTime).Round(time.Second))))
 	
 	if m.synthState == stateDone {
-		ss.WriteString(subtle.Render(" • Press q to quit • Scroll with ↑/↓"))
+		ss.WriteString(subtle.Render(" • q: quit • r: retry • ctrl+s: save to file • ↑/↓: scroll"))
 	} else {
-		ss.WriteString(subtle.Render(" • Press q to quit"))
+		ss.WriteString(subtle.Render(" • q: quit"))
 	}
 
 	return box.Render(ss.String())
 }
 
-func renderModelState(name string, state modelState, output string, spin spinner.Model) string {
+func renderModelState(name string, state modelState, output string, spin spinner.Model, elapsed time.Duration) string {
+
 	header := modelName.Render(name)
+
 	var content string
 
 	switch state {
+
 	case stateThinking:
-		content = fmt.Sprintf("%s Thinking...", spin.View())
+
+		content = fmt.Sprintf("%s Thinking... (%s)", spin.View(), elapsed.Round(time.Second))
+
 	case stateDone:
+
 		// Truncate output for preview
+
 		preview := strings.ReplaceAll(output, "\n", " ")
+
 		if len(preview) > 150 {
+
 			preview = preview[:150] + "..."
+
 		}
+
 		content = status.Render("Complete") + "\n" + subtle.Render(preview)
+
 	case stateError:
+
 		content = errStyle.Render("Error: " + output)
 	}
 
-	return lipgloss.NewStyle().Width(38).Height(6).Border(lipgloss.NormalBorder()).Padding(0, 1).Render(
-		header + "\n" + content,
+	return lipgloss.NewStyle().Width(38).Height(6).Border(lipgloss.RoundedBorder()).Padding(0, 1).Render(
+
+	header + "\n" + content,
+
 	)
+
 }
