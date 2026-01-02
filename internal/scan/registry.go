@@ -171,6 +171,14 @@ func expandRegistryPath(path string) (string, error) {
 	return expandXDGConfigHome(expanded), nil
 }
 
+func expandRegistryPathRegex(path string) (string, error) {
+	expanded, err := expandHome(path)
+	if err != nil {
+		return "", err
+	}
+	return expandXDGConfigHomeRaw(expanded), nil
+}
+
 func expandXDGConfigHome(path string) string {
 	xdg := os.Getenv("XDG_CONFIG_HOME")
 	if xdg == "" {
@@ -179,4 +187,13 @@ func expandXDGConfigHome(path string) string {
 	path = strings.ReplaceAll(path, "${XDG_CONFIG_HOME}", xdg)
 	path = strings.ReplaceAll(path, "$XDG_CONFIG_HOME", xdg)
 	return filepath.Clean(filepath.FromSlash(path))
+}
+
+func expandXDGConfigHomeRaw(path string) string {
+	xdg := os.Getenv("XDG_CONFIG_HOME")
+	if xdg == "" {
+		return path
+	}
+	path = strings.ReplaceAll(path, "${XDG_CONFIG_HOME}", xdg)
+	return strings.ReplaceAll(path, "$XDG_CONFIG_HOME", xdg)
 }

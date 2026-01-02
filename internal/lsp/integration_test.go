@@ -231,7 +231,11 @@ func newClientRPC(t *testing.T, conn io.ReadWriteCloser, diagnostics chan<- prot
 
 func buildMarkdowntownBinary(t *testing.T) string {
 	t.Helper()
-	binPath := filepath.Join(t.TempDir(), "markdowntown")
+	binName := "markdowntown"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	binPath := filepath.Join(t.TempDir(), binName)
 	repoRoot := findRepoRoot(t)
 	// #nosec G204 -- test harness builds a local binary with fixed args.
 	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/markdowntown")
@@ -239,15 +243,6 @@ func buildMarkdowntownBinary(t *testing.T) string {
 	cmd.Dir = repoRoot
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("go build failed: %v\nOutput: %s", err, out)
-	}
-	if runtime.GOOS == "windows" {
-		if _, err := os.Stat(binPath); err != nil {
-			exePath := binPath + ".exe"
-			if _, exeErr := os.Stat(exePath); exeErr == nil {
-				return exePath
-			}
-			t.Fatalf("expected windows binary at %s", exePath)
-		}
 	}
 	return binPath
 }

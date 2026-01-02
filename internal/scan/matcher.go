@@ -66,7 +66,13 @@ func (cp CompiledPattern) Match(absPath, relPath string) (bool, string, error) {
 func compilePath(kind, raw string) (pathMatcher, error) {
 	pm := pathMatcher{raw: raw, kind: kind}
 
-	expanded, err := expandRegistryPath(raw)
+	var expanded string
+	var err error
+	if kind == "regex" {
+		expanded, err = expandRegistryPathRegex(raw)
+	} else {
+		expanded, err = expandRegistryPath(raw)
+	}
 	if err != nil {
 		return pm, err
 	}
