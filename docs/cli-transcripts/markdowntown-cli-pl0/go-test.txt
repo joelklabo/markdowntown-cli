@@ -1,4 +1,3 @@
-ok  	markdowntown-cli/cmd/gemini-oracle	(cached)
 ok  	markdowntown-cli/cmd/markdowntown	(cached)
 ok  	markdowntown-cli/internal/audit	(cached)
 ok  	markdowntown-cli/internal/git	(cached)
