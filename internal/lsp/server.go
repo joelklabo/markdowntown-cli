@@ -306,9 +306,17 @@ func (s *Server) runDiagnostics(context *glsp.Context, uri string) {
 		return
 	}
 
+	var stdinPaths []string
+	if _, err := s.overlay.Stat(path); err == nil {
+		if _, err := s.base.Stat(path); err != nil {
+			stdinPaths = append(stdinPaths, path)
+		}
+	}
+
 	result, err := scan.Scan(scan.Options{
 		RepoRoot:       repoRoot,
 		IncludeContent: true,
+		StdinPaths:     stdinPaths,
 		Registry:       registry,
 		Fs:             s.fs,
 	})

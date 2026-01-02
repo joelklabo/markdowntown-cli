@@ -10,6 +10,7 @@ Reliability is critical for an LSP server. A crash or hang breaks the user's ent
 *   **Mechanism:** Standard Go unit tests (`go test`).
 *   **Key Scenarios:**
     *   **Frontmatter Parsing:** Verify `yaml.Node` correctly captures line/column for various YAML structures (nested, lists, folded strings).
+    *   **Frontmatter Ranges:** Expect 1-based `startLine/startCol/endLine/endCol` ranges on parsed frontmatter locations.
     *   **Offset Mapping (Critical):** Verify the translation between Go's UTF-8 byte offsets and LSP's UTF-16 character offsets. *Must* include test cases with emojis and multi-byte characters to prevent "squiggly drift".
     *   **Audit Rules:** Test each rule against specific `ConfigEntry` states (valid, invalid, missing fields) and assert the correct `Issue` output and location data.
     *   **Panic Safety:** Verify that audit rules gracefully handle unexpected inputs without panicking.
@@ -19,12 +20,13 @@ Reliability is critical for an LSP server. A crash or hang breaks the user's ent
 *   **Mechanism:** Connect a `glsp.Server` to a test client using `net.Pipe()` within the same process. This allows full `-race` detection and step-through debugging.
 *   **Tooling:** `github.com/uber-go/goleak` to detect goroutine leaks.
 *   **Key Scenarios:**
+    *   **Registry Env:** Ensure `MARKDOWNTOWN_REGISTRY` is set (use `setRegistryEnv` helper) so hover/definition can load tool metadata.
     *   **Lifecycle:** `initialize` -> `initialized` -> `shutdown` -> `exit`.
     *   **Debouncing & Cancellation:** Rapidly send `didChange` events. Assert that:
         1. Only the final state triggers a full audit.
         2. Intermediate contexts are cancelled.
         3. No goroutines are leaked.
-    *   **Diagnostics:** Open a file with known errors. Assert `textDocument/publishDiagnostics` is received with correct ranges.
+    *   **Diagnostics:** Open a file with known errors. Assert `textDocument/publishDiagnostics` is received with correct ranges. For overlay-only buffers, ensure the server includes the opened file path in the scan input.
     *   **Out-of-Order Messages:** Simulate network lag by sending `didChange` (v2) before `didChange` (v1) finishes processing. Verify state consistency.
 
 ### Level 3: End-to-End (E2E) Binary Sanity Check
