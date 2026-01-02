@@ -18,7 +18,7 @@ func main() {
 	p := tea.NewProgram(initialModel(prompt), tea.WithAltScreen())
 	m, err := p.Run()
 	if err != nil {
-		fmt.Printf("Alas, there's been an error: %v", err)
+		fmt.Printf("Alas, there's been an error: %v", err) //nolint:forbidigo
 		os.Exit(1)
 	}
 

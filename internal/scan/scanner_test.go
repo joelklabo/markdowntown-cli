@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/spf13/afero"
 )
 
 func TestScanWarnsOnPermissionDeniedDir(t *testing.T) {
@@ -75,7 +77,7 @@ func TestPopulateEntryContentMissingFile(t *testing.T) {
 	entry := &ConfigEntry{}
 	missingPath := filepath.Join(t.TempDir(), "missing.txt")
 
-	populateEntryContent(entry, missingPath, true)
+	populateEntryContent(afero.NewOsFs(), entry, missingPath, true)
 
 	if entry.Error == nil || *entry.Error != "ENOENT" {
 		t.Fatalf("expected ENOENT error, got %#v", entry.Error)
@@ -92,7 +94,7 @@ func TestPopulateEntryContentEmptyFile(t *testing.T) {
 	}
 
 	entry := &ConfigEntry{}
-	populateEntryContent(entry, path, false)
+	populateEntryContent(afero.NewOsFs(), entry, path, false)
 
 	if entry.Warning == nil || *entry.Warning != "empty" {
 		t.Fatalf("expected empty warning, got %#v", entry.Warning)
@@ -107,7 +109,7 @@ func TestPopulateEntryContentFrontmatterError(t *testing.T) {
 	}
 
 	entry := &ConfigEntry{}
-	populateEntryContent(entry, path, false)
+	populateEntryContent(afero.NewOsFs(), entry, path, false)
 
 	if entry.FrontmatterError == nil {
 		t.Fatalf("expected frontmatter error for missing delimiter")
@@ -213,4 +215,31 @@ func copyDir(src string, dest string) error {
 		}
 		return os.WriteFile(target, data, 0o600)
 	})
+}
+
+func TestScanWithMemMapFs(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	repoRoot := "/repo"
+	if err := fs.MkdirAll(repoRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := afero.WriteFile(fs, filepath.Join(repoRoot, "README.md"), []byte("# Repo"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := Scan(Options{
+		Fs:       fs,
+		RepoRoot: repoRoot,
+		Registry: testRegistry(),
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	if len(result.Entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(result.Entries))
+	}
+	if result.Entries[0].Path != filepath.Join(repoRoot, "README.md") {
+		t.Errorf("expected path %s, got %s", filepath.Join(repoRoot, "README.md"), result.Entries[0].Path)
+	}
 }

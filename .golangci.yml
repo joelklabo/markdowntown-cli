@@ -16,7 +16,24 @@ linters:
     - gocritic
     - misspell
     - unparam
+    - forbidigo
+
+linters-settings:
+  forbidigo:
+    forbid:
+      - p: ^fmt\.Print.*$
+        pkg: ^internal/.*$
+        msg: "Do not use fmt.Print in internal packages; use a logger or return values."
+      - p: ^os\.Stdout$
+        pkg: ^internal/.*$
+        msg: "Do not use os.Stdout in internal packages."
 
 formatters:
   enable:
     - gofmt
+
+issues:
+  exclude-rules:
+    - path: "cmd/.*"
+      linters:
+        - forbidigo

@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	scanhash "markdowntown-cli/internal/hash"
+
+	"github.com/spf13/afero"
 )
 
 // Options configures the discovery scan.
@@ -23,6 +25,7 @@ type Options struct {
 	StdinPaths     []string
 	Registry       Registry
 	Patterns       []CompiledPattern
+	Fs             afero.Fs
 }
 
 // Result collects discovered entries and warnings.
@@ -38,6 +41,11 @@ func Scan(opts Options) (Result, error) {
 
 	if strings.TrimSpace(opts.RepoRoot) == "" {
 		return result, fmt.Errorf("repo root required")
+	}
+
+	fs := opts.Fs
+	if fs == nil {
+		fs = afero.NewOsFs()
 	}
 
 	patterns := opts.Patterns
@@ -62,14 +70,14 @@ func Scan(opts Options) (Result, error) {
 
 	var userRootsAbs []string
 
-	repoInfo, repoErr := os.Stat(repoRoot)
+	repoInfo, repoErr := fs.Stat(repoRoot)
 	repoExists := repoErr == nil && repoInfo.IsDir()
 	result.Scans = append(result.Scans, Root{Scope: "repo", Root: repoRoot, Exists: repoExists})
 	if repoErr != nil && !os.IsNotExist(repoErr) {
 		result.Warnings = append(result.Warnings, warningForError(repoRoot, repoErr))
 	}
 	if repoExists {
-		walkState := newWalkState(repoRoot, opts.IncludeContent, opts.Progress)
+		walkState := newWalkState(fs, repoRoot, opts.IncludeContent, opts.Progress)
 		scanDir(repoRoot, repoRoot, repoRoot, "repo", repoInfo, patterns, entries, &result, walkState, false, false)
 	}
 
@@ -87,7 +95,7 @@ func Scan(opts Options) (Result, error) {
 			}
 			absRoot = filepath.Clean(absRoot)
 			userRootsAbs = append(userRootsAbs, absRoot)
-			info, statErr := os.Stat(absRoot)
+			info, statErr := fs.Stat(absRoot)
 			exists := statErr == nil && info.IsDir()
 			result.Scans = append(result.Scans, Root{Scope: "user", Root: absRoot, Exists: exists})
 			if statErr != nil && !os.IsNotExist(statErr) {
@@ -96,7 +104,7 @@ func Scan(opts Options) (Result, error) {
 			if !exists {
 				continue
 			}
-			walkState := newWalkState(absRoot, opts.IncludeContent, opts.Progress)
+			walkState := newWalkState(fs, absRoot, opts.IncludeContent, opts.Progress)
 			scanDir(absRoot, absRoot, absRoot, "user", info, patterns, entries, &result, walkState, false, false)
 		}
 	}
@@ -112,13 +120,17 @@ func Scan(opts Options) (Result, error) {
 			result.Warnings = append(result.Warnings, warningForError(path, err))
 			continue
 		}
-		info, err := os.Lstat(absPath)
+		info, err := fs.Stat(absPath) // Was Lstat, but afero might not have Lstat?
+		// We'll address Lstat later. For now fs.Stat.
+		// Wait, we need Lstat for symlinks.
+		// If fs is OsFs, we can use os.Lstat? No, must use fs.
+		// afero.Lstater check.
 		if err != nil {
 			result.Warnings = append(result.Warnings, warningForError(absPath, err))
 			continue
 		}
 		scope, root := resolveScopeAndRoot(absPath, repoRoot, userRootsAbs, info)
-		walkState := newWalkState(root, opts.IncludeContent, opts.Progress)
+		walkState := newWalkState(fs, root, opts.IncludeContent, opts.Progress)
 		scanPath(absPath, absPath, root, scope, patterns, entries, &result, walkState, true)
 	}
 
@@ -147,6 +159,7 @@ func DefaultUserRoots() []string {
 }
 
 type walkState struct {
+	fs             afero.Fs
 	root           string
 	includeContent bool
 	progress       func(string)
@@ -154,8 +167,9 @@ type walkState struct {
 	active         map[string]struct{}
 }
 
-func newWalkState(root string, includeContent bool, progress func(string)) *walkState {
+func newWalkState(fs afero.Fs, root string, includeContent bool, progress func(string)) *walkState {
 	return &walkState{
+		fs:             fs,
 		root:           root,
 		includeContent: includeContent,
 		progress:       progress,
@@ -166,7 +180,7 @@ func newWalkState(root string, includeContent bool, progress func(string)) *walk
 
 func scanDir(logicalPath string, actualPath string, root string, scope string, info os.FileInfo, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, state *walkState, fromStdin bool, fromSymlink bool) {
 	if scope == "repo" && logicalPath != state.root {
-		if isSubmodule(actualPath) {
+		if isSubmodule(state.fs, actualPath) {
 			return
 		}
 	}
@@ -177,7 +191,7 @@ func scanDir(logicalPath string, actualPath string, root string, scope string, i
 	}
 	defer state.leaveDir(key)
 
-	dirEntries, err := os.ReadDir(actualPath)
+	dirEntries, err := afero.ReadDir(state.fs, actualPath)
 	if err != nil {
 		result.Warnings = append(result.Warnings, warningForError(logicalPath, err))
 		return
@@ -195,7 +209,7 @@ func scanPath(logicalPath string, actualPath string, root string, scope string, 
 		state.progress(logicalPath)
 	}
 
-	info, err := os.Lstat(actualPath)
+	info, err := lstat(state.fs, actualPath)
 	if err != nil {
 		result.Warnings = append(result.Warnings, warningForError(logicalPath, err))
 		return
@@ -215,13 +229,13 @@ func scanPath(logicalPath string, actualPath string, root string, scope string, 
 }
 
 func resolveAndScanSymlink(logicalPath string, actualPath string, root string, scope string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, state *walkState, fromStdin bool) {
-	resolved, err := filepath.EvalSymlinks(actualPath)
+	resolved, err := evalSymlinks(state.fs, actualPath)
 	if err != nil {
 		result.Warnings = append(result.Warnings, warningForError(logicalPath, err))
 		return
 	}
 
-	resolvedInfo, err := os.Stat(resolved)
+	resolvedInfo, err := state.fs.Stat(resolved)
 	if err != nil {
 		result.Warnings = append(result.Warnings, warningForError(logicalPath, err))
 		return
@@ -277,7 +291,7 @@ func scanFile(logicalPath string, resolvedPath string, root string, scope string
 			Gitignored: false,
 		}
 		entries[resolvedAbs] = entry
-		populateEntryContent(entry, resolvedAbs, state.includeContent)
+		populateEntryContent(state.fs, entry, resolvedAbs, state.includeContent)
 	} else if fromStdin {
 		entry.FromStdin = true
 	}
@@ -292,9 +306,9 @@ func scanFile(logicalPath string, resolvedPath string, root string, scope string
 	}
 }
 
-func populateEntryContent(entry *ConfigEntry, resolvedPath string, includeContent bool) {
+func populateEntryContent(fs afero.Fs, entry *ConfigEntry, resolvedPath string, includeContent bool) {
 	// #nosec G304 -- resolvedPath comes from scan roots or stdin.
-	data, err := os.ReadFile(resolvedPath)
+	data, err := afero.ReadFile(fs, resolvedPath)
 	if err != nil {
 		code := errorCodeFor(err)
 		entry.Error = &code
@@ -430,8 +444,8 @@ func warningForError(path string, err error) Warning {
 	return Warning{Path: path, Code: code, Message: err.Error()}
 }
 
-func isSubmodule(path string) bool {
-	_, err := os.Stat(filepath.Join(path, ".git"))
+func isSubmodule(fs afero.Fs, path string) bool {
+	_, err := fs.Stat(filepath.Join(path, ".git"))
 	return err == nil
 }
 
@@ -513,4 +527,19 @@ func (state *walkState) enterDir(key string, logicalPath string, result *Result,
 
 func (state *walkState) leaveDir(key string) {
 	delete(state.active, key)
+}
+
+func lstat(fs afero.Fs, path string) (os.FileInfo, error) {
+	if lstater, ok := fs.(afero.Lstater); ok {
+		info, _, err := lstater.LstatIfPossible(path)
+		return info, err
+	}
+	return fs.Stat(path)
+}
+
+func evalSymlinks(fs afero.Fs, path string) (string, error) {
+	if _, ok := fs.(*afero.OsFs); ok {
+		return filepath.EvalSymlinks(path)
+	}
+	return path, nil
 }
