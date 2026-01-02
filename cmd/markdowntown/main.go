@@ -365,16 +365,7 @@ func runScanRemote(args []string) error {
 }
 
 func runServe(_ []string) error {
-	// CRITICAL: Prevent stdout pollution. LSP uses stdout for JSON-RPC.
-	// Redirect os.Stdout to os.Stderr early.
-	oldStdout := os.Stdout
-	os.Stdout = os.Stderr
-
-	// Restore os.Stdout when exiting if needed, though usually process ends.
-	defer func() {
-		os.Stdout = oldStdout
-	}()
-
+	// Keep stdout reserved for JSON-RPC; commonlog already writes to stderr.
 	return lsp.RunServer(version.ToolVersion)
 }
 
