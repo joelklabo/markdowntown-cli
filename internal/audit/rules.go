@@ -154,6 +154,7 @@ func ruleFrontmatterConflict(ctx Context) []Issue {
 			Suggestion: "Ensure frontmatter identifiers are unique or consolidate duplicate configs.",
 			Paths:      paths,
 			Tools:      []Tool{{ToolID: key.ToolID, Kind: key.Kind}},
+			Range:      frontmatterLocation(entries[0], key.Field),
 			Evidence: map[string]any{
 				"scope": key.Scope,
 				"tool":  key.ToolID,
@@ -226,6 +227,22 @@ func ruleFrontmatter(ctx Context) []Issue {
 				"frontmatterError": *entry.FrontmatterError,
 			},
 		}
+
+		// Try to extract line info from "yaml: line N: ..."
+		errMsg := *entry.FrontmatterError
+		if strings.Contains(errMsg, "line ") {
+			var line int
+			_, err := fmt.Sscanf(errMsg[strings.Index(errMsg, "line ")+5:], "%d", &line)
+			if err == nil {
+				issue.Range = &Range{
+					StartLine: line,
+					StartCol:  1,
+					EndLine:   line,
+					EndCol:    1,
+				}
+			}
+		}
+
 		issues = append(issues, issue)
 	}
 	return issues

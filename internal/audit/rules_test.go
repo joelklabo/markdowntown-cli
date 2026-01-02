@@ -62,6 +62,42 @@ func TestRuleFrontmatterStableMessage(t *testing.T) {
 	}
 }
 
+func TestRuleFrontmatterRange(t *testing.T) {
+	errText := "yaml: line 5: did not find expected key"
+	entry := configEntry("/repo/AGENTS.md", "repo", "codex", "instructions")
+	entry.FrontmatterError = &errText
+	ctx := testContext([]scan.ConfigEntry{entry}, scan.Registry{})
+	issues := ruleFrontmatter(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one issue")
+	}
+	if issues[0].Range == nil {
+		t.Fatal("expected range to be populated")
+	}
+	if issues[0].Range.StartLine != 5 {
+		t.Errorf("expected start line 5, got %d", issues[0].Range.StartLine)
+	}
+}
+
+func TestRuleFrontmatterConflictRange(t *testing.T) {
+	entryA := configEntry("/home/user/.codex/skills/a/SKILL.md", "user", "codex", "skills")
+	entryA.Frontmatter = map[string]any{"name": "Alpha"}
+	entryA.FrontmatterLocations = map[string]scan.Range{"name": {Line: 2, Col: 1}}
+	entryB := configEntry("/home/user/.codex/skills/b/SKILL.md", "user", "codex", "skills")
+	entryB.Frontmatter = map[string]any{"name": "alpha"}
+	ctx := testContext([]scan.ConfigEntry{entryA, entryB}, scan.Registry{})
+	issues := ruleFrontmatterConflict(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one conflict issue")
+	}
+	if issues[0].Range == nil {
+		t.Fatal("expected range to be populated")
+	}
+	if issues[0].Range.StartLine != 2 {
+		t.Errorf("expected start line 2, got %d", issues[0].Range.StartLine)
+	}
+}
+
 func TestRuleFrontmatterConflict(t *testing.T) {
 	entryA := configEntry("/home/user/.codex/skills/a/SKILL.md", "user", "codex", "skills")
 	entryA.Frontmatter = map[string]any{"name": "Alpha"}
