@@ -60,6 +60,20 @@ func Scan(opts Options) (Result, error) {
 		patterns = compiled
 	}
 
+	if !opts.RepoOnly {
+		fallback, configPath, err := loadCodexFallbackFilenames(fs)
+		if err != nil {
+			result.Warnings = append(result.Warnings, warningForError(configPath, err))
+		} else if len(fallback) > 0 {
+			updated, err := appendCodexFallbackPatterns(patterns, fallback)
+			if err != nil {
+				result.Warnings = append(result.Warnings, warningForError(configPath, err))
+			} else {
+				patterns = updated
+			}
+		}
+	}
+
 	repoRoot, err := filepath.Abs(opts.RepoRoot)
 	if err != nil {
 		return result, err

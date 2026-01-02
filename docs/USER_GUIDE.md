@@ -318,6 +318,7 @@ Codex users commonly store instructions and skill definitions in:
 
 - `AGENTS.md`
 - `.codex/skills/`
+- `~/.codex/config.toml` (`project_doc_fallback_filenames` adds extra repo instruction filenames)
 
 Codex CLI helpers like `/init`, `/prompts`, and `/skills` often interact with these files and directories.
 

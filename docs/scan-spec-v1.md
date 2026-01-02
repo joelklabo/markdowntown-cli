@@ -888,9 +888,10 @@ Sanitized real-world fixture coverage lives under `testdata/repos/integration` (
 The scanner reads VS Code `settings.json` to discover `chat.instructionsFilesLocations` and adds
 those paths to the user-scope scan roots. Relative entries resolve from the repo root.
 
-### Codex Dynamic Instruction Names
+### Codex Dynamic Instruction Names (Implemented)
 
-Read `project_doc_fallback_filenames` from `~/.codex/config.toml` to include custom instruction filenames in scanning.
+Read `project_doc_fallback_filenames` from `~/.codex/config.toml` (or `CODEX_HOME`) to include
+custom instruction filenames in scanning.
 
 ### Multi-Root Workspaces
 
