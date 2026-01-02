@@ -234,7 +234,7 @@ func ruleFrontmatter(ctx Context) []Issue {
 			var line int
 			_, err := fmt.Sscanf(errMsg[strings.Index(errMsg, "line ")+5:], "%d", &line)
 			if err == nil {
-				issue.Range = &Range{
+				issue.Range = &scan.Range{
 					StartLine: line,
 					StartCol:  1,
 					EndLine:   line,

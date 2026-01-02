@@ -1,0 +1,10 @@
+ok  	markdowntown-cli/cmd/gemini-oracle	(cached)
+ok  	markdowntown-cli/cmd/markdowntown	(cached)
+ok  	markdowntown-cli/internal/audit	(cached)
+ok  	markdowntown-cli/internal/git	(cached)
+ok  	markdowntown-cli/internal/hash	(cached)
+ok  	markdowntown-cli/internal/instructions	(cached)
+ok  	markdowntown-cli/internal/lsp	(cached)
+ok  	markdowntown-cli/internal/scan	(cached)
+ok  	markdowntown-cli/internal/suggest	(cached)
+?   	markdowntown-cli/internal/version	[no test files]

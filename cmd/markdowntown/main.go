@@ -364,7 +364,7 @@ func runScanRemote(args []string) error {
 	return enc.Encode(output)
 }
 
-func runServe(args []string) error {
+func runServe(_ []string) error {
 	// CRITICAL: Prevent stdout pollution. LSP uses stdout for JSON-RPC.
 	// Redirect os.Stdout to os.Stderr early.
 	oldStdout := os.Stdout

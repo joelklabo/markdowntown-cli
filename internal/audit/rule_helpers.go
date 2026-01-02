@@ -152,17 +152,17 @@ func normalizeFrontmatterValue(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
 
-func frontmatterLocation(entry scan.ConfigEntry, key string) *Range {
+func frontmatterLocation(entry scan.ConfigEntry, key string) *scan.Range {
 	if entry.FrontmatterLocations == nil {
 		return nil
 	}
 	for k, loc := range entry.FrontmatterLocations {
 		if strings.EqualFold(k, key) {
-			return &Range{
-				StartLine: loc.Line,
-				StartCol:  loc.Col,
-				EndLine:   loc.Line,
-				EndCol:    loc.Col, // We don't have end col yet, just point to start
+			return &scan.Range{
+				StartLine: loc.StartLine,
+				StartCol:  loc.StartCol,
+				EndLine:   loc.EndLine,
+				EndCol:    loc.EndCol,
 			}
 		}
 	}

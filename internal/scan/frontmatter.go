@@ -10,16 +10,23 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Range represents a line and column in a file.
+// Range represents a text range in a file.
 type Range struct {
-	Line int `json:"line"`
-	Col  int `json:"col"`
+	StartLine int `json:"startLine"`
+	StartCol  int `json:"startCol"`
+	EndLine   int `json:"endLine"`
+	EndCol    int `json:"endCol"`
 }
+
+// NodeRange is an alias for Range for backward compatibility if needed,
+// though we'll prefer Range.
+type NodeRange = Range
 
 // ParsedFrontmatter contains the frontmatter data and its locations.
 type ParsedFrontmatter struct {
 	Data      map[string]any   `json:"data"`
-	Locations map[string]Range `json:"locations"`
+	Locations map[string]Range `json:"locations"` // Key locations
+	Values    map[string]Range `json:"values"`    // Value locations
 }
 
 // ParseFrontmatter extracts YAML frontmatter between --- delimiters.
@@ -42,20 +49,22 @@ func ParseFrontmatter(content []byte) (*ParsedFrontmatter, bool, error) {
 			yamlText := strings.Join(lines, "\n")
 			if strings.TrimSpace(yamlText) == "" {
 				return &ParsedFrontmatter{
-					Data:      map[string]any{},
-					Locations: map[string]Range{},
-				}, true, nil
+						Data:      map[string]any{},
+						Locations: map[string]Range{},
+						Values:    map[string]Range{},
+					},
+					true, nil
 			}
 
 			var node yaml.Node
 			if err := yaml.Unmarshal([]byte(yamlText), &node); err != nil {
-				// For now, we'll just return the error and let the caller handle it.
 				return nil, true, err
 			}
 
 			parsed := &ParsedFrontmatter{
 				Data:      make(map[string]any),
 				Locations: make(map[string]Range),
+				Values:    make(map[string]Range),
 			}
 
 			if len(node.Content) > 0 {
@@ -86,23 +95,39 @@ func walkYAMLNode(node *yaml.Node, prefix string, parsed *ParsedFrontmatter, off
 			valNode := node.Content[i+1]
 
 			key := keyNode.Value
+			fullKey := key
 			if prefix != "" {
-				key = prefix + "." + key
+				fullKey = prefix + "." + key
 			}
 
-			parsed.Locations[key] = Range{
-				Line: keyNode.Line + offset,
-				Col:  keyNode.Column,
+			parsed.Locations[fullKey] = Range{
+				StartLine: keyNode.Line + offset,
+				StartCol:  keyNode.Column,
+				EndLine:   keyNode.Line + offset,
+				EndCol:    keyNode.Column + len(keyNode.Value),
 			}
 
-			walkYAMLNode(valNode, key, parsed, offset)
+			if valNode.Kind == yaml.ScalarNode {
+				parsed.Values[fullKey] = Range{
+					StartLine: valNode.Line + offset,
+					StartCol:  valNode.Column,
+					EndLine:   valNode.Line + offset,
+					EndCol:    valNode.Column + len(valNode.Value),
+				}
+			}
+
+			walkYAMLNode(valNode, fullKey, parsed, offset)
 		}
 	case yaml.SequenceNode:
 		for i, itemNode := range node.Content {
 			key := fmt.Sprintf("%s[%d]", prefix, i)
-			parsed.Locations[key] = Range{
-				Line: itemNode.Line + offset,
-				Col:  itemNode.Column,
+			if itemNode.Kind == yaml.ScalarNode {
+				parsed.Values[key] = Range{
+					StartLine: itemNode.Line + offset,
+					StartCol:  itemNode.Column,
+					EndLine:   itemNode.Line + offset,
+					EndCol:    itemNode.Column + len(itemNode.Value),
+				}
 			}
 			walkYAMLNode(itemNode, key, parsed, offset)
 		}

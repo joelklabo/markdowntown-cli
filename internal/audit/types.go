@@ -64,14 +64,6 @@ type SeverityCounts struct {
 	Info    int `json:"info"`
 }
 
-// Range represents a text range in a file.
-type Range struct {
-	StartLine int `json:"startLine"`
-	StartCol  int `json:"startCol"`
-	EndLine   int `json:"endLine"`
-	EndCol    int `json:"endCol"`
-}
-
 // Issue represents a single audit issue.
 type Issue struct {
 	RuleID      string         `json:"ruleId"`
@@ -80,7 +72,7 @@ type Issue struct {
 	Message     string         `json:"message"`
 	Suggestion  string         `json:"suggestion,omitempty"`
 	Fingerprint string         `json:"fingerprint,omitempty"`
-	Range       *Range         `json:"range,omitempty"`
+	Range       *scan.Range    `json:"range,omitempty"`
 	Paths       []Path         `json:"paths"`
 	Tools       []Tool         `json:"tools,omitempty"`
 	Evidence    map[string]any `json:"evidence,omitempty"`

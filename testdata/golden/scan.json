@@ -279,8 +279,10 @@
       },
       "frontmatterLocations": {
         "when": {
-          "line": 2,
-          "col": 1
+          "startLine": 2,
+          "startCol": 1,
+          "endLine": 2,
+          "endCol": 5
         }
       },
       "frontmatterError": null,

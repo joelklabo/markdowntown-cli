@@ -39,30 +39,35 @@ settings:
 	//     - two is line 8
 
 	tests := []struct {
-		key  string
-		line int
-		col  int
+		key       string
+		line      int
+		col       int
+		useValues bool
 	}{
-		{"toolId", 2, 1},
-		{"scope", 3, 1},
-		{"settings", 4, 1},
-		{"settings.nested", 5, 3},
-		{"settings.list", 6, 3},
-		{"settings.list[0]", 7, 7},
-		{"settings.list[1]", 8, 7},
+		{"toolId", 2, 1, false},
+		{"scope", 3, 1, false},
+		{"settings", 4, 1, false},
+		{"settings.nested", 5, 3, false},
+		{"settings.list", 6, 3, false},
+		{"settings.list[0]", 7, 7, true},
+		{"settings.list[1]", 8, 7, true},
 	}
 
 	for _, tt := range tests {
-		loc, found := parsed.Locations[tt.key]
+		locs := parsed.Locations
+		if tt.useValues {
+			locs = parsed.Values
+		}
+		loc, found := locs[tt.key]
 		if !found {
 			t.Errorf("key %q not found in locations", tt.key)
 			continue
 		}
-		if loc.Line != tt.line {
-			t.Errorf("key %q: expected line %d, got %d", tt.key, tt.line, loc.Line)
+		if loc.StartLine != tt.line {
+			t.Errorf("key %q: expected line %d, got %d", tt.key, tt.line, loc.StartLine)
 		}
-		if loc.Col != tt.col {
-			t.Errorf("key %q: expected col %d, got %d", tt.key, tt.col, loc.Col)
+		if loc.StartCol != tt.col {
+			t.Errorf("key %q: expected col %d, got %d", tt.key, tt.col, loc.StartCol)
 		}
 	}
 

@@ -1,7 +1,8 @@
+// Package lsp implements the markdowntown language server protocol handlers.
 package lsp
 
 import (
-	"net/url"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -12,7 +13,7 @@ import (
 
 	"github.com/spf13/afero"
 	"github.com/tliron/commonlog"
-	_ "github.com/tliron/commonlog/simple"
+	_ "github.com/tliron/commonlog/simple" // enable default logger
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
 	"github.com/tliron/glsp/server"
@@ -23,6 +24,7 @@ const (
 	debounceTimeout = 500 * time.Millisecond
 )
 
+// Server holds LSP state and handlers.
 type Server struct {
 	version string
 	handler *protocol.Handler
@@ -43,6 +45,7 @@ type Server struct {
 	frontmatterCache map[string]*scan.ParsedFrontmatter
 }
 
+// NewServer constructs a new LSP server.
 func NewServer(version string) *Server {
 	s := &Server{
 		version:          version,
@@ -59,8 +62,8 @@ func NewServer(version string) *Server {
 		Shutdown:               s.shutdown,
 		SetTrace:               s.setTrace,
 		TextDocumentDidOpen:    s.didOpen,
-		TextDocumentDidChange: s.didChange,
-		TextDocumentDidClose:  s.didClose,
+		TextDocumentDidChange:  s.didChange,
+		TextDocumentDidClose:   s.didClose,
 		TextDocumentHover:      s.hover,
 		TextDocumentDefinition: s.definition,
 	}
@@ -69,11 +72,12 @@ func NewServer(version string) *Server {
 	return s
 }
 
+// Run starts the LSP server stdio loop.
 func (s *Server) Run() error {
 	return s.server.RunStdio()
 }
 
-func (s *Server) initialize(context *glsp.Context, params *protocol.InitializeParams) (any, error) {
+func (s *Server) initialize(_ *glsp.Context, params *protocol.InitializeParams) (any, error) {
 	if params.RootURI != nil {
 		path, err := urlToPath(*params.RootURI)
 		if err == nil {
@@ -84,8 +88,8 @@ func (s *Server) initialize(context *glsp.Context, params *protocol.InitializePa
 	}
 
 	capabilities := protocol.ServerCapabilities{
-		TextDocumentSync: protocol.TextDocumentSyncKindFull,
-		HoverProvider:    true,
+		TextDocumentSync:   protocol.TextDocumentSyncKindFull,
+		HoverProvider:      true,
 		DefinitionProvider: true,
 	}
 
@@ -98,16 +102,16 @@ func (s *Server) initialize(context *glsp.Context, params *protocol.InitializePa
 	}, nil
 }
 
-func (s *Server) initialized(context *glsp.Context, params *protocol.InitializedParams) error {
+func (s *Server) initialized(_ *glsp.Context, _ *protocol.InitializedParams) error {
 	return nil
 }
 
-func (s *Server) shutdown(context *glsp.Context) error {
+func (s *Server) shutdown(_ *glsp.Context) error {
 	protocol.SetTraceValue(protocol.TraceValueOff)
 	return nil
 }
 
-func (s *Server) setTrace(context *glsp.Context, params *protocol.SetTraceParams) error {
+func (s *Server) setTrace(_ *glsp.Context, params *protocol.SetTraceParams) error {
 	protocol.SetTraceValue(params.Value)
 	return nil
 }
@@ -161,12 +165,20 @@ func (s *Server) didChange(context *glsp.Context, params *protocol.DidChangeText
 	return nil
 }
 
-func (s *Server) didSave(context *glsp.Context, params *protocol.DidSaveTextDocumentParams) error {
-	s.triggerDiagnostics(context, params.TextDocument.URI)
-	return nil
+func (s *Server) didClose(_ *glsp.Context, params *protocol.DidCloseTextDocumentParams) error {
+	path, err := urlToPath(params.TextDocument.URI)
+	if err != nil {
+		return err
+	}
+
+	s.cacheMu.Lock()
+	delete(s.frontmatterCache, params.TextDocument.URI)
+	s.cacheMu.Unlock()
+
+	return s.overlay.Remove(path)
 }
 
-func (s *Server) hover(context *glsp.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
+func (s *Server) hover(_ *glsp.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
 	s.cacheMu.Lock()
 	parsed := s.frontmatterCache[params.TextDocument.URI]
 	s.cacheMu.Unlock()
@@ -175,18 +187,11 @@ func (s *Server) hover(context *glsp.Context, params *protocol.HoverParams) (*pr
 		return nil, nil
 	}
 
-	// 1. Find key under cursor
-	// LSP line/col is 0-indexed. Our locations are 1-indexed.
 	line := int(params.Position.Line + 1)
-	col := int(params.Position.Character + 1)
 
 	var foundKey string
 	for key, loc := range parsed.Locations {
-		// Very simple check: same line and close to start of key or value?
-		// YAML keys usually start at loc.Col.
-		if loc.Line == line {
-			// If it's on the same line, assume it's this key/value for now.
-			// Better logic would check ranges.
+		if loc.StartLine == line {
 			foundKey = key
 			break
 		}
@@ -196,7 +201,6 @@ func (s *Server) hover(context *glsp.Context, params *protocol.HoverParams) (*pr
 		return nil, nil
 	}
 
-	// 2. If it's toolId, look up in registry
 	if strings.Contains(foundKey, "toolId") {
 		val, ok := getValue(parsed.Data, foundKey)
 		if ok {
@@ -223,7 +227,7 @@ func (s *Server) hover(context *glsp.Context, params *protocol.HoverParams) (*pr
 	return nil, nil
 }
 
-func (s *Server) definition(context *glsp.Context, params *protocol.DefinitionParams) (any, error) {
+func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) (any, error) {
 	s.cacheMu.Lock()
 	parsed := s.frontmatterCache[params.TextDocument.URI]
 	s.cacheMu.Unlock()
@@ -235,7 +239,7 @@ func (s *Server) definition(context *glsp.Context, params *protocol.DefinitionPa
 	line := int(params.Position.Line + 1)
 	var foundKey string
 	for key, loc := range parsed.Locations {
-		if loc.Line == line {
+		if loc.StartLine == line {
 			foundKey = key
 			break
 		}
@@ -250,9 +254,6 @@ func (s *Server) definition(context *glsp.Context, params *protocol.DefinitionPa
 		if ok {
 			toolID, _ := val.(string)
 			if toolID != "" {
-				// Link to registry if it's a file?
-				// Task said: "return location of that tool in ai-config-patterns.json (if mapped) or a link."
-				// Better: link to AGENTS.md if found.
 				repoRoot := s.rootPath
 				if repoRoot != "" {
 					agentsPath := filepath.Join(repoRoot, "AGENTS.md")
@@ -273,23 +274,10 @@ func (s *Server) definition(context *glsp.Context, params *protocol.DefinitionPa
 	return nil, nil
 }
 
-func getValue(data map[string]any, keyPath string) (any, bool) {
-	parts := strings.Split(keyPath, ".")
-	var current any = data
-	for _, part := range parts {
-		m, ok := current.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		current, ok = m[part]
-		if !ok {
-			return nil, false
-		}
-	}
-	return current, true
-}
-
 func (s *Server) triggerDiagnostics(context *glsp.Context, uri string) {
+	if context == nil {
+		return
+	}
 	s.diagnosticsMu.Lock()
 	defer s.diagnosticsMu.Unlock()
 
@@ -370,7 +358,23 @@ func (s *Server) runDiagnostics(context *glsp.Context, uri string) {
 	})
 }
 
-func issueToProtocolRange(r *audit.Range) protocol.Range {
+func getValue(data map[string]any, keyPath string) (any, bool) {
+	parts := strings.Split(keyPath, ".")
+	var current any = data
+	for _, part := range parts {
+		m, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = m[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, true
+}
+
+func issueToProtocolRange(r *scan.Range) protocol.Range {
 	if r == nil || r.StartLine <= 0 {
 		return protocol.Range{
 			Start: protocol.Position{Line: 0, Character: 0},
@@ -378,8 +382,8 @@ func issueToProtocolRange(r *audit.Range) protocol.Range {
 		}
 	}
 	return protocol.Range{
-		Start: protocol.Position{Line: uint32(r.StartLine - 1), Character: uint32(r.StartCol - 1)},
-		End:   protocol.Position{Line: uint32(r.EndLine - 1), Character: uint32(r.EndCol - 1)},
+		Start: protocol.Position{Line: clampToUint32(r.StartLine - 1), Character: clampToUint32(r.StartCol - 1)},
+		End:   protocol.Position{Line: clampToUint32(r.EndLine - 1), Character: clampToUint32(r.EndCol - 1)},
 	}
 }
 
@@ -398,17 +402,28 @@ func severityToProtocolSeverity(s audit.Severity) *protocol.DiagnosticSeverity {
 	return &sev
 }
 
+//nolint:unparam // reserved for future URI validation
 func urlToPath(uri string) (string, error) {
-	if strings.HasPrefix(uri, "file://") {
-		u, err := url.Parse(uri)
-		if err != nil {
-			return "", err
-		}
-		return u.Path, nil
+	if !strings.HasPrefix(uri, "file://") {
+		return uri, nil
 	}
-	return uri, nil
+	return strings.TrimPrefix(uri, "file://"), nil
 }
 
+func clampToUint32(value int) uint32 {
+	if value <= 0 {
+		return 0
+	}
+	const maxUint32 = int(^uint32(0))
+	if value > maxUint32 {
+		// #nosec G115 -- value is clamped to uint32 range.
+		return uint32(maxUint32)
+	}
+	// #nosec G115 -- value is clamped to uint32 range.
+	return uint32(value)
+}
+
+// RunServer runs the LSP server with the given tool version.
 func RunServer(v string) error {
 	commonlog.Configure(1, nil)
 	s := NewServer(v)

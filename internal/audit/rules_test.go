@@ -82,7 +82,7 @@ func TestRuleFrontmatterRange(t *testing.T) {
 func TestRuleFrontmatterConflictRange(t *testing.T) {
 	entryA := configEntry("/home/user/.codex/skills/a/SKILL.md", "user", "codex", "skills")
 	entryA.Frontmatter = map[string]any{"name": "Alpha"}
-	entryA.FrontmatterLocations = map[string]scan.Range{"name": {Line: 2, Col: 1}}
+	entryA.FrontmatterLocations = map[string]scan.Range{"name": {StartLine: 2, StartCol: 1, EndLine: 2, EndCol: 6}}
 	entryB := configEntry("/home/user/.codex/skills/b/SKILL.md", "user", "codex", "skills")
 	entryB.Frontmatter = map[string]any{"name": "alpha"}
 	ctx := testContext([]scan.ConfigEntry{entryA, entryB}, scan.Registry{})
