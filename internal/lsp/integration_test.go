@@ -58,6 +58,9 @@ func TestDiagnosticsOverPipe(t *testing.T) {
 
 	uri := "file://" + filepath.Join(repoRoot, "GEMINI.md")
 	content := "---\nkey: value\ninvalid: [\n---\n# Hello"
+	if err := os.WriteFile(filepath.Join(repoRoot, "GEMINI.md"), []byte(content), 0o600); err != nil {
+		t.Fatalf("write GEMINI.md: %v", err)
+	}
 	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
 			URI:  uri,

@@ -897,7 +897,9 @@ Support for VS Code-style `.code-workspace` files with multiple roots.
 
 ### JSONL Output
 
-May be useful for `--watch` mode or streaming large results.
+Implemented via `markdowntown scan --format jsonl` (or `--jsonl`) to support
+`--watch` or streaming large results. Each line contains a full scan output
+object using the same schema as JSON output.
 
 ### Custom Patterns
 

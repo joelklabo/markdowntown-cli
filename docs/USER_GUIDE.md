@@ -38,8 +38,10 @@ Flags:
 - `--repo <path>`: repo path (defaults to git root from cwd)
 - `--repo-only`: exclude user scope (scan repo only)
 - `--stdin`: read additional paths from stdin (one per line)
+- `--format <json|jsonl>`: output format (default: json)
+- `--jsonl`: emit JSONL output (alias for `--format jsonl`)
 - `--no-content`: exclude file contents from output
-- `--compact`: emit compact JSON (no indentation)
+- `--compact`: emit compact JSON (no indentation; ignored for jsonl)
 - `--quiet`: disable progress output
 - `--for-file <path>`: filter output to configs applicable to path (e.g. `src/app.ts`)
 
@@ -54,6 +56,7 @@ Examples:
 markdowntown scan --repo /path/to/repo --repo-only
 markdowntown scan --stdin < extra-paths.txt
 markdowntown scan --no-content --compact
+markdowntown scan --format jsonl --no-content
 ```
 
 ### `markdowntown scan-remote`
@@ -70,7 +73,9 @@ Flags:
 - `--repo-only`: exclude user scope (scan repo only)
 - `--include-content`: include file contents in output (default)
 - `--no-content`: exclude file contents from output
-- `--compact`: emit compact JSON (no indentation)
+- `--format <json|jsonl>`: output format (default: json)
+- `--jsonl`: emit JSONL output (alias for `--format jsonl`)
+- `--compact`: emit compact JSON (no indentation; ignored for jsonl)
 - `--quiet`: disable progress output
 
 Notes:

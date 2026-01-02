@@ -2,7 +2,9 @@
 package scan
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -41,6 +43,25 @@ func BuildOutput(result Result, opts OutputOptions) Output {
 		Scans:           result.Scans,
 		Configs:         configs,
 		Warnings:        warnings,
+	}
+}
+
+// WriteOutput writes scan output in the requested format.
+func WriteOutput(w io.Writer, output Output, format string, compact bool) error {
+	switch strings.ToLower(format) {
+	case "json":
+		enc := json.NewEncoder(w)
+		if !compact {
+			enc.SetIndent("", "  ")
+		}
+		enc.SetEscapeHTML(false)
+		return enc.Encode(output)
+	case "jsonl":
+		enc := json.NewEncoder(w)
+		enc.SetEscapeHTML(false)
+		return enc.Encode(output)
+	default:
+		return fmt.Errorf("unsupported output format: %s", format)
 	}
 }
 

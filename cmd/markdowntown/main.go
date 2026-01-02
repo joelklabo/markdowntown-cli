@@ -52,7 +52,9 @@ Flags:
   --stdin               Read additional paths from stdin (one per line)
   --include-content     Include file contents in output (default)
   --no-content          Exclude file contents from output
-  --compact             Emit compact JSON (no indentation)
+  --format <json|jsonl> Output format (default: json)
+  --jsonl               Emit JSONL output (alias for --format jsonl)
+  --compact             Emit compact JSON (ignored for jsonl)
   --quiet               Disable progress output
   --for-file <path>     Filter output to configs applicable to path
   -h, --help            Show help
@@ -68,7 +70,9 @@ Flags:
   --repo-only           Exclude user scope; scan repo only
   --include-content     Include file contents in output (default)
   --no-content          Exclude file contents from output
-  --compact             Emit compact JSON (no indentation)
+  --format <json|jsonl> Output format (default: json)
+  --jsonl               Emit JSONL output (alias for --format jsonl)
+  --compact             Emit compact JSON (ignored for jsonl)
   --quiet               Disable progress output
   -h, --help            Show help
 `
@@ -171,6 +175,8 @@ func runScan(args []string) error {
 	var readStdin bool
 	var includeContent bool
 	var noContent bool
+	var format string
+	var jsonl bool
 	var compact bool
 	var quiet bool
 	var help bool
@@ -181,6 +187,8 @@ func runScan(args []string) error {
 	flags.BoolVar(&readStdin, "stdin", false, "read additional paths from stdin")
 	flags.BoolVar(&includeContent, "include-content", true, "include file contents")
 	flags.BoolVar(&noContent, "no-content", false, "exclude file contents")
+	flags.StringVar(&format, "format", "json", "output format (json or jsonl)")
+	flags.BoolVar(&jsonl, "jsonl", false, "emit JSONL output")
 	flags.BoolVar(&compact, "compact", false, "emit compact JSON")
 	flags.BoolVar(&quiet, "quiet", false, "disable progress output")
 	flags.StringVar(&forFile, "for-file", "", "filter output to configs applicable to path")
@@ -198,6 +206,14 @@ func runScan(args []string) error {
 
 	if flags.NArg() > 0 {
 		return fmt.Errorf("unexpected arguments: %s", strings.Join(flags.Args(), " "))
+	}
+
+	if jsonl {
+		format = "jsonl"
+	}
+	format = strings.ToLower(format)
+	if format != "json" && format != "jsonl" {
+		return fmt.Errorf("invalid format: %s", format)
 	}
 
 	repoRoot, err := resolveRepoRoot(repoPath)
@@ -261,12 +277,7 @@ func runScan(args []string) error {
 		Timing:          timing,
 	})
 
-	enc := json.NewEncoder(os.Stdout)
-	if !compact {
-		enc.SetIndent("", "  ")
-	}
-	enc.SetEscapeHTML(false)
-	return enc.Encode(output)
+	return scan.WriteOutput(os.Stdout, output, format, compact)
 }
 
 func runScanRemote(args []string) error {
@@ -277,6 +288,8 @@ func runScanRemote(args []string) error {
 	var repoOnly bool
 	var includeContent bool
 	var noContent bool
+	var format string
+	var jsonl bool
 	var compact bool
 	var quiet bool
 	var help bool
@@ -285,6 +298,8 @@ func runScanRemote(args []string) error {
 	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
 	flags.BoolVar(&includeContent, "include-content", true, "include file contents")
 	flags.BoolVar(&noContent, "no-content", false, "exclude file contents")
+	flags.StringVar(&format, "format", "json", "output format (json or jsonl)")
+	flags.BoolVar(&jsonl, "jsonl", false, "emit JSONL output")
 	flags.BoolVar(&compact, "compact", false, "emit compact JSON")
 	flags.BoolVar(&quiet, "quiet", false, "disable progress output")
 	flags.BoolVar(&help, "help", false, "show help")
@@ -303,6 +318,14 @@ func runScanRemote(args []string) error {
 		return fmt.Errorf("git URL required")
 	}
 	url := flags.Arg(0)
+
+	if jsonl {
+		format = "jsonl"
+	}
+	format = strings.ToLower(format)
+	if format != "json" && format != "jsonl" {
+		return fmt.Errorf("invalid format: %s", format)
+	}
 
 	repoRoot, cleanup, err := scan.CloneToTemp(url, ref)
 	if err != nil {
@@ -356,12 +379,7 @@ func runScanRemote(args []string) error {
 		Timing:          timing,
 	})
 
-	enc := json.NewEncoder(os.Stdout)
-	if !compact {
-		enc.SetIndent("", "  ")
-	}
-	enc.SetEscapeHTML(false)
-	return enc.Encode(output)
+	return scan.WriteOutput(os.Stdout, output, format, compact)
 }
 
 func runServe(_ []string) error {
