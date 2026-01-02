@@ -114,7 +114,7 @@ func (m oracleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" || msg.String() == "q" {
 			return m, tea.Quit
 		}
-		
+
 		if msg.String() == "ctrl+s" && m.synthState == stateDone {
 			// Save to file
 			_ = os.WriteFile("oracle_output.md", []byte(m.synthOutput), 0600)
@@ -131,15 +131,15 @@ func (m oracleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.proOutput = ""
 			m.synthOutput = ""
 			m.synthViewport.SetContent("")
-			
-			cmds = append(cmds, 
+
+			cmds = append(cmds,
 				runGemini("flash", m.prompt, m.flashResultChan),
 				runGemini("pro", m.prompt, m.proResultChan),
 				tickCmd(),
 			)
 			return m, tea.Batch(cmds...)
 		}
-		
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -177,7 +177,7 @@ func (m oracleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.synthState = stateError
 				m.synthOutput = msg.err.Error()
 			}
-			
+
 			// Render Markdown
 			renderer, _ := glamour.NewTermRenderer(
 				glamour.WithAutoStyle(),
@@ -185,7 +185,7 @@ func (m oracleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			)
 			str, _ := renderer.Render(m.synthOutput)
 			m.synthViewport.SetContent(str)
-			
+
 			// Auto-scroll to top
 			m.synthViewport.GotoTop()
 		}
@@ -206,7 +206,7 @@ func (m oracleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 ---
 Please analyze these responses, resolve any contradictions, and provide a single, comprehensive, high-quality final answer. Use your deep thinking capabilities.`, m.prompt, m.flashOutput, m.proOutput)
-			
+
 			cmds = append(cmds, runGemini("synth", synthPrompt, m.synthResultChan))
 		}
 
@@ -214,7 +214,7 @@ Please analyze these responses, resolve any contradictions, and provide a single
 		if m.synthState != stateDone {
 			cmds = append(cmds, tickCmd())
 		}
-		
+
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		if m.flashState == stateThinking {
@@ -230,7 +230,7 @@ Please analyze these responses, resolve any contradictions, and provide a single
 			cmds = append(cmds, cmd)
 		}
 	}
-	
+
 	// Handle viewport updates if synth is done
 	if m.synthState == stateDone {
 		var cmd tea.Cmd
@@ -260,11 +260,11 @@ func (m oracleModel) View() string {
 	elapsed := time.Since(m.startTime)
 	flashView := renderModelState("Flash", m.flashState, m.flashOutput, m.flashSpinner, elapsed)
 	proView := renderModelState("Pro", m.proState, m.proOutput, m.proSpinner, elapsed)
-	
+
 	ss.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, flashView, proView))
 	ss.WriteString("\n\n")
 
-	sswitch {
+	switch {
 	case m.synthState == stateDone:
 		ss.WriteString(modelName.Render("Gemini 3 Pro Preview (Synthesizer)"))
 		ss.WriteString("\n")
@@ -278,7 +278,7 @@ func (m oracleModel) View() string {
 
 	ss.WriteString("\n\n")
 	ss.WriteString(subtle.Render(fmt.Sprintf("Time elapsed: %s", time.Since(m.startTime).Round(time.Second))))
-	
+
 	if m.synthState == stateDone {
 		ss.WriteString(subtle.Render(" • q: quit • r: retry • ctrl+s: save to file • ↑/↓: scroll"))
 	} else {
@@ -321,8 +321,7 @@ func renderModelState(name string, state modelState, output string, spin spinner
 
 	return lipgloss.NewStyle().Width(38).Height(6).Border(lipgloss.RoundedBorder()).Padding(0, 1).Render(
 
-	header + "\n" + content,
-
+		header + "\n" + content,
 	)
 
 }

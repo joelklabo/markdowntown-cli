@@ -25,6 +25,7 @@ const rootUsage = `markdowntown
 Usage:
   markdowntown                     # Show help (no default command)
   markdowntown scan [flags]        # Scan for AI config files
+  markdowntown scan-remote [flags] # Scan a remote git repository
   markdowntown suggest [flags]     # Generate evidence-backed suggestions
   markdowntown resolve [flags]     # Resolve effective instruction chain
   markdowntown audit [flags]       # Audit scan results
@@ -45,6 +46,21 @@ Flags:
   --repo <path>         Repo path (defaults to git root from cwd)
   --repo-only           Exclude user scope; scan repo only
   --stdin               Read additional paths from stdin (one per line)
+  --include-content     Include file contents in output (default)
+  --no-content          Exclude file contents from output
+  --compact             Emit compact JSON (no indentation)
+  --quiet               Disable progress output
+  -h, --help            Show help
+`
+
+const scanRemoteUsage = `markdowntown scan-remote
+
+Usage:
+  markdowntown scan-remote <url> [flags]
+
+Flags:
+  --ref <ref>           Git reference (branch, tag, commit) to checkout
+  --repo-only           Exclude user scope; scan repo only
   --include-content     Include file contents in output (default)
   --no-content          Exclude file contents from output
   --compact             Emit compact JSON (no indentation)
@@ -90,6 +106,11 @@ func main() {
 		return
 	case "scan":
 		if err := runScan(args[1:]); err != nil {
+			exitWithError(err)
+		}
+		return
+	case "scan-remote":
+		if err := runScanRemote(args[1:]); err != nil {
 			exitWithError(err)
 		}
 		return
@@ -217,6 +238,100 @@ func runScan(args []string) error {
 		RegistryVersion: registry.Version,
 		ToolVersion:     version.ToolVersion,
 		RepoRoot:        repoRoot,
+		ScanStartedAt:   startedAt.UnixMilli(),
+		GeneratedAt:     finishedAt.UnixMilli(),
+		Timing:          timing,
+	})
+
+	enc := json.NewEncoder(os.Stdout)
+	if !compact {
+		enc.SetIndent("", "  ")
+	}
+	enc.SetEscapeHTML(false)
+	return enc.Encode(output)
+}
+
+func runScanRemote(args []string) error {
+	flags := flag.NewFlagSet("scan-remote", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+
+	var ref string
+	var repoOnly bool
+	var includeContent bool
+	var noContent bool
+	var compact bool
+	var quiet bool
+	var help bool
+
+	flags.StringVar(&ref, "ref", "", "git reference to checkout")
+	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
+	flags.BoolVar(&includeContent, "include-content", true, "include file contents")
+	flags.BoolVar(&noContent, "no-content", false, "exclude file contents")
+	flags.BoolVar(&compact, "compact", false, "emit compact JSON")
+	flags.BoolVar(&quiet, "quiet", false, "disable progress output")
+	flags.BoolVar(&help, "help", false, "show help")
+	flags.BoolVar(&help, "h", false, "show help")
+
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	if help {
+		printScanRemoteUsage(os.Stdout)
+		return nil
+	}
+
+	if flags.NArg() != 1 {
+		return fmt.Errorf("git URL required")
+	}
+	url := flags.Arg(0)
+
+	repoRoot, cleanup, err := scan.CloneToTemp(url, ref)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	if noContent {
+		includeContent = false
+	}
+
+	registry, _, err := scan.LoadRegistry()
+	if err != nil {
+		return err
+	}
+
+	progress, finish := progressReporter(!quiet)
+	startedAt := time.Now()
+	result, err := scan.Scan(scan.Options{
+		RepoRoot:       repoRoot,
+		RepoOnly:       repoOnly,
+		IncludeContent: includeContent,
+		Progress:       progress,
+		Registry:       registry,
+	})
+	finish()
+	if err != nil {
+		return err
+	}
+	result, err = scan.ApplyGitignore(result, repoRoot)
+	if err != nil {
+		return err
+	}
+	finishedAt := time.Now()
+
+	timing := scan.Timing{
+		DiscoveryMs: elapsedMs(startedAt, finishedAt),
+		HashingMs:   0,
+		GitignoreMs: 0,
+		TotalMs:     elapsedMs(startedAt, finishedAt),
+	}
+
+	output := scan.BuildOutput(result, scan.OutputOptions{
+		SchemaVersion:   version.SchemaVersion,
+		RegistryVersion: registry.Version,
+		ToolVersion:     version.ToolVersion,
+		RepoRoot:        repoRoot, // Using temp dir as root so relative paths are correct
 		ScanStartedAt:   startedAt.UnixMilli(),
 		GeneratedAt:     finishedAt.UnixMilli(),
 		Timing:          timing,
@@ -499,6 +614,10 @@ func runRegistryValidate() error {
 
 func printScanUsage(w io.Writer) {
 	_, _ = fmt.Fprint(w, scanUsage)
+}
+
+func printScanRemoteUsage(w io.Writer) {
+	_, _ = fmt.Fprint(w, scanRemoteUsage)
 }
 
 func resolveRepoRoot(repoPath string) (string, error) {

@@ -56,6 +56,35 @@ markdowntown scan --stdin < extra-paths.txt
 markdowntown scan --no-content --compact
 ```
 
+### `markdowntown scan-remote`
+
+Clone and scan a remote git repository.
+
+```bash
+markdowntown scan-remote <url> [flags]
+```
+
+Flags:
+
+- `--ref <ref>`: git reference (branch, tag, commit) to checkout
+- `--repo-only`: exclude user scope (scan repo only)
+- `--include-content`: include file contents in output (default)
+- `--no-content`: exclude file contents from output
+- `--compact`: emit compact JSON (no indentation)
+- `--quiet`: disable progress output
+
+Notes:
+
+- Clones the repository to a temporary directory, scans it, then removes the directory.
+- Use with `--no-content` for large repositories if content is not needed, but be aware that audit might require content.
+
+Examples:
+
+```bash
+markdowntown scan-remote https://github.com/example/repo
+markdowntown scan-remote https://github.com/example/repo --ref v1.0.0
+```
+
 ### `markdowntown audit`
 
 ```bash

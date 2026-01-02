@@ -883,10 +883,6 @@ Sanitized real-world fixture coverage lives under `testdata/repos/integration` (
 
 ## Future Considerations (Out of v1 Scope)
 
-### Separate Command: Remote Scanning
-
-`markdowntown scan-remote <git-url>` — Clone to temp dir, scan, clean up.
-
 ### Effective Config Computation
 
 Add `--for-file <path>` flag to filter output to configs that would apply to a specific file, using loadBehavior/precedence logic.
