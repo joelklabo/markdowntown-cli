@@ -92,6 +92,7 @@ func TestDiagnosticsOverPipe(t *testing.T) {
 func TestServeCanary(t *testing.T) {
 	binPath := buildMarkdowntownBinary(t)
 
+	// #nosec G204 -- test harness executes a controlled binary path.
 	cmd := exec.Command(binPath, "serve")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -231,6 +232,7 @@ func buildMarkdowntownBinary(t *testing.T) string {
 	t.Helper()
 	binPath := filepath.Join(t.TempDir(), "markdowntown")
 	repoRoot := findRepoRoot(t)
+	// #nosec G204 -- test harness builds a local binary with fixed args.
 	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/markdowntown")
 	cmd.Env = os.Environ()
 	cmd.Dir = repoRoot
