@@ -18,6 +18,8 @@ import (
 	"markdowntown-cli/internal/git"
 	"markdowntown-cli/internal/scan"
 	"markdowntown-cli/internal/version"
+
+	"github.com/spf13/afero"
 )
 
 const rootUsage = `markdowntown
@@ -218,6 +220,7 @@ func runScan(args []string) error {
 		Progress:       progress,
 		StdinPaths:     stdinPaths,
 		Registry:       registry,
+		Fs:             afero.NewOsFs(),
 	})
 	finish()
 	if err != nil {
@@ -317,6 +320,7 @@ func runScanRemote(args []string) error {
 		IncludeContent: includeContent,
 		Progress:       progress,
 		Registry:       registry,
+		Fs:             afero.NewOsFs(),
 	})
 	finish()
 	if err != nil {
@@ -455,6 +459,7 @@ func runAudit(args []string) error {
 			Progress:       progress,
 			StdinPaths:     stdinPaths,
 			Registry:       registry,
+			Fs:             afero.NewOsFs(),
 		})
 		finish()
 		if err != nil {
