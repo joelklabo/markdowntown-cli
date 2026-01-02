@@ -86,6 +86,9 @@ func Scan(opts Options) (Result, error) {
 		if len(userRoots) == 0 {
 			userRoots = DefaultUserRoots()
 		}
+		if extraRoots := discoverVSCodeInstructionPaths(fs, repoRoot, userRoots); len(extraRoots) > 0 {
+			userRoots = append(userRoots, extraRoots...)
+		}
 		for _, root := range userRoots {
 			root = expandHomePath(root)
 			absRoot, err := filepath.Abs(root)

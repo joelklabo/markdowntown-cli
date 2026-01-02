@@ -309,7 +309,8 @@ Notes:
 - VS Code instruction files require settings such as `github.copilot.chat.codeGeneration.useInstructionFiles`,
   `chat.useAgentsMdFile`, and `chat.useNestedAgentsMdFiles`.
 - Ordering is undefined when multiple instruction types coexist; treat conflicts as ambiguous.
-- If you configure `chat.instructionsFilesLocations`, pass those custom paths via `--stdin`.
+- `chat.instructionsFilesLocations` values from `settings.json` are discovered automatically and appended
+  to scan roots. Relative paths resolve from the repo root.
 
 ## Codex CLI niceties
 

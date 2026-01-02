@@ -603,7 +603,7 @@ No filtering options - consumers filter the JSON.
 
 Notes:
 - Instruction ordering is undefined when multiple instruction file types exist; treat conflicts as ambiguous.
-- `chat.instructionsFilesLocations` custom instruction locations are not auto-discovered; use `--stdin` for custom paths.
+- `chat.instructionsFilesLocations` custom instruction locations are auto-discovered from `settings.json` and appended to scan roots.
 - XDG config overrides: when `$XDG_CONFIG_HOME` is set, use it for Copilot CLI config paths.
 - VS Code user profile prompt paths vary by OS; current coverage targets Unix-like paths.
 
@@ -883,9 +883,10 @@ Sanitized real-world fixture coverage lives under `testdata/repos/integration` (
 
 ## Future Considerations (Out of v1 Scope)
 
-### VS Code Custom Paths
+### VS Code Custom Paths (Implemented)
 
-Consider reading `settings.json` to discover custom `chat.instructionsFilesLocations`.
+The scanner reads VS Code `settings.json` to discover `chat.instructionsFilesLocations` and adds
+those paths to the user-scope scan roots. Relative entries resolve from the repo root.
 
 ### Codex Dynamic Instruction Names
 
