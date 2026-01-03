@@ -88,6 +88,8 @@ jobs:
           cache-dependency-path: vscode-extension/package-lock.json
       - name: Install extension deps
         run: cd vscode-extension && npm ci
+      - name: Build extension
+        run: cd vscode-extension && npm run build
       - uses: actions/download-artifact@v4
         with:
           name: markdowntown-${{ matrix.target }}
