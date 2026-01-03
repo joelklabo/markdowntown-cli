@@ -373,20 +373,22 @@ func isSpecialFile(info os.FileInfo) bool {
 }
 
 type walkState struct {
-	fs       afero.Fs
-	root     string
-	progress func(string)
-	visited  map[string]struct{}
-	active   map[string]struct{}
+	fs          afero.Fs
+	root        string
+	progress    func(string)
+	visited     map[string]struct{}
+	active      map[string]struct{}
+	activePaths map[string]struct{}
 }
 
 func newWalkState(fs afero.Fs, root string, progress func(string)) *walkState {
 	return &walkState{
-		fs:       fs,
-		root:     root,
-		progress: progress,
-		visited:  make(map[string]struct{}),
-		active:   make(map[string]struct{}),
+		fs:          fs,
+		root:        root,
+		progress:    progress,
+		visited:     make(map[string]struct{}),
+		active:      make(map[string]struct{}),
+		activePaths: make(map[string]struct{}),
 	}
 }
 
@@ -401,10 +403,10 @@ func scanDir(logicalPath string, actualPath string, root string, scope string, i
 	}
 
 	key := state.dirKey(info, actualPath)
-	if !state.enterDir(key, logicalPath, result, fromSymlink) {
+	if !state.enterDir(key, logicalPath, actualPath, result, fromSymlink) {
 		return
 	}
-	defer state.leaveDir(key)
+	defer state.leaveDir(key, actualPath)
 
 	dirEntries, err := afero.ReadDir(state.fs, actualPath)
 	if err != nil {
@@ -729,13 +731,36 @@ func (state *walkState) dirKey(info os.FileInfo, path string) string {
 	}
 	dev := value.FieldByName("Dev")
 	ino := value.FieldByName("Ino")
-	if !dev.IsValid() || !ino.IsValid() || !dev.CanUint() || !ino.CanUint() {
+	devValue, ok := uintFromStatField(dev)
+	if !ok {
 		return path
 	}
-	return fmt.Sprintf("%d:%d", dev.Uint(), ino.Uint())
+	inoValue, ok := uintFromStatField(ino)
+	if !ok {
+		return path
+	}
+	return fmt.Sprintf("%d:%d", devValue, inoValue)
 }
 
-func (state *walkState) enterDir(key string, logicalPath string, result *Result, fromSymlink bool) bool {
+func uintFromStatField(value reflect.Value) (uint64, bool) {
+	if !value.IsValid() {
+		return 0, false
+	}
+	switch value.Kind() {
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return value.Uint(), true
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if value.Int() < 0 {
+			return 0, false
+		}
+		return uint64(value.Int()), true
+	default:
+		return 0, false
+	}
+}
+
+func (state *walkState) enterDir(key string, logicalPath string, actualPath string, result *Result, fromSymlink bool) bool {
+	pathKey := filepath.Clean(actualPath)
 	if _, ok := state.active[key]; ok {
 		if fromSymlink {
 			result.Warnings = append(result.Warnings, Warning{
@@ -746,16 +771,34 @@ func (state *walkState) enterDir(key string, logicalPath string, result *Result,
 		}
 		return false
 	}
+	if pathKey != "" {
+		if _, ok := state.activePaths[pathKey]; ok {
+			if fromSymlink {
+				result.Warnings = append(result.Warnings, Warning{
+					Path:    logicalPath,
+					Code:    "CIRCULAR_SYMLINK",
+					Message: "Circular symlink detected",
+				})
+			}
+			return false
+		}
+	}
 	if _, ok := state.visited[key]; ok {
 		return false
 	}
 	state.visited[key] = struct{}{}
 	state.active[key] = struct{}{}
+	if pathKey != "" {
+		state.activePaths[pathKey] = struct{}{}
+	}
 	return true
 }
 
-func (state *walkState) leaveDir(key string) {
+func (state *walkState) leaveDir(key string, actualPath string) {
 	delete(state.active, key)
+	if actualPath != "" {
+		delete(state.activePaths, filepath.Clean(actualPath))
+	}
 }
 
 func lstat(fs afero.Fs, path string) (os.FileInfo, error) {

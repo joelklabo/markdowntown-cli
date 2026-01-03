@@ -251,6 +251,9 @@ func TestScanGlobalScopeWarnsOnPermissionDenied(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("permission bits are unreliable on Windows")
 	}
+	if os.Geteuid() == 0 {
+		t.Skip("permission tests are unreliable when running as root")
+	}
 
 	repoRoot := t.TempDir()
 	globalRoot := copyFixture(t, "global-scope")
@@ -281,6 +284,36 @@ func TestScanGlobalScopeWarnsOnPermissionDenied(t *testing.T) {
 
 	if !hasWarning(result.Warnings, restricted, "EACCES") {
 		t.Fatalf("expected EACCES warning for %s", restricted)
+	}
+}
+
+func TestScanGlobalScopeWarnsOnCircularSymlink(t *testing.T) {
+	globalRoot := copyFixture(t, "global-scope")
+	loopDir := filepath.Join(globalRoot, "loop")
+	if err := os.Mkdir(loopDir, 0o700); err != nil {
+		t.Fatalf("mkdir loop: %v", err)
+	}
+	linkPath := filepath.Join(loopDir, "self")
+	if err := os.Symlink("self", linkPath); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			t.Skip("symlinks not permitted")
+		}
+		t.Fatalf("symlink: %v", err)
+	}
+
+	result, err := Scan(Options{
+		RepoRoot:      t.TempDir(),
+		IncludeGlobal: true,
+		GlobalRoots:   []string{globalRoot},
+		Registry:      globalScopeRegistry(),
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	if !hasWarningContains(result.Warnings, filepath.Join("loop", "self"), "CIRCULAR_SYMLINK") &&
+		!hasWarningContains(result.Warnings, filepath.Join("loop", "self"), "ERROR") {
+		t.Fatalf("expected symlink warning for %s (warnings: %#v)", linkPath, result.Warnings)
 	}
 }
 
