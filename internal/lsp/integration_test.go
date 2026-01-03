@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1786,7 +1787,11 @@ func newServerRPC(t *testing.T, s *Server, conn io.ReadWriteCloser) *jsonrpc2.Co
 		return r, nil
 	})
 
-	return jsonrpc2.NewConn(context.Background(), jsonrpc2.NewBufferedStream(conn, jsonrpc2.VSCodeObjectCodec{}), handler)
+	rpc := jsonrpc2.NewConn(context.Background(), jsonrpc2.NewBufferedStream(conn, jsonrpc2.VSCodeObjectCodec{}), handler)
+	t.Cleanup(func() {
+		_ = rpc.Close()
+	})
+	return rpc
 }
 
 func newClientRPC(t *testing.T, conn io.ReadWriteCloser, diagnostics chan<- protocol.PublishDiagnosticsParams) *jsonrpc2.Conn {
@@ -1807,7 +1812,11 @@ func newClientRPC(t *testing.T, conn io.ReadWriteCloser, diagnostics chan<- prot
 		return nil, nil //nolint:nilnil
 	})
 
-	return jsonrpc2.NewConn(context.Background(), jsonrpc2.NewBufferedStream(conn, jsonrpc2.VSCodeObjectCodec{}), handler)
+	rpc := jsonrpc2.NewConn(context.Background(), jsonrpc2.NewBufferedStream(conn, jsonrpc2.VSCodeObjectCodec{}), handler)
+	t.Cleanup(func() {
+		_ = rpc.Close()
+	})
+	return rpc
 }
 
 func buildMarkdowntownBinary(t *testing.T) string {
@@ -1818,14 +1827,26 @@ func buildMarkdowntownBinary(t *testing.T) string {
 	}
 	binPath := filepath.Join(t.TempDir(), binName)
 	repoRoot := findRepoRoot(t)
+	ctx, cancel := context.WithTimeout(context.Background(), scaledTestTimeout(t, 60*time.Second))
+	t.Cleanup(cancel)
 	// #nosec G204 -- test harness builds a local binary with fixed args.
-	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/markdowntown")
+	cmd := exec.CommandContext(ctx, "go", "build", "-o", binPath, "./cmd/markdowntown")
 	cmd.Env = os.Environ()
 	cmd.Dir = repoRoot
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("go build failed: %v\nOutput: %s", err, out)
 	}
 	return binPath
+}
+
+func scaledTestTimeout(t *testing.T, base time.Duration) time.Duration { //nolint:unparam
+	t.Helper()
+	if raw := os.Getenv("MARKDOWNTOWN_TEST_TIMEOUT_SCALE"); raw != "" {
+		if scale, err := strconv.ParseFloat(raw, 64); err == nil && scale > 0 {
+			return time.Duration(float64(base) * scale)
+		}
+	}
+	return base
 }
 
 func findRepoRoot(t *testing.T) string {

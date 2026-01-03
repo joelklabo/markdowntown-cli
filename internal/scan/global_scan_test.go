@@ -45,7 +45,7 @@ func TestIsSpecialFile(t *testing.T) {
 }
 
 func TestShouldSkipGlobalPath(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "root")
+	root := tempRoot(t)
 	info := fakeInfo{mode: 0}
 
 	if shouldSkipGlobalPath(root, root, info) {
@@ -65,4 +65,9 @@ func TestShouldSkipGlobalPath(t *testing.T) {
 	if !shouldSkipGlobalPath(root, filepath.Join(root, "file"), fakeInfo{mode: os.ModeNamedPipe}) {
 		t.Fatalf("expected special file to be skipped")
 	}
+}
+
+func tempRoot(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(t.TempDir(), "root")
 }

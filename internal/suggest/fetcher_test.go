@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -58,9 +60,11 @@ func TestFetcherBlocksRobots(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
+	client := server.Client()
+	client.Timeout = scaledTestTimeout(t, 5*time.Second)
 	parsed, _ := url.Parse(server.URL)
 	fetcher, err := NewFetcher(FetcherOptions{
-		Client:    server.Client(),
+		Client:    client,
 		Allowlist: []string{parsed.Hostname()},
 	})
 	if err != nil {
@@ -103,13 +107,15 @@ func TestFetcherConditionalGETUsesCache(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
+	client := server.Client()
+	client.Timeout = scaledTestTimeout(t, 5*time.Second)
 	parsed, _ := url.Parse(server.URL)
 	store := &memoryStore{}
 	store.Put(MetadataRecord{ID: "src", URL: server.URL + "/doc", ETag: "etag-1"})
 	cache := memoryCache{payloads: map[string][]byte{server.URL + "/doc": []byte("cached")}}
 
 	fetcher, err := NewFetcher(FetcherOptions{
-		Client:    server.Client(),
+		Client:    client,
 		Allowlist: []string{parsed.Hostname()},
 		Store:     store,
 		Cache:     cache,
@@ -181,8 +187,10 @@ func TestFetcherRobotsMissingAllows(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
+	client := server.Client()
+	client.Timeout = scaledTestTimeout(t, 5*time.Second)
 	parsed, _ := url.Parse(server.URL)
-	fetcher, err := NewFetcher(FetcherOptions{Allowlist: []string{parsed.Hostname()}, Client: server.Client()})
+	fetcher, err := NewFetcher(FetcherOptions{Allowlist: []string{parsed.Hostname()}, Client: client})
 	if err != nil {
 		t.Fatalf("new fetcher: %v", err)
 	}
@@ -213,7 +221,10 @@ func TestFetcherRedirectRejectsHost(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	// #nosec G402 -- use test TLS server with self-signed cert.
-	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
+	client := &http.Client{
+		Timeout:   scaledTestTimeout(t, 5*time.Second),
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+	}
 	parsed, _ := url.Parse(server.URL)
 	fetcher, err := NewFetcher(FetcherOptions{Allowlist: []string{parsed.Hostname()}, Client: client})
 	if err != nil {
@@ -224,4 +235,14 @@ func TestFetcherRedirectRejectsHost(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected redirect error")
 	}
+}
+
+func scaledTestTimeout(t *testing.T, base time.Duration) time.Duration { //nolint:unparam
+	t.Helper()
+	if raw := os.Getenv("MARKDOWNTOWN_TEST_TIMEOUT_SCALE"); raw != "" {
+		if scale, err := strconv.ParseFloat(raw, 64); err == nil && scale > 0 {
+			return time.Duration(float64(base) * scale)
+		}
+	}
+	return base
 }

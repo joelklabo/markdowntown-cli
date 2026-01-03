@@ -2,6 +2,7 @@ package scan
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -11,8 +12,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 var updateGolden = flag.Bool("update-golden", false, "update golden fixtures")
@@ -567,7 +570,9 @@ func normalizePath(path string, repoRoot string, userRoot string) string {
 
 func execGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
-	cmd := exec.Command("git", args...)
+	ctx, cancel := context.WithTimeout(context.Background(), scaledTestTimeout(t, 5*time.Second))
+	t.Cleanup(cancel)
+	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -602,4 +607,14 @@ func writeGolden(t *testing.T, path string, data []byte) {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatalf("write golden: %v", err)
 	}
+}
+
+func scaledTestTimeout(t *testing.T, base time.Duration) time.Duration { //nolint:unparam
+	t.Helper()
+	if raw := os.Getenv("MARKDOWNTOWN_TEST_TIMEOUT_SCALE"); raw != "" {
+		if scale, err := strconv.ParseFloat(raw, 64); err == nil && scale > 0 {
+			return time.Duration(float64(base) * scale)
+		}
+	}
+	return base
 }

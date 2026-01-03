@@ -1,0 +1,9 @@
+extends: default
+ignore: |
+  apps/web/.github/**
+  apps/web/.beads/**
+  **/node_modules/**
+rules:
+  document-start: disable
+  line-length: disable
+  truthy: disable
