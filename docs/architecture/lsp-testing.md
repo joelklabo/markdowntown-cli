@@ -1,77 +1,70 @@
-# Markdowntown LSP Testing Strategy
+# Markdowntown LSP testing strategy
 
 ## Overview
 
-Reliability is critical for an LSP server. A crash or hang breaks the user's entire editing flow. This strategy outlines a multi-layered approach to ensure the `markdowntown-cli` LSP is robust, correct, and performant.
+LSP reliability is critical. A crash or hang breaks the editing flow. This strategy documents the current test layers and the expected additions (goleak + E2E) as LSP features expand.
 
-## 1. Layered Testing Approach
+## 1. Layered testing approach
 
-### Level 1: Core Logic Unit Tests (Fast & Isolated)
+### Level 1: Core logic unit tests (fast & isolated)
 
-- **Focus:** `internal/scan`, `internal/audit`, `internal/engine`.
-- **Mechanism:** Standard Go unit tests (`go test`).
-- **Key Scenarios:**
-  - **Frontmatter Parsing:** Verify `yaml.Node` correctly captures line/column for various YAML structures (nested, lists, folded strings).
-  - **Frontmatter Ranges:** Expect 1-based `startLine/startCol/endLine/endCol` ranges on parsed frontmatter locations.
-  - **Offset Mapping (Critical):** Verify the translation between Go's UTF-8 byte offsets and LSP's UTF-16 character offsets. Must include test cases with emojis and multi-byte characters to prevent "squiggly drift".
-  - **Audit Rules:** Test each rule against specific `ConfigEntry` states (valid, invalid, missing fields) and assert the correct `Issue` output and location data.
-  - **Panic Safety:** Verify that audit rules gracefully handle unexpected inputs without panicking.
+- **Focus:** `internal/scan`, `internal/audit`, and LSP helper functions (range conversion, settings parsing).
+- **Mechanism:** `go test` with in-memory FS where possible.
+- **Key scenarios:**
+  - Frontmatter parsing with `yaml.v3` nodes (line/column correctness).
+  - UTF-8 → UTF-16 offset conversion for diagnostics and code actions.
+  - Audit rules: correct issue messages, evidence, and ranges.
+  - Rule filtering + severity overrides.
 
-### Level 2: LSP Handler Integration Tests (In-Process)
+### Level 2: LSP handler integration tests (in-process)
 
 - **Focus:** `internal/lsp` handlers and state management.
-- **Mechanism:** Connect a `glsp.Server` to a test client using `net.Pipe()` within the same process. This allows full `-race` detection and step-through debugging.
-- **Tooling:** `github.com/uber-go/goleak` to detect goroutine leaks.
-- **Key Scenarios:**
-  - **Registry Env:** Ensure `MARKDOWNTOWN_REGISTRY` is set (use `setRegistryEnv` helper) so hover/definition can load tool metadata.
-  - **Lifecycle:** `initialize` -> `initialized` -> `shutdown` -> `exit`.
-  - **Debouncing & Cancellation:** Rapidly send `didChange` events. Assert that:
-    1. Only the final state triggers a full audit.
-    2. Intermediate contexts are cancelled.
-    3. No goroutines are leaked.
-  - **Diagnostics:** Open a file with known errors. Assert `textDocument/publishDiagnostics` is received with correct ranges. For overlay-only buffers, ensure the server includes the opened file path in the scan input.
-  - **Out-of-Order Messages:** Simulate network lag by sending `didChange` (v2) before `didChange` (v1) finishes processing. Verify state consistency.
+- **Mechanism:** in-process `glsp` server with `net.Pipe()` and `jsonrpc2` client (see `internal/lsp/integration_test.go`).
+- **Goleak expectation:** add `go.uber.org/goleak` verification for LSP tests to catch goroutine leaks on shutdown and cancel.
+- **Key scenarios:**
+  - Initialize → diagnostics → shutdown lifecycle.
+  - Registry env (`MARKDOWNTOWN_REGISTRY`) set for hover/definition/completion.
+  - Diagnostics include tags/codeDescription/related info when supported.
+  - Overlay-only buffers (opened but not on disk) are included in scans.
 
-### Level 3: End-to-End (E2E) Binary Sanity Check
+### Debounce + cancellation guidance
 
-- **Focus:** `cmd/markdowntown` (the `serve` command binary).
-- **Mechanism:** A "Fake Editor" test suite that spawns the actual binary via `os/exec`.
-- **Scope:** Limited to critical "Canary" tests.
-- **Key Scenarios:**
-  - **Stdout Pollution:** Overwrite `os.Stdout` with a pipe, import all packages, and assert the pipe remains empty during initialization.
-  - **Process Control:** Verify correct exit codes on `shutdown` and SIGTERM.
-  - **Malformed Input:** Send garbage JSON or incomplete headers to stdin and verify the process doesn't crash (or exits with a defined error code).
+- Set `Server.Debounce` to a small value in tests to avoid sleeps.
+- Use channels (`waitForDiagnostics`) rather than fixed `time.Sleep`.
+- When sending rapid `didChange` events, assert only the final state publishes diagnostics.
+- Verify timers are stopped/cleared on shutdown to avoid leaks.
+- If `$\/cancelRequest` is added, ensure handlers honor `context.Context` cancellation.
 
-## 2. Feature-Specific Test Suites
+### Level 3: E2E (client/binary)
 
-### A. The "Location Fidelity" Suite
+- **VS Code extension tests:** validate diagnostics + code actions in the extension harness (`vscode-extension/src/test`).
+- **Binary sanity (optional):** spawn `markdowntown serve` via `os/exec` to ensure stdout is clean and the process exits on shutdown/SIGTERM.
 
-This suite specifically targets the `yaml.Node` parsing logic.
+## 2. Feature-specific suites
 
-- **Input:** Files with embedded markers (e.g., `toolId: ^codebase_investigator^`).
-- **Assertion:** The parser must return the exact line/col of the markers.
-- **Edge Cases:** Folded block scalars, comments, Unicode characters.
+### Location fidelity
 
-### B. Hover & Code Actions
+- Inputs with markers to validate frontmatter locations and diagnostic ranges.
+- Include Unicode (emoji, multi-byte) to ensure UTF-16 mapping is correct.
 
-- **Hover Fidelity:**
-  - Test hovering on boundaries (first/last char of token).
-  - Test hovering outside a valid token (should return null/empty).
-  - Verify Markdown content escaping.
-- **Code Actions:**
-  - **Idempotency:** Applying a fix twice should not corrupt the file.
-  - **Range Validation:** Verify `WorkspaceEdit` ranges match the diagnostic exactly.
-  - **Preview:** Verify `edit` payload is correct without applying it.
+### Hover + code actions
 
-## 3. Tooling & Infrastructure
+- Hover boundaries (first/last token char) and outside-token results (null).
+- Code action idempotency and range validation (`WorkspaceEdit` matches diagnostics).
 
-- **CI/CD:** Run all tests with `go test -race ./...`.
-- **Linter:** `golangci-lint` with `forbidigo` enabled to catch `fmt.Print` calls.
-- **Mocking:** Use `afero.MemMapFs` heavily in Level 1 and 2 tests to avoid disk I/O.
-- **Leak Detection:** Use `goleak.VerifyNone(t)` in all Level 2 tests.
+## 3. Tooling & infrastructure
 
-## 4. Performance Benchmarks
+- **CI:** `make lint`, `make test`, plus `go test -race ./internal/lsp` for concurrency coverage.
+- **Stdout hygiene:** ensure LSP logging stays on stderr; avoid stdout in LSP handlers.
+- Add a transport-layer test that fails if non-RPC bytes are written to stdout.
+- **Fixtures:** use in-repo testdata for reproducible diagnostics cases.
 
-- **Latency:** Measure time from `didChange` to `publishDiagnostics`. Goal: < 100ms for typical files.
-- **Throughput:** Simulate typing (100ms intervals) on a large file (2k lines) and measure CPU/Memory profile.
-- **Memory:** Monitor heap usage during `didOpen` of 100+ files to ensure no leaks in the OverlayFS.
+## 4. Performance benchmarks
+
+- Track latency from `didChange` → `publishDiagnostics` for large files.
+- Establish a baseline for scan + audit throughput under load.
+
+## Open questions + assumptions
+
+- Decide if goleak should run for all LSP tests or only integration tests.
+- Clarify the minimum E2E coverage required for VS Code (smoke vs full diagnostics matrix).

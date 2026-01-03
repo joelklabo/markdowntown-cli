@@ -1,170 +1,74 @@
-# Markdowntown LSP Implementation Plan
+# Markdowntown LSP implementation plan
 
 ## Objective
 
-Transform the `markdowntown-cli` into a Language Server Protocol (LSP) server that shares core logic with the CLI. This provides real-time feedback and intelligent editing features for AI configuration files.
+Provide a Language Server Protocol (LSP) server backed by markdowntown-cli scan + audit logic that delivers diagnostics and editing helpers for AI config files, with a VS Code extension as the primary client.
 
-## Architecture: Shared Core & Transport Adapters
+## Current state (implemented)
 
-### 1. Separation of Concerns
+- **Shared core**: `internal/scan` + `internal/audit` reused by the LSP via `afero.Fs`; core logic avoids stdout.
+- **Overlay FS**: `afero.NewCopyOnWriteFs` (MemMap + OS) to support unsaved buffers.
+- **Diagnostics**: debounced on `didOpen`/`didChange`, respects client capabilities (tags, codeDescription, related info) and settings (rule filters, severity overrides, redaction, evidence).
+- **Hover**: toolId hover shows registry notes + docs.
+- **Definition**: toolId jumps to repo `AGENTS.md` when present.
+- **Completion**: toolId suggestions from the registry.
+- **Code actions**: quick fixes for common audit rules and frontmatter repairs.
+- **Code lens**: shows active/shadowed scope for a config file.
 
-- **Core Logic (`internal/engine`, `internal/scan`, `internal/audit`)**:
-  - Pure logic that accepts `afero.Fs` and `Registry` inputs.
-  - Returns structured `Issue` and `Result` types.
-  - **Zero side effects**: No direct printing to `os.Stdout`.
-- **CLI Adapter (`cmd/markdowntown`)**:
-  - Uses `afero.NewOsFs()`.
-  - Formats output for the terminal.
-  - Manages `os.Stdout` for JSON/Markdown output.
-- **LSP Adapter (`internal/lsp`)**:
-  - Uses a composite `afero.Fs` (Overlay + Base).
-  - Maps `Issue` objects to `protocol.Diagnostic`.
-  - Handles transport via `glsp` (stdio).
+## Architecture: shared core + LSP adapter
 
-### 2. FileSystem Abstraction (`afero.Fs`)
+- **Core logic (`internal/scan`, `internal/audit`)**
+  - Accepts `afero.Fs` + registry inputs.
+  - Returns structured issues and scan results.
+  - Avoids direct stdout writes (LSP uses stdout for JSON-RPC).
+- **LSP adapter (`internal/lsp`)**
+  - Maintains overlay FS, frontmatter cache, and diagnostic debounce timers.
+  - Maps `audit.Issue` to `protocol.Diagnostic` (ranges, tags, codeDescription, related info).
+  - Runs via `glsp` stdio transport.
 
-To support unsaved changes in the IDE, all file I/O must be abstracted.
+## Safety: stdout hygiene
 
-- **CLI Mode**: Direct disk access.
-- **LSP Mode**: A custom `OverlayFs` that checks in-memory buffers (updated via `textDocument/didChange`) before falling back to the physical disk.
+- Stdout is reserved for JSON-RPC. LSP logging must go to stderr (via `commonlog` or the VS Code output channel).
+- `markdowntown serve` should avoid any stdout writes outside JSON-RPC frames.
+- Consider adding a lint/test guard (forbidigo or stdout capture) to enforce this contract.
 
-### 3. Safety: Stdout Pollution Prevention
+## Implementation details
 
-The LSP uses `os.Stdout` for JSON-RPC messages. Any accidental `fmt.Println` or library log will crash the server.
+- **Frontmatter parsing** uses `yaml.v3` nodes to preserve line/column, with a location map stored on scan results.
+- **Range conversion** translates UTF-8 byte offsets to LSP UTF-16 positions (multi-byte correctness).
+- **Diagnostics pipeline**: scan → gitignore filter → audit rules → diagnostics (with optional evidence + related info).
+- **Settings** come from initialization options and `workspace/didChangeConfiguration` and apply live.
 
-- **Enforcement**: Add `forbidigo` to `.golangci.yml` to prevent use of `fmt.Print` and `os.Stdout` in the `internal/` packages.
-- **Redirection**: In the `serve` command entry point, `os.Stdout` should be redirected to `os.Stderr` to catch accidental output, while the LSP server explicitly uses the original stdout descriptor.
+## Planned: document symbols + registry-aware definition
 
-## Implementation Details
+### Document symbols
 
-### 1. Location-Aware Frontmatter Parsing
+- Provide a `DocumentSymbol` tree per file.
+- Root symbol per config block (frontmatter), with child symbols for key fields (toolId, model, scope, etc.).
+- Skip files without frontmatter to avoid noise.
+- Use the frontmatter location map to compute ranges.
 
-- Refactor `internal/scan/frontmatter.go` to use `gopkg.in/yaml.v3`.
-- Parse into `yaml.Node` to preserve line and column numbers.
-- Create a `LocationResolver` that maps byte offsets to LSP-compatible `Range` (line/character).
+### Definition (registry-aware)
 
-### 2. Audit Engine Refactoring
+- Prefer registry matches for toolId:
+  - Open local `ai-config-patterns.json` and highlight the matching pattern.
+  - Return multiple locations when toolId is duplicated.
+- Fallback to repo `AGENTS.md` when registry is unavailable or no match is found.
+- Keep registry lookups local + cached to avoid blocking the editor UI.
 
-- Update `audit.Rule` interface to return `[]Issue`, where `Issue` includes `Range` information.
-- Categorize rules into:
-  - **`FileScope`**: Can be run on a single file buffer (e.g., syntax errors, missing fields).
-  - **`WorkspaceScope`**: Requires a full repository scan (e.g., config conflicts).
+## Open questions + assumptions
 
-## Features
+- Document symbols should only surface AI config files (assume `AGENTS.md` + tool config files).
+- Registry resolution prefers `markdowntown.registryPath` or `MARKDOWNTOWN_REGISTRY` when present.
+- Definition requests should be tolerant when scans are incomplete (return null rather than error).
+- If registry lookups ever become remote, they must be time-bounded and async.
 
-### Phase 1: Diagnostics
+## VS Code integration
 
-- **Trigger**: `didOpen`, `didSave`, and debounced `didChange`.
-- **Output**: Squiggly underlines for frontmatter errors, invalid keys, and rule violations.
-
-### Phase 2: Navigation & Tooling (Low Hanging Fruit)
-
-- **Hover**: Show tool descriptions and documentation links from the `Registry` when hovering over a `toolId`.
-- **Go to Definition**: Jump from a `toolId` reference in a config file to its definition in the registry or `AGENTS.md`.
-- **Document Symbols**: Show a tree view of all configuration blocks found in the current workspace.
-
-### Phase 3: Automation
-
-- **Code Actions**: Provide "Quick Fix" suggestions to generate missing configuration files or fix common frontmatter typos.
-
-## Implementation Roadmap
-
-1. **Foundation**: Add `github.com/tliron/glsp` and `github.com/spf13/afero`; set up the `forbidigo` linter.
-2. **Parser Update**: Implement `yaml.Node` based frontmatter parsing.
-3. **Core Refactor**: Inject `Fs` abstraction into `Scanner` and `AuditEngine`.
-4. **LSP Scaffold**: Implement `markdowntown serve`.
-5. **Diagnostic Loop**: Wire up file changes to real-time audit diagnostics.
-6. **Navigation**: Implement Hover and Definition providers.
-
-## VS Code Integration Strategy
-
-To enable immediate testing and usage in VS Code, we will create a lightweight "Generic LSP Client" extension.
-
-### 1. Extension Architecture
-
-- **Type**: External Language Server.
-- **Role**: Spawns the `markdowntown serve` binary and pipes stdin/stdout.
-- **Languages**: Activates on `markdown` and `json` files.
-
-### 2. Configuration (`package.json`)
-
-```json
-{
-  "name": "markdowntown-vscode",
-  "displayName": "Markdowntown AI Config",
-  "engines": { "vscode": "^1.80.0" },
-  "activationEvents": [
-    "onLanguage:markdown",
-    "onLanguage:json"
-  ],
-  "main": "./out/extension.js",
-  "contributes": {
-    "configuration": {
-      "type": "object",
-      "title": "Markdowntown",
-      "properties": {
-        "markdowntown.serverPath": {
-          "type": "string",
-          "default": "markdowntown",
-          "description": "Path to the markdowntown executable"
-        },
-        "markdowntown.trace.server": {
-          "type": "string",
-          "enum": ["off", "messages", "verbose"],
-          "default": "off",
-          "description": "Traces the communication between VS Code and the language server."
-        }
-      }
-    }
-  }
-}
-```
-
-### 3. Client Logic (`extension.ts`)
-
-The client must explicitly select the document types it cares about to avoid flooding the server with irrelevant files.
-
-```typescript
-import { workspace, ExtensionContext } from 'vscode';
-import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient/node';
-
-let client: LanguageClient;
-
-export function activate(context: ExtensionContext) {
-  // 1. Get server path from config or default to PATH
-  const config = workspace.getConfiguration('markdowntown');
-  const serverPath = config.get<string>('serverPath') || 'markdowntown';
-
-  // 2. Configure Server (stdio)
-  const serverOptions: ServerOptions = {
-    command: serverPath,
-    args: ["serve"], // Crucial: Pass the 'serve' subcommand
-    transport: TransportKind.stdio,
-  };
-
-  // 3. Configure Client (Selector & Watchers)
-  const clientOptions: LanguageClientOptions = {
-    documentSelector: [
-      { scheme: 'file', language: 'markdown' },
-      { scheme: 'file', language: 'json' } // For ai-config-patterns.json
-    ],
-    synchronize: {
-      fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
-    }
-  };
-
-  client = new LanguageClient('markdowntownLSP', 'Markdowntown LSP', serverOptions, clientOptions);
-  client.start();
-}
-
-export function deactivate(): Thenable<void> | undefined {
-  return client ? client.stop() : undefined;
-}
-```
-
-### 4. Debugging Strategy
-
-1. **Build Binary**: `go build -o markdowntown ./cmd/markdowntown` (with race detector enabled).
-2. **Config**: Set `"markdowntown.serverPath": "${workspaceFolder}/markdowntown"` in VS Code settings.
-3. **Launch**: Press `F5` in the extension project to open a new "Extension Development Host" window.
-4. **Output**: View "Markdowntown LSP" channel in the Output tab to see JSON-RPC logs (if trace is enabled).
+- Extension launches `markdowntown serve` and passes the registry path via `MARKDOWNTOWN_REGISTRY`.
+- Key settings:
+  - `markdowntown.serverPath`
+  - `markdowntown.registryPath`
+  - `markdowntown.diagnostics.*` (enabled, delayMs, rulesEnabled, rulesDisabled, severityOverrides, includeRelatedInfo, includeEvidence, redactPaths)
+- Output channel captures stderr; stdout must remain JSON-RPC only.
+- Activation languages: markdown, json, yaml, toml, instructions.
