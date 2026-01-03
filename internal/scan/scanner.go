@@ -329,14 +329,25 @@ func defaultScanWorkers() int {
 }
 
 var globalSkipPrefixes = []string{
+	"passwd",
+	"passwd-",
 	"shadow",
 	"shadow-",
+	"group",
+	"group-",
 	"gshadow",
 	"gshadow-",
 	"sudoers",
 	"sudoers.d",
+	"security",
 	"ssh",
+	"krb5.keytab",
+	"kubernetes",
+	"networkmanager/system-connections",
+	"pki/private",
+	"pki/tls/private",
 	"ssl/private",
+	"wpa_supplicant.conf",
 }
 
 func shouldSkipGlobalPath(root string, path string, info os.FileInfo) bool {
@@ -355,7 +366,7 @@ func shouldSkipGlobalPath(root string, path string, info os.FileInfo) bool {
 		return true
 	}
 
-	rel = filepath.ToSlash(rel)
+	rel = strings.ToLower(filepath.ToSlash(rel))
 	for _, prefix := range globalSkipPrefixes {
 		if rel == prefix || strings.HasPrefix(rel, prefix+"/") {
 			return true
@@ -459,6 +470,15 @@ func resolveAndScanSymlink(logicalPath string, actualPath string, root string, s
 	resolvedInfo, err := state.fs.Stat(resolved)
 	if err != nil {
 		result.Warnings = append(result.Warnings, warningForError(logicalPath, err))
+		return
+	}
+
+	if scope == ScopeGlobal && outsideRoot(root, resolved) {
+		result.Warnings = append(result.Warnings, Warning{
+			Path:    logicalPath,
+			Code:    "SYMLINK_ESCAPE",
+			Message: "Symlink target escapes global root",
+		})
 		return
 	}
 
@@ -753,7 +773,7 @@ func uintFromStatField(value reflect.Value) (uint64, bool) {
 		if value.Int() < 0 {
 			return 0, false
 		}
-		return uint64(value.Int()), true
+		return uint64(value.Int()), true // #nosec G115 -- value.Int already validated as non-negative.
 	default:
 		return 0, false
 	}

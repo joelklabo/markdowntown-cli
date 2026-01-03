@@ -247,6 +247,52 @@ func TestScanGlobalScopeSkipsSpecialFiles(t *testing.T) {
 	}
 }
 
+func TestScanGlobalScopeSkipsSensitivePaths(t *testing.T) {
+	repoRoot := t.TempDir()
+	globalRoot := copyFixture(t, "global-scope")
+
+	registry := Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "global-sensitive",
+				ToolID:       "global-tool",
+				ToolName:     "Global Tool",
+				Kind:         "config",
+				Scope:        ScopeGlobal,
+				Paths:        []string{"global.md", "shadow", "passwd", "security/opasswd"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+
+	result, err := Scan(Options{
+		RepoRoot:      repoRoot,
+		IncludeGlobal: true,
+		GlobalRoots:   []string{globalRoot},
+		Registry:      registry,
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	if hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "shadow")) {
+		t.Fatalf("expected shadow to be skipped")
+	}
+	if hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "passwd")) {
+		t.Fatalf("expected passwd to be skipped")
+	}
+	if hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "security", "opasswd")) {
+		t.Fatalf("expected security/opasswd to be skipped")
+	}
+	if !hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "global.md")) {
+		t.Fatalf("expected global config to be scanned")
+	}
+}
+
 func TestScanGlobalScopeWarnsOnPermissionDenied(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("permission bits are unreliable on Windows")
@@ -287,6 +333,61 @@ func TestScanGlobalScopeWarnsOnPermissionDenied(t *testing.T) {
 	}
 }
 
+func TestScanGlobalScopeSymlinkEscape(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink permissions vary on Windows")
+	}
+
+	repoRoot := t.TempDir()
+	globalRoot := copyFixture(t, "global-scope")
+	externalDir := t.TempDir()
+	externalPath := filepath.Join(externalDir, "escape.md")
+	writeTestFile(t, externalPath, "escape")
+
+	linkPath := filepath.Join(globalRoot, "escape-link")
+	if err := os.Symlink(externalPath, linkPath); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			t.Skip("symlinks not permitted")
+		}
+		t.Fatalf("symlink: %v", err)
+	}
+
+	registry := Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "global-escape",
+				ToolID:       "global-tool",
+				ToolName:     "Global Tool",
+				Kind:         "config",
+				Scope:        ScopeGlobal,
+				Paths:        []string{"escape-link"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+
+	result, err := Scan(Options{
+		RepoRoot:      repoRoot,
+		IncludeGlobal: true,
+		GlobalRoots:   []string{globalRoot},
+		Registry:      registry,
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	if !hasWarning(result.Warnings, linkPath, "SYMLINK_ESCAPE") {
+		t.Fatalf("expected SYMLINK_ESCAPE warning for %s", linkPath)
+	}
+	if hasEntryWithPath(result.Entries, linkPath) || hasEntryWithPath(result.Entries, externalPath) {
+		t.Fatalf("expected escaped symlink to be skipped")
+	}
+}
+
 func TestScanGlobalScopeWarnsOnCircularSymlink(t *testing.T) {
 	globalRoot := copyFixture(t, "global-scope")
 	loopDir := filepath.Join(globalRoot, "loop")
@@ -314,6 +415,85 @@ func TestScanGlobalScopeWarnsOnCircularSymlink(t *testing.T) {
 	if !hasWarningContains(result.Warnings, filepath.Join("loop", "self"), "CIRCULAR_SYMLINK") &&
 		!hasWarningContains(result.Warnings, filepath.Join("loop", "self"), "ERROR") {
 		t.Fatalf("expected symlink warning for %s (warnings: %#v)", linkPath, result.Warnings)
+	}
+}
+
+func TestScanGlobalScopeSkipsSensitivePrefixes(t *testing.T) {
+	repoRoot := t.TempDir()
+	globalRoot := copyFixture(t, "global-scope")
+
+	registry := Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "global-sensitive",
+				ToolID:       "global-tool",
+				ToolName:     "Global Tool",
+				Kind:         "config",
+				Scope:        ScopeGlobal,
+				Paths:        []string{"global.md", "shadow", "passwd", "security/opasswd"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+
+	result, err := Scan(Options{
+		RepoRoot:      repoRoot,
+		IncludeGlobal: true,
+		GlobalRoots:   []string{globalRoot},
+		Registry:      registry,
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	if hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "shadow")) {
+		t.Fatalf("expected shadow to be skipped")
+	}
+	if hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "passwd")) {
+		t.Fatalf("expected passwd to be skipped")
+	}
+	if hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "security", "opasswd")) {
+		t.Fatalf("expected security/opasswd to be skipped")
+	}
+	if !hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "global.md")) {
+		t.Fatalf("expected global.md to be scanned")
+	}
+}
+
+func TestScanGlobalScopeWarnsOnSymlinkEscape(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink permissions vary on Windows")
+	}
+
+	globalRoot := copyFixture(t, "global-scope")
+	outsideDir := t.TempDir()
+	outsidePath := filepath.Join(outsideDir, "outside.md")
+	writeTestFile(t, outsidePath, "outside")
+
+	linkPath := filepath.Join(globalRoot, "escape.md")
+	if err := os.Symlink(outsidePath, linkPath); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			t.Skip("symlinks not permitted")
+		}
+		t.Fatalf("symlink: %v", err)
+	}
+
+	result, err := Scan(Options{
+		RepoRoot:      t.TempDir(),
+		IncludeGlobal: true,
+		GlobalRoots:   []string{globalRoot},
+		Registry:      globalScopeRegistry(),
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	if !hasWarning(result.Warnings, linkPath, "SYMLINK_ESCAPE") {
+		t.Fatalf("expected SYMLINK_ESCAPE warning for %s", linkPath)
 	}
 }
 

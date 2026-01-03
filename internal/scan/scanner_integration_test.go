@@ -3,10 +3,13 @@ package scan
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -110,6 +113,65 @@ func TestScanIntegrationGlobalScope(t *testing.T) {
 
 	if !hasEntryWithPath(output.Configs, filepath.Join(globalRoot, "global.md")) {
 		t.Fatalf("expected global config entry in output")
+	}
+}
+
+func TestScanIntegrationGlobalSymlinkEscape(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink permissions vary on Windows")
+	}
+
+	repoRoot := t.TempDir()
+	globalRoot := copyFixture(t, "global-scope")
+	externalDir := t.TempDir()
+	externalPath := filepath.Join(externalDir, "escape.md")
+	writeTestFile(t, externalPath, "escape")
+
+	linkPath := filepath.Join(globalRoot, "escape-link")
+	if err := os.Symlink(externalPath, linkPath); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			t.Skip("symlinks not permitted")
+		}
+		t.Fatalf("symlink: %v", err)
+	}
+
+	registry := Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "global-escape",
+				ToolID:       "global-tool",
+				ToolName:     "Global Tool",
+				Kind:         "config",
+				Scope:        ScopeGlobal,
+				Paths:        []string{"escape-link"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+
+	result, err := Scan(Options{
+		RepoRoot:      repoRoot,
+		IncludeGlobal: true,
+		GlobalRoots:   []string{globalRoot},
+		Registry:      registry,
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	output := BuildOutput(result, OutputOptions{
+		SchemaVersion:   "test",
+		RegistryVersion: "1",
+		ToolVersion:     "test",
+		RepoRoot:        repoRoot,
+	})
+
+	if !hasWarning(output.Warnings, linkPath, "SYMLINK_ESCAPE") {
+		t.Fatalf("expected SYMLINK_ESCAPE warning for %s", linkPath)
 	}
 }
 
