@@ -231,6 +231,118 @@ func TestDefinition(t *testing.T) {
 	}
 }
 
+func TestDocumentSymbolFrontmatter(t *testing.T) {
+	s := NewServer("0.1.0")
+	path := filepath.Join(t.TempDir(), "AGENTS.md")
+	uri := pathToURL(path)
+	content := strings.Join([]string{
+		"---",
+		"toolId: gemini-cli",
+		"metadata:",
+		"  owner: alice",
+		"excludeAgents:",
+		"  - codex",
+		"  - claude",
+		"---",
+		"# Hello",
+	}, "\n")
+
+	if err := s.didOpen(nil, &protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen failed: %v", err)
+	}
+
+	result, err := s.documentSymbol(nil, &protocol.DocumentSymbolParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	})
+	if err != nil {
+		t.Fatalf("documentSymbol failed: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected document symbols, got nil")
+	}
+
+	symbols, ok := result.([]protocol.DocumentSymbol)
+	if !ok {
+		t.Fatalf("expected []DocumentSymbol, got %#v", result)
+	}
+	if len(symbols) != 1 {
+		t.Fatalf("expected root symbol, got %#v", symbols)
+	}
+	root := symbols[0]
+	if root.Name != "Frontmatter" {
+		t.Fatalf("expected Frontmatter root, got %q", root.Name)
+	}
+	if len(root.Children) == 0 {
+		t.Fatalf("expected frontmatter children, got none")
+	}
+
+	expected := []string{
+		"toolId",
+		"metadata",
+		"metadata.owner",
+		"excludeAgents",
+		"excludeAgents[0]",
+		"excludeAgents[1]",
+	}
+	for _, name := range expected {
+		if _, ok := findDocumentSymbol(root.Children, name); !ok {
+			t.Fatalf("expected symbol %q, got %#v", name, root.Children)
+		}
+	}
+
+	toolSymbol, ok := findDocumentSymbol(root.Children, "toolId")
+	if !ok {
+		t.Fatalf("expected toolId symbol")
+	}
+	line := "toolId: gemini-cli"
+	keyStart := strings.Index(line, "toolId")
+	valueStart := strings.Index(line, "gemini-cli")
+	valueEnd := valueStart + len("gemini-cli")
+	if toolSymbol.Range.Start.Line != 1 || toolSymbol.Range.Start.Character != clampToUint32(keyStart) {
+		t.Fatalf("unexpected toolId range start: %+v", toolSymbol.Range.Start)
+	}
+	if toolSymbol.Range.End.Line != 1 || toolSymbol.Range.End.Character != clampToUint32(valueEnd) {
+		t.Fatalf("unexpected toolId range end: %+v", toolSymbol.Range.End)
+	}
+	if toolSymbol.SelectionRange.Start.Line != 1 || toolSymbol.SelectionRange.Start.Character != clampToUint32(valueStart) {
+		t.Fatalf("unexpected toolId selection start: %+v", toolSymbol.SelectionRange.Start)
+	}
+	if toolSymbol.SelectionRange.End.Line != 1 || toolSymbol.SelectionRange.End.Character != clampToUint32(valueEnd) {
+		t.Fatalf("unexpected toolId selection end: %+v", toolSymbol.SelectionRange.End)
+	}
+}
+
+func TestDocumentSymbolNoFrontmatter(t *testing.T) {
+	s := NewServer("0.1.0")
+	path := filepath.Join(t.TempDir(), "README.md")
+	uri := pathToURL(path)
+	content := "# Hello"
+
+	if err := s.didOpen(nil, &protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen failed: %v", err)
+	}
+
+	result, err := s.documentSymbol(nil, &protocol.DocumentSymbolParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	})
+	if err != nil {
+		t.Fatalf("documentSymbol failed: %v", err)
+	}
+	if result != nil {
+		t.Fatalf("expected no symbols, got %#v", result)
+	}
+}
+
 func TestDiagnosticCodeDescriptionSanitize(t *testing.T) {
 	desc := diagnosticCodeDescription("https://example.com/docs")
 	if desc == nil || desc.HRef != "https://example.com/docs" {
@@ -396,6 +508,15 @@ func TestCodeActionReplaceToolIDIdempotent(t *testing.T) {
 	if action := codeActionReplaceToolID(diag, "file:///tmp/test.md", updated); action != nil {
 		t.Fatalf("expected replacement to be skipped when already applied")
 	}
+}
+
+func findDocumentSymbol(symbols []protocol.DocumentSymbol, name string) (protocol.DocumentSymbol, bool) {
+	for _, symbol := range symbols {
+		if symbol.Name == name {
+			return symbol, true
+		}
+	}
+	return protocol.DocumentSymbol{}, false
 }
 
 func runGit(t *testing.T, dir string, args ...string) {

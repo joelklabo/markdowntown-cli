@@ -90,6 +90,7 @@ func NewServer(version string) *Server {
 		TextDocumentDidClose:            s.didClose,
 		TextDocumentHover:               s.hover,
 		TextDocumentDefinition:          s.definition,
+		TextDocumentDocumentSymbol:      s.documentSymbol,
 		TextDocumentCompletion:          s.completion,
 		TextDocumentCodeAction:          s.codeAction,
 		TextDocumentCodeLens:            s.codeLens,
@@ -122,9 +123,10 @@ func (s *Server) initialize(_ *glsp.Context, params *protocol.InitializeParams) 
 	s.setDiagnosticCapabilities(params.Capabilities)
 
 	capabilities := protocol.ServerCapabilities{
-		TextDocumentSync:   protocol.TextDocumentSyncKindFull,
-		HoverProvider:      true,
-		DefinitionProvider: true,
+		TextDocumentSync:       protocol.TextDocumentSyncKindFull,
+		HoverProvider:          true,
+		DefinitionProvider:     true,
+		DocumentSymbolProvider: true,
 		CompletionProvider: &protocol.CompletionOptions{
 			TriggerCharacters: []string{":", " "},
 		},

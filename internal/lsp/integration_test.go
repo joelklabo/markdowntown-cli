@@ -92,6 +92,78 @@ func TestDiagnosticsOverPipe(t *testing.T) {
 	}
 }
 
+func TestDocumentSymbolsOverPipe(t *testing.T) {
+	s := NewServer("0.1.0")
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 1)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "AGENTS.md"))
+	content := "---\ntoolId: gemini-cli\nscope: repo\n---\n# Hello"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	var symbols []protocol.DocumentSymbol
+	if err := clientRPC.Call(ctx, protocol.MethodTextDocumentDocumentSymbol, protocol.DocumentSymbolParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	}, &symbols); err != nil {
+		t.Fatalf("documentSymbol failed: %v", err)
+	}
+	if len(symbols) != 1 {
+		t.Fatalf("expected root symbol, got %#v", symbols)
+	}
+	root := symbols[0]
+	if root.Name != "Frontmatter" {
+		t.Fatalf("expected Frontmatter root, got %q", root.Name)
+	}
+	if root.Kind != protocol.SymbolKindObject {
+		t.Fatalf("expected root kind object, got %d", root.Kind)
+	}
+	if !findDocumentSymbolByName(root.Children, "toolId") {
+		t.Fatalf("expected toolId symbol, got %#v", root.Children)
+	}
+	if !findDocumentSymbolByName(root.Children, "scope") {
+		t.Fatalf("expected scope symbol, got %#v", root.Children)
+	}
+}
+
 func TestLeakShutdown(t *testing.T) {
 	defer goleak.VerifyNone(t, goleakOptions()...)
 
@@ -1649,6 +1721,15 @@ func containsDocumentEditMap(change map[string]any, expected string) bool {
 			if strings.Contains(text, expected) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func findDocumentSymbolByName(symbols []protocol.DocumentSymbol, name string) bool {
+	for _, symbol := range symbols {
+		if symbol.Name == name {
+			return true
 		}
 	}
 	return false
