@@ -6,6 +6,8 @@ const (
 	ScopeRepo = "repo"
 	// ScopeUser indicates user-scoped configuration.
 	ScopeUser = "user"
+	// ScopeGlobal indicates system-wide configuration.
+	ScopeGlobal = "global"
 )
 
 // Registry describes the on-disk registry JSON structure.

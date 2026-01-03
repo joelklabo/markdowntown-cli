@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 
 	scanhash "markdowntown-cli/internal/hash"
@@ -19,9 +20,11 @@ import (
 type Options struct {
 	RepoRoot       string
 	RepoOnly       bool
+	IncludeGlobal  bool
 	IncludeContent bool
 	Progress       func(string)
 	UserRoots      []string
+	GlobalRoots    []string
 	StdinPaths     []string
 	Registry       Registry
 	Patterns       []CompiledPattern
@@ -106,7 +109,52 @@ func scanUserRoots(fs afero.Fs, repoRoot string, patterns []CompiledPattern, ent
 	return userRootsAbs
 }
 
-func scanStdinPaths(fs afero.Fs, paths []string, repoRootsAbs []string, userRootsAbs []string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, opts Options) {
+func scanGlobalRoots(fs afero.Fs, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, opts Options) []string {
+	var globalRootsAbs []string
+	if !opts.IncludeGlobal {
+		return globalRootsAbs
+	}
+
+	globalRoots := opts.GlobalRoots
+	if len(globalRoots) == 0 {
+		globalRoots = DefaultGlobalRoots()
+	}
+	if len(globalRoots) == 0 {
+		return globalRootsAbs
+	}
+
+	seen := make(map[string]struct{})
+	for _, root := range globalRoots {
+		root = expandHomePath(root)
+		absRoot, err := filepath.Abs(root)
+		if err != nil {
+			result.Warnings = append(result.Warnings, warningForError(root, err))
+			continue
+		}
+		absRoot = filepath.Clean(absRoot)
+		if _, ok := seen[absRoot]; ok {
+			continue
+		}
+		seen[absRoot] = struct{}{}
+		globalRootsAbs = append(globalRootsAbs, absRoot)
+
+		info, statErr := fs.Stat(absRoot)
+		exists := statErr == nil && info.IsDir()
+		result.Scans = append(result.Scans, Root{Scope: ScopeGlobal, Root: absRoot, Exists: exists})
+		if statErr != nil && !os.IsNotExist(statErr) {
+			result.Warnings = append(result.Warnings, warningForError(absRoot, statErr))
+		}
+		if !exists {
+			continue
+		}
+		walkState := newWalkState(fs, absRoot, opts.IncludeContent, opts.Progress)
+		scanDir(absRoot, absRoot, absRoot, ScopeGlobal, info, patterns, entries, result, walkState, false, false)
+	}
+
+	return globalRootsAbs
+}
+
+func scanStdinPaths(fs afero.Fs, paths []string, repoRootsAbs []string, userRootsAbs []string, globalRootsAbs []string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, opts Options) {
 	for _, stdinPath := range paths {
 		stdinPath = strings.TrimSpace(stdinPath)
 		if stdinPath == "" {
@@ -127,7 +175,7 @@ func scanStdinPaths(fs afero.Fs, paths []string, repoRootsAbs []string, userRoot
 			result.Warnings = append(result.Warnings, warningForError(absPath, err))
 			continue
 		}
-		scope, root := resolveScopeAndRoot(absPath, repoRootsAbs, userRootsAbs, info)
+		scope, root := resolveScopeAndRoot(absPath, repoRootsAbs, userRootsAbs, globalRootsAbs, info)
 		walkState := newWalkState(fs, root, opts.IncludeContent, opts.Progress)
 		scanPath(absPath, absPath, root, scope, patterns, entries, result, walkState, true)
 	}
@@ -171,7 +219,8 @@ func Scan(opts Options) (Result, error) {
 
 	repoRootsAbs := scanRepoRoots(fs, repoRoots, patterns, entries, &result, opts)
 	userRootsAbs := scanUserRoots(fs, repoRoot, patterns, entries, &result, opts)
-	scanStdinPaths(fs, opts.StdinPaths, repoRootsAbs, userRootsAbs, patterns, entries, &result, opts)
+	globalRootsAbs := scanGlobalRoots(fs, patterns, entries, &result, opts)
+	scanStdinPaths(fs, opts.StdinPaths, repoRootsAbs, userRootsAbs, patterns, entries, globalRootsAbs, &result, opts)
 
 	for _, entry := range entries {
 		result.Entries = append(result.Entries, *entry)
@@ -228,6 +277,25 @@ func DefaultUserRoots() []string {
 	}
 }
 
+// DefaultGlobalRoots lists system-wide roots to scan (opt-in).
+func DefaultGlobalRoots() []string {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	return []string{"/etc"}
+}
+
+var globalSkipPrefixes = []string{
+	"shadow",
+	"shadow-",
+	"gshadow",
+	"gshadow-",
+	"sudoers",
+	"sudoers.d",
+	"ssh",
+	"ssl/private",
+}
+
 type walkState struct {
 	fs             afero.Fs
 	root           string
@@ -249,6 +317,9 @@ func newWalkState(fs afero.Fs, root string, includeContent bool, progress func(s
 }
 
 func scanDir(logicalPath string, actualPath string, root string, scope string, info os.FileInfo, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, state *walkState, fromStdin bool, fromSymlink bool) {
+	if scope == ScopeGlobal && shouldSkipGlobalPath(root, logicalPath, info) {
+		return
+	}
 	if scope == ScopeRepo && logicalPath != state.root {
 		if isSubmodule(state.fs, actualPath) {
 			return
@@ -285,6 +356,10 @@ func scanPath(logicalPath string, actualPath string, root string, scope string, 
 		return
 	}
 
+	if scope == ScopeGlobal && shouldSkipGlobalPath(root, logicalPath, info) {
+		return
+	}
+
 	if info.Mode()&os.ModeSymlink != 0 {
 		resolveAndScanSymlink(logicalPath, actualPath, root, scope, patterns, entries, result, state, fromStdin)
 		return
@@ -311,6 +386,10 @@ func resolveAndScanSymlink(logicalPath string, actualPath string, root string, s
 		return
 	}
 
+	if scope == ScopeGlobal && shouldSkipGlobalPath(root, resolved, resolvedInfo) {
+		return
+	}
+
 	if resolvedInfo.IsDir() {
 		scanDir(logicalPath, resolved, root, scope, resolvedInfo, patterns, entries, result, state, fromStdin, true)
 		return
@@ -320,6 +399,9 @@ func resolveAndScanSymlink(logicalPath string, actualPath string, root string, s
 }
 
 func scanFile(logicalPath string, resolvedPath string, root string, scope string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, state *walkState, info os.FileInfo, fromStdin bool) {
+	if scope == ScopeGlobal && shouldSkipGlobalPath(root, resolvedPath, info) {
+		return
+	}
 	absPath, err := filepath.Abs(logicalPath)
 	if err != nil {
 		result.Warnings = append(result.Warnings, warningForError(logicalPath, err))
@@ -520,12 +602,15 @@ func isSubmodule(fs afero.Fs, path string) bool {
 	return err == nil
 }
 
-func resolveScopeAndRoot(path string, repoRoots []string, userRoots []string, info os.FileInfo) (string, string) {
+func resolveScopeAndRoot(path string, repoRoots []string, userRoots []string, globalRoots []string, info os.FileInfo) (string, string) {
 	if repoRoot := findContainingRoot(path, repoRoots); repoRoot != "" {
 		return ScopeRepo, repoRoot
 	}
 	if userRoot := findContainingRoot(path, userRoots); userRoot != "" {
 		return ScopeUser, userRoot
+	}
+	if globalRoot := findContainingRoot(path, globalRoots); globalRoot != "" {
+		return ScopeGlobal, globalRoot
 	}
 	if info != nil && info.IsDir() {
 		return ScopeUser, path
