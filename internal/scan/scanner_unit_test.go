@@ -41,7 +41,7 @@ func TestResolveScopeAndRootFallbacks(t *testing.T) {
 		t.Fatalf("stat: %v", err)
 	}
 
-	scope, root := resolveScopeAndRoot(userFile, []string{repoRoot}, []string{userRoot}, info)
+	scope, root := resolveScopeAndRoot(userFile, []string{repoRoot}, []string{userRoot}, nil, info)
 	if scope != "user" || root != userRoot {
 		t.Fatalf("expected user scope %s, got %s %s", userRoot, scope, root)
 	}
@@ -54,13 +54,13 @@ func TestResolveScopeAndRootFallbacks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat other: %v", err)
 	}
-	scope, root = resolveScopeAndRoot(otherDir, []string{repoRoot}, []string{userRoot}, info)
+	scope, root = resolveScopeAndRoot(otherDir, []string{repoRoot}, []string{userRoot}, nil, info)
 	if scope != "user" || root != otherDir {
 		t.Fatalf("expected user scope %s, got %s %s", otherDir, scope, root)
 	}
 
 	outsideFile := filepath.Join(base, "outside", "file.txt")
-	scope, root = resolveScopeAndRoot(outsideFile, []string{repoRoot}, []string{userRoot}, nil)
+	scope, root = resolveScopeAndRoot(outsideFile, []string{repoRoot}, []string{userRoot}, nil, nil)
 	if scope != "user" || root != filepath.Dir(outsideFile) {
 		t.Fatalf("expected user scope %s, got %s %s", filepath.Dir(outsideFile), scope, root)
 	}

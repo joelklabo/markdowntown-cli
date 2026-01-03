@@ -166,11 +166,7 @@ func scanStdinPaths(fs afero.Fs, paths []string, repoRootsAbs []string, userRoot
 			result.Warnings = append(result.Warnings, warningForError(path, err))
 			continue
 		}
-		info, err := fs.Stat(absPath) // Was Lstat, but afero might not have Lstat?
-		// We'll address Lstat later. For now fs.Stat.
-		// Wait, we need Lstat for symlinks.
-		// If fs is OsFs, we can use os.Lstat? No, must use fs.
-		// afero.Lstater check.
+		info, err := lstat(fs, absPath)
 		if err != nil {
 			result.Warnings = append(result.Warnings, warningForError(absPath, err))
 			continue
@@ -220,7 +216,7 @@ func Scan(opts Options) (Result, error) {
 	repoRootsAbs := scanRepoRoots(fs, repoRoots, patterns, entries, &result, opts)
 	userRootsAbs := scanUserRoots(fs, repoRoot, patterns, entries, &result, opts)
 	globalRootsAbs := scanGlobalRoots(fs, patterns, entries, &result, opts)
-	scanStdinPaths(fs, opts.StdinPaths, repoRootsAbs, userRootsAbs, patterns, entries, globalRootsAbs, &result, opts)
+	scanStdinPaths(fs, opts.StdinPaths, repoRootsAbs, userRootsAbs, globalRootsAbs, patterns, entries, &result, opts)
 
 	for _, entry := range entries {
 		result.Entries = append(result.Entries, *entry)
@@ -294,6 +290,39 @@ var globalSkipPrefixes = []string{
 	"sudoers.d",
 	"ssh",
 	"ssl/private",
+}
+
+func shouldSkipGlobalPath(root string, path string, info os.FileInfo) bool {
+	if isSpecialFile(info) {
+		return true
+	}
+
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return true
+	}
+	if rel == "." {
+		return false
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return true
+	}
+
+	rel = filepath.ToSlash(rel)
+	for _, prefix := range globalSkipPrefixes {
+		if rel == prefix || strings.HasPrefix(rel, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+func isSpecialFile(info os.FileInfo) bool {
+	if info == nil {
+		return false
+	}
+	mode := info.Mode()
+	return mode&(os.ModeDevice|os.ModeCharDevice|os.ModeNamedPipe|os.ModeSocket|os.ModeIrregular) != 0
 }
 
 type walkState struct {

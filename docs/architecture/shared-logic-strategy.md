@@ -97,13 +97,40 @@ GOOS=js GOARCH=wasm go build -o dist/markdowntown.wasm ./internal/wasm
 **Web loader (Node/server):**
 
 - Load WASM in a server-only module for audit evaluation during snapshot ingest.
-- Interface: The WASM module exposes a global function (e.g., `auditSnapshot(json)`) that accepts serialized snapshot data and returns serialized diagnostic results.
+- Interface: The WASM module exposes a global function (e.g., `auditSnapshot(bytes)`) that accepts serialized snapshot bytes and returns serialized diagnostic results.
 - Cache the compiled module to avoid repeated instantiation.
+- Enforce input size limits and execution timeouts before invoking the WASM entrypoint.
 
 **Browser usage (optional):**
 
 - Only for lightweight checks; no filesystem access.
 - Enforce size limits for inputs to avoid UI stalls.
+
+## Interface Contract (JS ↔ WASM)
+
+- **Input type:** prefer `Uint8Array` (bytes) over JSON strings to avoid encoding overhead.
+- **Validation:** reject inputs over a documented size cap before invoking WASM.
+- **Timeouts:** enforce a max execution time; return structured timeout errors.
+- **Error schema:** return a JSON object with `code`, `message`, `details`, and `version` fields.
+- **Panic handling:** Go entrypoint must `recover` and return a structured error instead of crashing.
+
+## Version Compatibility
+
+- Embed `toolVersion` and `schemaVersion` in WASM responses.
+- Web rejects mismatched versions and surfaces a clear recovery path.
+- CI must rebuild the WASM artifact on any Go rule or schema changes.
+
+## Execution Model (Node)
+
+- Decide between a **singleton module** (serialized calls) or a **worker pool** (parallelism).
+- Document the default strategy and the concurrency limits.
+- Measure p95 latency across payload sizes (10KB / 1MB / 10MB) before rollout.
+
+## Observability
+
+- Add a logging bridge so Go logs are surfaced through the JS logger.
+- Record execution time, error counts, and version mismatches.
+- Alert on repeated timeouts or panic recoveries.
 
 ## Fallback Plan (Sidecar)
 
@@ -118,8 +145,12 @@ If WASM is too large/slow or cannot be loaded reliably:
 
 - **WASM Panics:** Wrap Go execution in a recovery handler; return structured error JSON to the JS host instead of crashing the module.
 - **WASM size limits:** keep exports minimal; strip debug symbols.
+- **Snapshot size limits:** reject inputs over the configured cap before invoking WASM.
+- **Timeouts:** abort long-running evaluations and return structured errors.
+- **Concurrency:** avoid shared mutable state across concurrent evaluations unless protected.
 - **Browser vs Node differences:** prefer Node/server for large audits.
 - **Version skew:** embed CLI version + schema version in WASM output; web rejects mismatched versions.
+- **String size limits:** avoid large JSON strings; pass bytes instead.
 - **I/O constraints:** scanning stays CLI-side; web receives pre-scanned snapshots.
 
 ## Testing Strategy

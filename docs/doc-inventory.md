@@ -21,6 +21,7 @@
 - `docs/architecture/registry.md`: Registry loader architecture.
 - `docs/architecture/security.md`: Security considerations.
 - `docs/architecture/instruction-adapters.md`: Adapter design.
+- `docs/architecture/shared-logic-strategy.md`: Shared core strategy for CLI/LSP.
 
 ## Future / Draft
 

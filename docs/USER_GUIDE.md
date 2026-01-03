@@ -27,6 +27,38 @@ rm "$(go env GOPATH)/bin/markdowntown"
 
 ## Commands
 
+## VS Code LSP diagnostics
+
+When you use the VS Code LSP overlay, markdowntown publishes diagnostics with quick fixes and related details.
+
+![Markdowntown LSP diagnostics](docs/screenshots/lsp-diagnostics/diagnostics.png)
+
+### Settings
+
+Add these to `.vscode/settings.json` (workspace) or user settings:
+
+```json
+{
+  "markdowntown.serverPath": "markdowntown",
+  "markdowntown.registryPath": "",
+  "markdowntown.diagnostics.enabled": true,
+  "markdowntown.diagnostics.delayMs": 500,
+  "markdowntown.diagnostics.rulesEnabled": [],
+  "markdowntown.diagnostics.rulesDisabled": ["MD003"],
+  "markdowntown.diagnostics.severityOverrides": {
+    "MD002": "warning"
+  },
+  "markdowntown.diagnostics.includeRelatedInfo": true,
+  "markdowntown.diagnostics.includeEvidence": true,
+  "markdowntown.diagnostics.redactPaths": "never"
+}
+```
+
+### Quick fixes
+
+- **Disable rule**: Adds the rule ID to `markdowntown.diagnostics.rulesDisabled` in `.vscode/settings.json` (requires a `.vscode/` folder).
+- Other fixes include removing invalid frontmatter, inserting placeholders, and replacing unknown toolIds.
+
 ### `markdowntown scan`
 
 ```bash

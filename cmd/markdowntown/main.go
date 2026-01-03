@@ -49,6 +49,7 @@ Usage:
 Flags:
   --repo <path>         Repo path (defaults to git root from cwd)
   --repo-only           Exclude user scope; scan repo only
+  --global-scope        Include global/system scope roots (e.g., /etc)
   --stdin               Read additional paths from stdin (one per line)
   --include-content     Include file contents in output (default)
   --no-content          Exclude file contents from output
@@ -68,6 +69,7 @@ Usage:
 Flags:
   --ref <ref>           Git reference (branch, tag, commit) to checkout
   --repo-only           Exclude user scope; scan repo only
+  --global-scope        Include global/system scope roots (e.g., /etc)
   --include-content     Include file contents in output (default)
   --no-content          Exclude file contents from output
   --format <json|jsonl> Output format (default: json)
@@ -94,6 +96,7 @@ Flags:
   --include-scan-warnings   Include raw scan warnings in output
   --repo <path>             Repo path (defaults to git root)
   --repo-only               Exclude user scope when running internal scan
+  --global-scope            Include global/system scope roots (e.g., /etc)
   --stdin                   Read additional scan roots from stdin
   --no-content              Exclude file contents from internal scan
   -h, --help                Show help
@@ -172,6 +175,7 @@ func runScan(args []string) error {
 
 	var repoPath string
 	var repoOnly bool
+	var globalScope bool
 	var readStdin bool
 	var includeContent bool
 	var noContent bool
@@ -184,6 +188,7 @@ func runScan(args []string) error {
 
 	flags.StringVar(&repoPath, "repo", "", "repo path (defaults to git root)")
 	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
+	flags.BoolVar(&globalScope, "global-scope", false, "include global/system scope roots")
 	flags.BoolVar(&readStdin, "stdin", false, "read additional paths from stdin")
 	flags.BoolVar(&includeContent, "include-content", true, "include file contents")
 	flags.BoolVar(&noContent, "no-content", false, "exclude file contents")
@@ -239,6 +244,7 @@ func runScan(args []string) error {
 	result, err := scan.Scan(scan.Options{
 		RepoRoot:       repoRoot,
 		RepoOnly:       repoOnly,
+		IncludeGlobal:  globalScope,
 		IncludeContent: includeContent,
 		Progress:       progress,
 		StdinPaths:     stdinPaths,
@@ -286,6 +292,7 @@ func runScanRemote(args []string) error {
 
 	var ref string
 	var repoOnly bool
+	var globalScope bool
 	var includeContent bool
 	var noContent bool
 	var format string
@@ -296,6 +303,7 @@ func runScanRemote(args []string) error {
 
 	flags.StringVar(&ref, "ref", "", "git reference to checkout")
 	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
+	flags.BoolVar(&globalScope, "global-scope", false, "include global/system scope roots")
 	flags.BoolVar(&includeContent, "include-content", true, "include file contents")
 	flags.BoolVar(&noContent, "no-content", false, "exclude file contents")
 	flags.StringVar(&format, "format", "json", "output format (json or jsonl)")
@@ -347,6 +355,7 @@ func runScanRemote(args []string) error {
 	result, err := scan.Scan(scan.Options{
 		RepoRoot:       repoRoot,
 		RepoOnly:       repoOnly,
+		IncludeGlobal:  globalScope,
 		IncludeContent: includeContent,
 		Progress:       progress,
 		Registry:       registry,
@@ -399,6 +408,7 @@ func runAudit(args []string) error {
 	var includeScanWarnings bool
 	var repoPath string
 	var repoOnly bool
+	var globalScope bool
 	var readStdin bool
 	var noContent bool
 	var help bool
@@ -417,6 +427,7 @@ func runAudit(args []string) error {
 	flags.BoolVar(&includeScanWarnings, "include-scan-warnings", false, "include raw scan warnings")
 	flags.StringVar(&repoPath, "repo", "", "repo path (defaults to git root)")
 	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
+	flags.BoolVar(&globalScope, "global-scope", false, "include global/system scope roots")
 	flags.BoolVar(&readStdin, "stdin", false, "read additional paths from stdin")
 	flags.BoolVar(&noContent, "no-content", false, "exclude file contents from internal scan")
 	flags.BoolVar(&help, "help", false, "show help")
@@ -485,6 +496,7 @@ func runAudit(args []string) error {
 		result, err := scan.Scan(scan.Options{
 			RepoRoot:       repoRoot,
 			RepoOnly:       repoOnly,
+			IncludeGlobal:  globalScope,
 			IncludeContent: !noContent,
 			Progress:       progress,
 			StdinPaths:     stdinPaths,

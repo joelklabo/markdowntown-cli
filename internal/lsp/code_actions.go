@@ -1,7 +1,9 @@
 package lsp
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -20,6 +22,7 @@ const (
 	quickFixRemoveDuplicateFM   = "remove-duplicate-frontmatter"
 	quickFixInsertFrontmatterID = "insert-frontmatter-id"
 	quickFixReplaceToolID       = "replace-toolid"
+	quickFixDisableRule         = "disable-rule"
 )
 
 type codeActionRequest struct {
@@ -43,6 +46,10 @@ func (s *Server) codeActionsForDiagnostic(diag protocol.Diagnostic, req codeActi
 	if len(fixIDs) == 0 {
 		fixIDs = defaultQuickFixesForRule(ruleID)
 	}
+	if ruleID != "" {
+		fixIDs = append(fixIDs, quickFixDisableRule)
+	}
+	fixIDs = dedupeStrings(fixIDs)
 	if len(fixIDs) == 0 {
 		return nil
 	}
@@ -104,6 +111,8 @@ func (s *Server) codeActionForFix(fixID string, diag protocol.Diagnostic, req co
 		return codeActionInsertFrontmatter(diag, req.uri, req.path, req.content)
 	case quickFixReplaceToolID:
 		return codeActionReplaceToolID(diag, req.uri, req.content)
+	case quickFixDisableRule:
+		return s.codeActionDisableRule(diag, req.path)
 	default:
 		return nil
 	}
@@ -394,6 +403,98 @@ func codeActionReplaceToolID(diag protocol.Diagnostic, uri string, content strin
 						Range:   diag.Range,
 						NewText: replacement,
 					},
+				},
+			},
+		},
+	}
+	return &action
+}
+
+func (s *Server) codeActionDisableRule(diag protocol.Diagnostic, path string) *protocol.CodeAction {
+	ruleID := diagnosticRuleID(diag)
+	if ruleID == "" {
+		return nil
+	}
+	repoRoot := repoRootForPath(s.rootPath, path)
+	if repoRoot == "" {
+		return nil
+	}
+	settingsPath := filepath.Join(repoRoot, ".vscode", "settings.json")
+	settingsDir := filepath.Dir(settingsPath)
+	if info, err := s.fs.Stat(settingsDir); err != nil || !info.IsDir() {
+		return nil
+	}
+
+	content := ""
+	exists := false
+	if data, err := afero.ReadFile(s.fs, settingsPath); err == nil {
+		content = string(data)
+		exists = true
+	} else if err != nil && !os.IsNotExist(err) {
+		return nil
+	}
+
+	settings := map[string]any{}
+	if strings.TrimSpace(content) != "" {
+		if err := json.Unmarshal([]byte(content), &settings); err != nil {
+			return nil
+		}
+	}
+
+	key := "markdowntown.diagnostics.rulesDisabled"
+	rules := parseStringSlice(settings[key])
+	for _, rule := range rules {
+		if rule == ruleID {
+			return nil
+		}
+	}
+	rules = append(rules, ruleID)
+	rules = dedupeStrings(rules)
+	sort.Strings(rules)
+	settings[key] = rules
+
+	payload, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return nil
+	}
+	payload = append(payload, '\n')
+
+	kind := protocol.CodeActionKindQuickFix
+	action := protocol.CodeAction{
+		Title:       actionTitleDisableRulePrefix + ruleID,
+		Kind:        &kind,
+		Diagnostics: []protocol.Diagnostic{diag},
+		Edit:        &protocol.WorkspaceEdit{},
+	}
+
+	if exists {
+		end := endPositionForContent(content)
+		action.Edit.Changes = map[string][]protocol.TextEdit{
+			pathToURI(settingsPath): {
+				{
+					Range:   protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: end},
+					NewText: string(payload),
+				},
+			},
+		}
+		return &action
+	}
+
+	uri := pathToURI(settingsPath)
+	action.Edit.DocumentChanges = []any{
+		protocol.CreateFile{
+			Kind:    "create",
+			URI:     uri,
+			Options: &protocol.CreateFileOptions{IgnoreIfExists: boolPtr(true)},
+		},
+		protocol.TextDocumentEdit{
+			TextDocument: protocol.OptionalVersionedTextDocumentIdentifier{
+				TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+			},
+			Edits: []any{
+				protocol.TextEdit{
+					Range:   protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+					NewText: string(payload),
 				},
 			},
 		},

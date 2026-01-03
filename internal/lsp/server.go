@@ -37,6 +37,7 @@ const (
 	actionTitleRemoveDuplicateFrontmatterPrefix = "Remove duplicate frontmatter "
 	actionTitleInsertFrontmatterPrefix          = "Insert frontmatter "
 	actionTitleReplaceToolIDPrefix              = "Replace toolId with "
+	actionTitleDisableRulePrefix                = "Disable rule "
 )
 
 // Server holds LSP state and handlers.

@@ -967,6 +967,82 @@ func TestCodeActionReplaceToolID(t *testing.T) {
 	assertActionContainsText(t, actions, actionTitleReplaceToolIDPrefix+"gemini-cli", "gemini-cli")
 }
 
+func TestCodeActionDisableRule(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	settingsDir := filepath.Join(repoRoot, ".vscode")
+	if err := os.MkdirAll(settingsDir, 0o700); err != nil {
+		t.Fatalf("mkdir settings dir: %v", err)
+	}
+	settingsPath := filepath.Join(settingsDir, "settings.json")
+	if err := os.WriteFile(settingsPath, []byte("{\n  \"editor.tabSize\": 2\n}\n"), 0o600); err != nil {
+		t.Fatalf("write settings.json: %v", err)
+	}
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "AGENTS.md"))
+	content := "---\nkey: value\ninvalid: [\n---\n# Hello"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	if len(params.Diagnostics) == 0 {
+		t.Fatal("expected diagnostics for invalid frontmatter")
+	}
+
+	var actions []protocol.CodeAction
+	if err := clientRPC.Call(ctx, protocol.MethodTextDocumentCodeAction, protocol.CodeActionParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Range:        protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+		Context:      protocol.CodeActionContext{Diagnostics: params.Diagnostics},
+	}, &actions); err != nil {
+		t.Fatalf("codeAction request failed: %v", err)
+	}
+
+	assertActionContainsText(t, actions, actionTitleDisableRulePrefix+"MD003", "markdowntown.diagnostics.rulesDisabled")
+	assertActionContainsText(t, actions, actionTitleDisableRulePrefix+"MD003", "MD003")
+}
+
 func TestCodeLensShadowedByOverride(t *testing.T) {
 	s := NewServer("0.1.0")
 	repoRoot := t.TempDir()

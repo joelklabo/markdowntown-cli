@@ -82,7 +82,7 @@ These rules can be implemented using scan metadata without reading file content,
 
 - MD005 should surface candidate repo paths in related info to make the suggestion actionable.
 - Shadowed configs (proposed MD013) should use `Unnecessary` tag and a hint severity.
-- Consider a "Disable rule" quick fix for noisy diagnostics to streamline triage.
+- Consider a "Disable rule" quick fix for noisy diagnostics to streamline triage (now implemented for VS Code settings).
 
 ## Follow-on Tasks
 
