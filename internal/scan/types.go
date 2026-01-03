@@ -1,6 +1,13 @@
 // Package scan provides registry loading and file matching helpers.
 package scan
 
+const (
+	// ScopeRepo indicates repository-scoped configuration.
+	ScopeRepo = "repo"
+	// ScopeUser indicates user-scoped configuration.
+	ScopeUser = "user"
+)
+
 // Registry describes the on-disk registry JSON structure.
 type Registry struct {
 	Version  string    `json:"version"`

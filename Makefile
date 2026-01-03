@@ -6,7 +6,7 @@ GO ?= go
 PYTHON ?= python3
 GOLANGCI_LINT ?= golangci-lint
 
-.PHONY: build test lint fmt check clean install coverage coverage-report coverage-html release snapshot run watch dev lsp-vscode
+.PHONY: build test lint fmt check clean install coverage coverage-report coverage-html release snapshot run watch dev lsp-vscode lsp-vscode-test
 
 build:
 	@mkdir -p $(BIN_DIR)
@@ -15,8 +15,27 @@ build:
 test:
 	$(GO) test ./...
 
-lint:
+lint: lint-go lint-md lint-yaml lint-sh
+
+lint-go:
 	$(GOLANGCI_LINT) run ./...
+
+lint-md:
+	npx markdownlint-cli "**/*.md" --ignore "**/node_modules/**" --ignore .gemini
+
+lint-yaml:
+	@if command -v yamllint > /dev/null; then \
+		yamllint .; \
+	else \
+		echo "yamllint not found, skipping"; \
+	fi
+
+lint-sh:
+	@if command -v shellcheck > /dev/null; then \
+		shellcheck scripts/*.sh; \
+	else \
+		echo "shellcheck not found, skipping"; \
+	fi
 
 fmt:
 	gofmt -w ./cmd ./internal
@@ -56,3 +75,6 @@ dev:
 
 lsp-vscode:
 	./scripts/lsp-vscode
+
+lsp-vscode-test:
+	cd vscode-extension && if [ ! -d node_modules ]; then npm install; fi && npm test

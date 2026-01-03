@@ -293,7 +293,7 @@ func resolveCodexInstruction(dir string, scope Scope, fallback []string, maxByte
 		return &instruction, nil
 	}
 
-	return nil, nil
+	return nil, nil //nolint:nilnil
 }
 
 func normalizeResolvePaths(opts ResolveOptions) (string, string, string, error) {

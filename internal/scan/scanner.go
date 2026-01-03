@@ -36,62 +36,8 @@ type Result struct {
 }
 
 // Scan discovers files across repo/user scopes and stdin paths.
-func Scan(opts Options) (Result, error) {
-	var result Result
-
-	if strings.TrimSpace(opts.RepoRoot) == "" {
-		return result, fmt.Errorf("repo root required")
-	}
-
-	fs := opts.Fs
-	if fs == nil {
-		fs = afero.NewOsFs()
-	}
-
-	patterns := opts.Patterns
-	if len(patterns) == 0 {
-		if len(opts.Registry.Patterns) == 0 {
-			return result, fmt.Errorf("registry patterns required")
-		}
-		compiled, err := CompilePatterns(opts.Registry)
-		if err != nil {
-			return result, err
-		}
-		patterns = compiled
-	}
-
-	if !opts.RepoOnly {
-		fallback, configPath, err := loadCodexFallbackFilenames(fs)
-		if err != nil {
-			result.Warnings = append(result.Warnings, warningForError(configPath, err))
-		} else if len(fallback) > 0 {
-			updated, err := appendCodexFallbackPatterns(patterns, fallback)
-			if err != nil {
-				result.Warnings = append(result.Warnings, warningForError(configPath, err))
-			} else {
-				patterns = updated
-			}
-		}
-	}
-
-	repoRoot, err := filepath.Abs(opts.RepoRoot)
-	if err != nil {
-		return result, err
-	}
-	repoRoot = filepath.Clean(repoRoot)
-
-	entries := make(map[string]*ConfigEntry)
-
-	repoRoots := []string{repoRoot}
-	workspaceRoots, workspaceWarnings := discoverWorkspaceRoots(fs, repoRoot)
-	if len(workspaceWarnings) > 0 {
-		result.Warnings = append(result.Warnings, workspaceWarnings...)
-	}
-	if len(workspaceRoots) > 0 {
-		repoRoots = append(repoRoots, workspaceRoots...)
-	}
-
-	var repoRootsAbs []string
+func scanRepoRoots(fs afero.Fs, repoRoots []string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, opts Options) []string {
+	repoRootsAbs := make([]string, 0, len(repoRoots))
 	repoRootSeen := make(map[string]struct{})
 	for _, root := range repoRoots {
 		root = expandHomePath(root)
@@ -108,53 +54,60 @@ func Scan(opts Options) (Result, error) {
 		repoRootsAbs = append(repoRootsAbs, absRoot)
 	}
 
-	var userRootsAbs []string
-
 	for _, root := range repoRootsAbs {
 		repoInfo, repoErr := fs.Stat(root)
 		repoExists := repoErr == nil && repoInfo.IsDir()
-		result.Scans = append(result.Scans, Root{Scope: "repo", Root: root, Exists: repoExists})
+		result.Scans = append(result.Scans, Root{Scope: ScopeRepo, Root: root, Exists: repoExists})
 		if repoErr != nil && !os.IsNotExist(repoErr) {
 			result.Warnings = append(result.Warnings, warningForError(root, repoErr))
 		}
 		if repoExists {
 			walkState := newWalkState(fs, root, opts.IncludeContent, opts.Progress)
-			scanDir(root, root, root, "repo", repoInfo, patterns, entries, &result, walkState, false, false)
+			scanDir(root, root, root, ScopeRepo, repoInfo, patterns, entries, result, walkState, false, false)
 		}
 	}
+	return repoRootsAbs
+}
 
-	if !opts.RepoOnly {
-		userRoots := opts.UserRoots
-		if len(userRoots) == 0 {
-			userRoots = DefaultUserRoots()
-		}
-		if extraRoots := discoverVSCodeInstructionPaths(fs, repoRoot, userRoots); len(extraRoots) > 0 {
-			userRoots = append(userRoots, extraRoots...)
-		}
-		for _, root := range userRoots {
-			root = expandHomePath(root)
-			absRoot, err := filepath.Abs(root)
-			if err != nil {
-				result.Warnings = append(result.Warnings, warningForError(root, err))
-				continue
-			}
-			absRoot = filepath.Clean(absRoot)
-			userRootsAbs = append(userRootsAbs, absRoot)
-			info, statErr := fs.Stat(absRoot)
-			exists := statErr == nil && info.IsDir()
-			result.Scans = append(result.Scans, Root{Scope: "user", Root: absRoot, Exists: exists})
-			if statErr != nil && !os.IsNotExist(statErr) {
-				result.Warnings = append(result.Warnings, warningForError(absRoot, statErr))
-			}
-			if !exists {
-				continue
-			}
-			walkState := newWalkState(fs, absRoot, opts.IncludeContent, opts.Progress)
-			scanDir(absRoot, absRoot, absRoot, "user", info, patterns, entries, &result, walkState, false, false)
-		}
+func scanUserRoots(fs afero.Fs, repoRoot string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, opts Options) []string {
+	var userRootsAbs []string
+	if opts.RepoOnly {
+		return userRootsAbs
 	}
 
-	for _, stdinPath := range opts.StdinPaths {
+	userRoots := opts.UserRoots
+	if len(userRoots) == 0 {
+		userRoots = DefaultUserRoots()
+	}
+	if extraRoots := discoverVSCodeInstructionPaths(fs, repoRoot, userRoots); len(extraRoots) > 0 {
+		userRoots = append(userRoots, extraRoots...)
+	}
+	for _, root := range userRoots {
+		root = expandHomePath(root)
+		absRoot, err := filepath.Abs(root)
+		if err != nil {
+			result.Warnings = append(result.Warnings, warningForError(root, err))
+			continue
+		}
+		absRoot = filepath.Clean(absRoot)
+		userRootsAbs = append(userRootsAbs, absRoot)
+		info, statErr := fs.Stat(absRoot)
+		exists := statErr == nil && info.IsDir()
+		result.Scans = append(result.Scans, Root{Scope: ScopeUser, Root: absRoot, Exists: exists})
+		if statErr != nil && !os.IsNotExist(statErr) {
+			result.Warnings = append(result.Warnings, warningForError(absRoot, statErr))
+		}
+		if !exists {
+			continue
+		}
+		walkState := newWalkState(fs, absRoot, opts.IncludeContent, opts.Progress)
+		scanDir(absRoot, absRoot, absRoot, ScopeUser, info, patterns, entries, result, walkState, false, false)
+	}
+	return userRootsAbs
+}
+
+func scanStdinPaths(fs afero.Fs, paths []string, repoRootsAbs []string, userRootsAbs []string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, opts Options) {
+	for _, stdinPath := range paths {
 		stdinPath = strings.TrimSpace(stdinPath)
 		if stdinPath == "" {
 			continue
@@ -176,14 +129,86 @@ func Scan(opts Options) (Result, error) {
 		}
 		scope, root := resolveScopeAndRoot(absPath, repoRootsAbs, userRootsAbs, info)
 		walkState := newWalkState(fs, root, opts.IncludeContent, opts.Progress)
-		scanPath(absPath, absPath, root, scope, patterns, entries, &result, walkState, true)
+		scanPath(absPath, absPath, root, scope, patterns, entries, result, walkState, true)
 	}
+}
+
+// Scan discovers files across repo/user scopes and stdin paths.
+func Scan(opts Options) (Result, error) {
+	var result Result
+
+	if strings.TrimSpace(opts.RepoRoot) == "" {
+		return result, fmt.Errorf("repo root required")
+	}
+
+	fs := opts.Fs
+	if fs == nil {
+		fs = afero.NewOsFs()
+	}
+
+	patterns, warnings, err := loadPatterns(fs, opts)
+	if err != nil {
+		return result, err
+	}
+	result.Warnings = append(result.Warnings, warnings...)
+
+	repoRoot, err := filepath.Abs(opts.RepoRoot)
+	if err != nil {
+		return result, err
+	}
+	repoRoot = filepath.Clean(repoRoot)
+
+	entries := make(map[string]*ConfigEntry)
+
+	repoRoots := []string{repoRoot}
+	workspaceRoots, workspaceWarnings := discoverWorkspaceRoots(fs, repoRoot)
+	if len(workspaceWarnings) > 0 {
+		result.Warnings = append(result.Warnings, workspaceWarnings...)
+	}
+	if len(workspaceRoots) > 0 {
+		repoRoots = append(repoRoots, workspaceRoots...)
+	}
+
+	repoRootsAbs := scanRepoRoots(fs, repoRoots, patterns, entries, &result, opts)
+	userRootsAbs := scanUserRoots(fs, repoRoot, patterns, entries, &result, opts)
+	scanStdinPaths(fs, opts.StdinPaths, repoRootsAbs, userRootsAbs, patterns, entries, &result, opts)
 
 	for _, entry := range entries {
 		result.Entries = append(result.Entries, *entry)
 	}
 
 	return result, nil
+}
+
+func loadPatterns(fs afero.Fs, opts Options) ([]CompiledPattern, []Warning, error) {
+	patterns := opts.Patterns
+	var warnings []Warning
+
+	if len(patterns) == 0 {
+		if len(opts.Registry.Patterns) == 0 {
+			return nil, nil, fmt.Errorf("registry patterns required")
+		}
+		compiled, err := CompilePatterns(opts.Registry)
+		if err != nil {
+			return nil, nil, err
+		}
+		patterns = compiled
+	}
+
+	if !opts.RepoOnly {
+		fallback, configPath, err := loadCodexFallbackFilenames(fs)
+		if err != nil {
+			warnings = append(warnings, warningForError(configPath, err))
+		} else if len(fallback) > 0 {
+			updated, err := appendCodexFallbackPatterns(patterns, fallback)
+			if err != nil {
+				warnings = append(warnings, warningForError(configPath, err))
+			} else {
+				patterns = updated
+			}
+		}
+	}
+	return patterns, warnings, nil
 }
 
 // DefaultUserRoots lists user-scope roots to scan.
@@ -224,7 +249,7 @@ func newWalkState(fs afero.Fs, root string, includeContent bool, progress func(s
 }
 
 func scanDir(logicalPath string, actualPath string, root string, scope string, info os.FileInfo, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, state *walkState, fromStdin bool, fromSymlink bool) {
-	if scope == "repo" && logicalPath != state.root {
+	if scope == ScopeRepo && logicalPath != state.root {
 		if isSubmodule(state.fs, actualPath) {
 			return
 		}
@@ -497,15 +522,15 @@ func isSubmodule(fs afero.Fs, path string) bool {
 
 func resolveScopeAndRoot(path string, repoRoots []string, userRoots []string, info os.FileInfo) (string, string) {
 	if repoRoot := findContainingRoot(path, repoRoots); repoRoot != "" {
-		return "repo", repoRoot
+		return ScopeRepo, repoRoot
 	}
 	if userRoot := findContainingRoot(path, userRoots); userRoot != "" {
-		return "user", userRoot
+		return ScopeUser, userRoot
 	}
 	if info != nil && info.IsDir() {
-		return "user", path
+		return ScopeUser, path
 	}
-	return "user", filepath.Dir(path)
+	return ScopeUser, filepath.Dir(path)
 }
 
 func findContainingRoot(path string, roots []string) string {

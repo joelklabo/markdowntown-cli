@@ -188,7 +188,7 @@ func (s *Server) hover(_ *glsp.Context, params *protocol.HoverParams) (*protocol
 	s.cacheMu.Unlock()
 
 	if parsed == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 
 	line := int(params.Position.Line + 1)
@@ -202,7 +202,7 @@ func (s *Server) hover(_ *glsp.Context, params *protocol.HoverParams) (*protocol
 	}
 
 	if foundKey == "" {
-		return nil, nil
+		return nil, nil //nolint:nilnil // Valid LSP response for no hover
 	}
 
 	if strings.Contains(foundKey, "toolId") {
@@ -228,7 +228,7 @@ func (s *Server) hover(_ *glsp.Context, params *protocol.HoverParams) (*protocol
 		}
 	}
 
-	return nil, nil
+	return nil, nil //nolint:nilnil
 }
 
 func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) (any, error) {
@@ -237,7 +237,7 @@ func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) 
 	s.cacheMu.Unlock()
 
 	if parsed == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 
 	line := int(params.Position.Line + 1)
@@ -250,7 +250,7 @@ func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) 
 	}
 
 	if foundKey == "" {
-		return nil, nil
+		return nil, nil //nolint:nilnil // Valid LSP response for no definition
 	}
 
 	if strings.Contains(foundKey, "toolId") {
@@ -275,7 +275,7 @@ func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) 
 		}
 	}
 
-	return nil, nil
+	return nil, nil //nolint:nilnil
 }
 
 func (s *Server) triggerDiagnostics(context *glsp.Context, uri string) {

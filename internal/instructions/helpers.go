@@ -25,12 +25,12 @@ func instructionFileWithScope(path string, scope Scope, reason InstructionReason
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return nil, nil //nolint:nilnil
 		}
 		return nil, err
 	}
 	if info.IsDir() || info.Size() == 0 {
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 
 	return &InstructionFile{
@@ -63,7 +63,7 @@ func nearestAncestorFile(startDir, repoRoot, name string, reason InstructionReas
 		}
 		dir = parent
 	}
-	return nil, nil
+	return nil, nil //nolint:nilnil
 }
 
 func collectInstructionFiles(rootDir, targetRel, agent string) ([]InstructionFile, []string, error) {

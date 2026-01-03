@@ -103,7 +103,7 @@ func discoverRegistryPaths() ([]string, error) {
 		return nil, err
 	}
 
-	var found []string
+	found := make([]string, 0, len(candidates))
 	for _, candidate := range candidates {
 		info, err := os.Stat(candidate)
 		if err != nil {

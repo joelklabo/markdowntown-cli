@@ -17,6 +17,9 @@ linters:
     - misspell
     - unparam
     - forbidigo
+    - bodyclose
+    - gocyclo
+    - godox
 
   settings:
     forbidigo:

@@ -263,7 +263,7 @@ func TestServeCanary(t *testing.T) {
 
 	stream := procStream{reader: stdout, writer: stdin}
 	clientRPC := jsonrpc2.NewConn(context.Background(), jsonrpc2.NewBufferedStream(stream, jsonrpc2.VSCodeObjectCodec{}), jsonrpc2.HandlerWithError(func(context.Context, *jsonrpc2.Conn, *jsonrpc2.Request) (any, error) {
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}))
 	t.Cleanup(func() {
 		_ = clientRPC.Close()
@@ -340,7 +340,7 @@ func newServerRPC(t *testing.T, s *Server, conn io.ReadWriteCloser) *jsonrpc2.Co
 
 		if request.Method == protocol.MethodExit {
 			_ = connection.Close()
-			return nil, nil
+			return nil, nil //nolint:nilnil
 		}
 
 		r, validMethod, validParams, err := s.handler.Handle(&glspContext)
@@ -386,7 +386,7 @@ func newClientRPC(t *testing.T, conn io.ReadWriteCloser, diagnostics chan<- prot
 		case diagnostics <- params:
 		default:
 		}
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	})
 
 	return jsonrpc2.NewConn(context.Background(), jsonrpc2.NewBufferedStream(conn, jsonrpc2.VSCodeObjectCodec{}), handler)
