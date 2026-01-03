@@ -32,7 +32,18 @@ lint-yaml:
 
 lint-sh:
 	@if command -v shellcheck > /dev/null; then \
-		shellcheck scripts/*.sh; \
+		scripts=""; \
+		if ls scripts/*.sh > /dev/null 2>&1; then \
+			scripts="$$scripts scripts/*.sh"; \
+		fi; \
+		if [ -f scripts/lsp-vscode ]; then \
+			scripts="$$scripts scripts/lsp-vscode"; \
+		fi; \
+		if [ -n "$$scripts" ]; then \
+			shellcheck $$scripts; \
+		else \
+			echo "no shell scripts found, skipping"; \
+		fi; \
 	else \
 		echo "shellcheck not found, skipping"; \
 	fi

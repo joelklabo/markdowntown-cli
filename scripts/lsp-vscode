@@ -24,7 +24,7 @@ extension in development mode.
 
 Environment:
   BIN_DIR  Override output directory for the CLI binary (default: ./bin)
-  CODE_BIN Override VS Code CLI (default: auto-detect code/code-insiders)
+  CODE_BIN Override VS Code CLI (default: auto-detect code-insiders/code)
 EOF
 }
 
@@ -73,12 +73,12 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
 fi
 
 if [ "$CODE_BIN_EXPLICIT" -eq 0 ]; then
-  if command -v code >/dev/null 2>&1; then
-    CODE_BIN="code"
-  elif command -v code-insiders >/dev/null 2>&1; then
+  if command -v code-insiders >/dev/null 2>&1; then
     CODE_BIN="code-insiders"
+  elif command -v code >/dev/null 2>&1; then
+    CODE_BIN="code"
   else
-    echo "VS Code CLI not found. Install it via VS Code: Cmd+Shift+P -> 'Shell Command: Install \\'code\\' command in PATH' (or set CODE_BIN=code-insiders)." >&2
+    printf '%s\n' "VS Code CLI not found. Install it via VS Code: Cmd+Shift+P -> Shell Command: Install 'code' command in PATH (or set CODE_BIN=code-insiders)." >&2
     exit 1
   fi
 else
@@ -87,5 +87,8 @@ else
     exit 1
   fi
 fi
+
+: "${VSCODE_DISABLE_KEYCHAIN:=1}"
+export VSCODE_DISABLE_KEYCHAIN
 
 PATH="${BIN_DIR}:${PATH}" "$CODE_BIN" --extensionDevelopmentPath="${EXT_DIR}" --new-window "${ROOT}"
