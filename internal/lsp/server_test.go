@@ -310,6 +310,63 @@ func TestDiagnosticRedactionFiltersPaths(t *testing.T) {
 	}
 }
 
+func TestSortCodeActionEntries(t *testing.T) {
+	entries := []codeActionEntry{
+		{
+			action: protocol.CodeAction{Title: "B"},
+			ruleID: "MD004",
+			fixID:  "b",
+			title:  "B",
+		},
+		{
+			action:    protocol.CodeAction{Title: "A"},
+			ruleID:    "MD003",
+			fixID:     "a",
+			preferred: true,
+			title:     "A",
+		},
+		{
+			action: protocol.CodeAction{Title: "A"},
+			ruleID: "MD002",
+			fixID:  "c",
+			title:  "A",
+		},
+	}
+
+	sortCodeActionEntries(entries)
+	if entries[0].title != "A" || !entries[0].preferred {
+		t.Fatalf("expected preferred action first, got %#v", entries[0])
+	}
+	if entries[1].title != "A" || entries[1].preferred {
+		t.Fatalf("expected non-preferred action second, got %#v", entries[1])
+	}
+	if entries[2].title != "B" {
+		t.Fatalf("expected remaining action last, got %#v", entries[2])
+	}
+}
+
+func TestCodeActionReplaceToolIDIdempotent(t *testing.T) {
+	content := "---\ntoolId: foo\n---\n"
+	diag := protocol.Diagnostic{
+		Range: protocol.Range{
+			Start: protocol.Position{Line: 1, Character: 8},
+			End:   protocol.Position{Line: 1, Character: 11},
+		},
+		Data: map[string]any{
+			"toolId":      "foo",
+			"replacement": "bar",
+		},
+	}
+
+	if action := codeActionReplaceToolID(diag, "file:///tmp/test.md", content); action == nil {
+		t.Fatalf("expected toolId replacement action")
+	}
+	updated := strings.Replace(content, "foo", "bar", 1)
+	if action := codeActionReplaceToolID(diag, "file:///tmp/test.md", updated); action != nil {
+		t.Fatalf("expected replacement to be skipped when already applied")
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

@@ -176,6 +176,9 @@ func buildDiagnosticData(issue audit.Issue, includeEvidence bool, redactMode aud
 		"paths":      paths,
 		"tools":      issue.Tools,
 	}
+	if meta := issueRuleData(issue); meta != nil && len(meta.QuickFixes) > 0 {
+		data["quickFixes"] = append([]string(nil), meta.QuickFixes...)
+	}
 	if includeEvidence {
 		data["evidence"] = sanitizeEvidence(issue.Evidence, redactMode)
 	}
