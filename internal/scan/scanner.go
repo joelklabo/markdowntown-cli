@@ -26,6 +26,8 @@ type Result struct {
 	Warnings []Warning
 }
 
+var runtimeGOOS = runtime.GOOS
+
 // Scan discovers files across repo/user scopes and stdin paths.
 func scanRepoRoots(fs afero.Fs, repoRoots []string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, opts Options) []string {
 	repoRootsAbs := make([]string, 0, len(repoRoots))
@@ -53,7 +55,7 @@ func scanRepoRoots(fs afero.Fs, repoRoots []string, patterns []CompiledPattern, 
 			result.Warnings = append(result.Warnings, warningForError(root, repoErr))
 		}
 		if repoExists {
-			walkState := newWalkState(fs, root, opts.Progress)
+			walkState := newWalkState(fs, root, opts.Progress, ScopeRepo, opts, repoInfo)
 			scanDir(root, root, root, ScopeRepo, repoInfo, patterns, entries, result, walkState, false, false)
 		}
 	}
@@ -91,7 +93,7 @@ func scanUserRoots(fs afero.Fs, repoRoot string, patterns []CompiledPattern, ent
 		if !exists {
 			continue
 		}
-		walkState := newWalkState(fs, absRoot, opts.Progress)
+		walkState := newWalkState(fs, absRoot, opts.Progress, ScopeUser, opts, info)
 		scanDir(absRoot, absRoot, absRoot, ScopeUser, info, patterns, entries, result, walkState, false, false)
 	}
 	return userRootsAbs
@@ -100,6 +102,18 @@ func scanUserRoots(fs afero.Fs, repoRoot string, patterns []CompiledPattern, ent
 func scanGlobalRoots(fs afero.Fs, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, opts Options) []string {
 	var globalRootsAbs []string
 	if !opts.IncludeGlobal {
+		return globalRootsAbs
+	}
+	if runtimeGOOS == "windows" {
+		path := opts.RepoRoot
+		if strings.TrimSpace(path) == "" {
+			path = "/"
+		}
+		result.Warnings = append(result.Warnings, Warning{
+			Path:    path,
+			Code:    "GLOBAL_SCOPE_UNSUPPORTED",
+			Message: "Global scope is not supported on Windows",
+		})
 		return globalRootsAbs
 	}
 
@@ -135,7 +149,7 @@ func scanGlobalRoots(fs afero.Fs, patterns []CompiledPattern, entries map[string
 		if !exists {
 			continue
 		}
-		walkState := newWalkState(fs, absRoot, opts.Progress)
+		walkState := newWalkState(fs, absRoot, opts.Progress, ScopeGlobal, opts, info)
 		scanDir(absRoot, absRoot, absRoot, ScopeGlobal, info, patterns, entries, result, walkState, false, false)
 	}
 
@@ -160,7 +174,11 @@ func scanStdinPaths(fs afero.Fs, paths []string, repoRootsAbs []string, userRoot
 			continue
 		}
 		scope, root := resolveScopeAndRoot(absPath, repoRootsAbs, userRootsAbs, globalRootsAbs, info)
-		walkState := newWalkState(fs, root, opts.Progress)
+		var rootInfo os.FileInfo
+		if scope == ScopeGlobal {
+			rootInfo, _ = fs.Stat(root)
+		}
+		walkState := newWalkState(fs, root, opts.Progress, scope, opts, rootInfo)
 		scanPath(absPath, absPath, root, scope, patterns, entries, result, walkState, true)
 	}
 }
@@ -312,7 +330,7 @@ func DefaultUserRoots() []string {
 
 // DefaultGlobalRoots lists system-wide roots to scan (opt-in).
 func DefaultGlobalRoots() []string {
-	if runtime.GOOS == "windows" {
+	if runtimeGOOS == "windows" {
 		return nil
 	}
 	return []string{"/etc"}
@@ -386,24 +404,127 @@ func isSpecialFile(info os.FileInfo) bool {
 type walkState struct {
 	fs          afero.Fs
 	root        string
+	scope       string
 	progress    func(string)
 	visited     map[string]struct{}
 	active      map[string]struct{}
 	activePaths map[string]struct{}
+	guard       guardState
 }
 
-func newWalkState(fs afero.Fs, root string, progress func(string)) *walkState {
-	return &walkState{
+type guardState struct {
+	maxFiles     int
+	maxBytes     int64
+	filesSeen    int
+	bytesSeen    int64
+	limitReached bool
+	warnedFiles  bool
+	warnedBytes  bool
+	warnedXDev   bool
+	rootDev      uint64
+	hasRootDev   bool
+	xdev         bool
+}
+
+func newWalkState(fs afero.Fs, root string, progress func(string), scope string, opts Options, rootInfo os.FileInfo) *walkState {
+	state := &walkState{
 		fs:          fs,
 		root:        root,
+		scope:       scope,
 		progress:    progress,
 		visited:     make(map[string]struct{}),
 		active:      make(map[string]struct{}),
 		activePaths: make(map[string]struct{}),
 	}
+	if scope == ScopeGlobal {
+		state.guard.maxFiles = opts.GlobalMaxFiles
+		state.guard.maxBytes = opts.GlobalMaxBytes
+		state.guard.xdev = opts.GlobalXDev
+		if rootInfo == nil && opts.GlobalXDev {
+			if info, err := fs.Stat(root); err == nil {
+				rootInfo = info
+			}
+		}
+		if opts.GlobalXDev {
+			state.guard.rootDev, state.guard.hasRootDev = devFromInfo(rootInfo)
+		}
+	}
+	return state
+}
+
+func (state *walkState) guardStop() bool {
+	return state.scope == ScopeGlobal && state.guard.limitReached
+}
+
+func (state *walkState) allowXDev(info os.FileInfo, logicalPath string, result *Result) bool {
+	if state.scope != ScopeGlobal || !state.guard.xdev {
+		return true
+	}
+	if !state.guard.hasRootDev {
+		return true
+	}
+	dev, ok := devFromInfo(info)
+	if ok && dev != state.guard.rootDev {
+		if !state.guard.warnedXDev {
+			state.guard.warnedXDev = true
+			result.Warnings = append(result.Warnings, Warning{
+				Path:    logicalPath,
+				Code:    "GLOBAL_XDEV",
+				Message: "Skipping path on different filesystem",
+			})
+		}
+		return false
+	}
+	return true
+}
+
+func (state *walkState) allowFile(info os.FileInfo, logicalPath string, result *Result) bool {
+	if state.scope != ScopeGlobal {
+		return true
+	}
+	if state.guard.maxFiles <= 0 && state.guard.maxBytes <= 0 {
+		return true
+	}
+	if info == nil || info.IsDir() {
+		return true
+	}
+	size := info.Size()
+	if size < 0 {
+		size = 0
+	}
+	if state.guard.maxFiles > 0 && state.guard.filesSeen+1 > state.guard.maxFiles {
+		if !state.guard.warnedFiles {
+			state.guard.warnedFiles = true
+			result.Warnings = append(result.Warnings, Warning{
+				Path:    logicalPath,
+				Code:    "GLOBAL_MAX_FILES",
+				Message: fmt.Sprintf("Global scan file limit %d exceeded; skipping remaining paths", state.guard.maxFiles),
+			})
+		}
+		state.guard.limitReached = true
+		return false
+	}
+	if state.guard.maxBytes > 0 && state.guard.bytesSeen+size > state.guard.maxBytes {
+		if !state.guard.warnedBytes {
+			state.guard.warnedBytes = true
+			result.Warnings = append(result.Warnings, Warning{
+				Path:    logicalPath,
+				Code:    "GLOBAL_MAX_BYTES",
+				Message: fmt.Sprintf("Global scan byte limit %d exceeded; skipping remaining paths", state.guard.maxBytes),
+			})
+		}
+		state.guard.limitReached = true
+		return false
+	}
+	state.guard.filesSeen++
+	state.guard.bytesSeen += size
+	return true
 }
 
 func scanDir(logicalPath string, actualPath string, root string, scope string, info os.FileInfo, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, state *walkState, fromStdin bool, fromSymlink bool) {
+	if state.guardStop() {
+		return
+	}
 	if scope == ScopeGlobal && shouldSkipGlobalPath(root, logicalPath, info) {
 		return
 	}
@@ -426,6 +547,9 @@ func scanDir(logicalPath string, actualPath string, root string, scope string, i
 	}
 
 	for _, entry := range dirEntries {
+		if state.guardStop() {
+			return
+		}
 		entryActual := filepath.Join(actualPath, entry.Name())
 		entryLogical := filepath.Join(logicalPath, entry.Name())
 		scanPath(entryLogical, entryActual, root, scope, patterns, entries, result, state, fromStdin)
@@ -433,6 +557,9 @@ func scanDir(logicalPath string, actualPath string, root string, scope string, i
 }
 
 func scanPath(logicalPath string, actualPath string, root string, scope string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, state *walkState, fromStdin bool) {
+	if state.guardStop() {
+		return
+	}
 	if state.progress != nil {
 		state.progress(logicalPath)
 	}
@@ -452,15 +579,25 @@ func scanPath(logicalPath string, actualPath string, root string, scope string, 
 		return
 	}
 
+	if scope == ScopeGlobal && !state.allowXDev(info, logicalPath, result) {
+		return
+	}
+
 	if info.IsDir() {
 		scanDir(logicalPath, actualPath, root, scope, info, patterns, entries, result, state, fromStdin, false)
 		return
 	}
 
+	if !state.allowFile(info, logicalPath, result) {
+		return
+	}
 	scanFile(logicalPath, actualPath, root, scope, patterns, entries, result, info, fromStdin)
 }
 
 func resolveAndScanSymlink(logicalPath string, actualPath string, root string, scope string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, state *walkState, fromStdin bool) {
+	if state.guardStop() {
+		return
+	}
 	resolved, err := evalSymlinks(state.fs, actualPath)
 	if err != nil {
 		result.Warnings = append(result.Warnings, warningForError(logicalPath, err))
@@ -482,6 +619,10 @@ func resolveAndScanSymlink(logicalPath string, actualPath string, root string, s
 		return
 	}
 
+	if scope == ScopeGlobal && !state.allowXDev(resolvedInfo, logicalPath, result) {
+		return
+	}
+
 	if scope == ScopeGlobal && shouldSkipGlobalPath(root, resolved, resolvedInfo) {
 		return
 	}
@@ -491,6 +632,9 @@ func resolveAndScanSymlink(logicalPath string, actualPath string, root string, s
 		return
 	}
 
+	if !state.allowFile(resolvedInfo, logicalPath, result) {
+		return
+	}
 	scanFile(logicalPath, resolved, root, scope, patterns, entries, result, resolvedInfo, fromStdin)
 }
 
@@ -760,6 +904,25 @@ func (state *walkState) dirKey(info os.FileInfo, path string) string {
 		return path
 	}
 	return fmt.Sprintf("%d:%d", devValue, inoValue)
+}
+
+func devFromInfo(info os.FileInfo) (uint64, bool) {
+	if info == nil {
+		return 0, false
+	}
+	sys := info.Sys()
+	if sys == nil {
+		return 0, false
+	}
+	value := reflect.ValueOf(sys)
+	if value.Kind() == reflect.Pointer {
+		value = value.Elem()
+	}
+	if !value.IsValid() || value.Kind() != reflect.Struct {
+		return 0, false
+	}
+	dev := value.FieldByName("Dev")
+	return uintFromStatField(dev)
 }
 
 func uintFromStatField(value reflect.Value) (uint64, bool) {

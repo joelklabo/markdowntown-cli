@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"syscall"
 	"testing"
+	"time"
 
 	"github.com/spf13/afero"
 )
@@ -207,7 +207,10 @@ func TestScanGlobalScopeSkipsSpecialFiles(t *testing.T) {
 	repoRoot := t.TempDir()
 	globalRoot := copyFixture(t, "global-scope")
 	fifoPath := filepath.Join(globalRoot, "named-pipe")
-	if err := syscall.Mkfifo(fifoPath, 0o600); err != nil {
+	if err := mkfifo(fifoPath, 0o600); err != nil {
+		if errors.Is(err, errMkfifoUnsupported) {
+			t.Skip("mkfifo unsupported on this platform")
+		}
 		t.Skipf("mkfifo unavailable: %v", err)
 	}
 
@@ -291,6 +294,117 @@ func TestScanGlobalScopeSkipsSensitivePaths(t *testing.T) {
 	if !hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "global.md")) {
 		t.Fatalf("expected global config to be scanned")
 	}
+}
+
+func TestScanGlobalScopeHonorsMaxFiles(t *testing.T) {
+	repoRoot := t.TempDir()
+	globalRoot := t.TempDir()
+	writeTestFile(t, filepath.Join(globalRoot, "a.md"), "a")
+	writeTestFile(t, filepath.Join(globalRoot, "b.md"), "b")
+
+	registry := Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "global-config",
+				ToolID:       "global-tool",
+				ToolName:     "Global Tool",
+				Kind:         "config",
+				Scope:        ScopeGlobal,
+				Paths:        []string{"*.md"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+
+	result, err := Scan(Options{
+		RepoRoot:       repoRoot,
+		IncludeGlobal:  true,
+		GlobalRoots:    []string{globalRoot},
+		GlobalMaxFiles: 1,
+		Registry:       registry,
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	if hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "b.md")) {
+		t.Fatalf("expected b.md to be skipped due to max files guardrail")
+	}
+	if !hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "a.md")) {
+		t.Fatalf("expected a.md to be scanned")
+	}
+	if !hasWarning(result.Warnings, filepath.Join(globalRoot, "b.md"), "GLOBAL_MAX_FILES") {
+		t.Fatalf("expected GLOBAL_MAX_FILES warning")
+	}
+}
+
+func TestScanGlobalScopeHonorsMaxBytes(t *testing.T) {
+	repoRoot := t.TempDir()
+	globalRoot := t.TempDir()
+	writeTestFile(t, filepath.Join(globalRoot, "a.md"), "1234")
+	writeTestFile(t, filepath.Join(globalRoot, "b.md"), "12345678")
+
+	registry := Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "global-config",
+				ToolID:       "global-tool",
+				ToolName:     "Global Tool",
+				Kind:         "config",
+				Scope:        ScopeGlobal,
+				Paths:        []string{"*.md"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+
+	result, err := Scan(Options{
+		RepoRoot:       repoRoot,
+		IncludeGlobal:  true,
+		GlobalRoots:    []string{globalRoot},
+		GlobalMaxBytes: 4,
+		Registry:       registry,
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	if hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "b.md")) {
+		t.Fatalf("expected b.md to be skipped due to max bytes guardrail")
+	}
+	if !hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "a.md")) {
+		t.Fatalf("expected a.md to be scanned")
+	}
+	if !hasWarning(result.Warnings, filepath.Join(globalRoot, "b.md"), "GLOBAL_MAX_BYTES") {
+		t.Fatalf("expected GLOBAL_MAX_BYTES warning")
+	}
+}
+
+func TestScanGlobalScopeWarnsOnWindows(t *testing.T) {
+	repoRoot := t.TempDir()
+
+	withRuntimeGOOS(t, "windows", func() {
+		result, err := Scan(Options{
+			RepoRoot:      repoRoot,
+			IncludeGlobal: true,
+			Registry:      globalScopeRegistry(),
+		})
+		if err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+
+		if !hasWarning(result.Warnings, repoRoot, "GLOBAL_SCOPE_UNSUPPORTED") {
+			t.Fatalf("expected GLOBAL_SCOPE_UNSUPPORTED warning")
+		}
+	})
 }
 
 func TestScanGlobalScopeWarnsOnPermissionDenied(t *testing.T) {
@@ -497,6 +611,30 @@ func TestScanGlobalScopeWarnsOnSymlinkEscape(t *testing.T) {
 	}
 }
 
+func TestGlobalXDevGuardrailSkipsDifferentDevice(t *testing.T) {
+	rootInfo := fakeFileInfo{
+		name: "root",
+		sys:  fakeStat{Dev: 1},
+		dir:  true,
+	}
+	state := newWalkState(afero.NewMemMapFs(), "/root", nil, ScopeGlobal, Options{
+		GlobalXDev: true,
+	}, rootInfo)
+
+	result := Result{}
+	otherInfo := fakeFileInfo{
+		name: "other",
+		sys:  fakeStat{Dev: 2},
+	}
+
+	if state.allowXDev(otherInfo, "/root/other", &result) {
+		t.Fatalf("expected xdev guardrail to skip different device")
+	}
+	if !hasWarning(result.Warnings, "/root/other", "GLOBAL_XDEV") {
+		t.Fatalf("expected GLOBAL_XDEV warning")
+	}
+}
+
 func hasWarning(warnings []Warning, path string, code string) bool {
 	for _, warning := range warnings {
 		if warning.Code == code && warning.Path == path {
@@ -513,6 +651,53 @@ func hasWarningContains(warnings []Warning, pathFragment string, code string) bo
 		}
 	}
 	return false
+}
+
+func withRuntimeGOOS(t *testing.T, value string, fn func()) {
+	t.Helper()
+	previous := runtimeGOOS
+	runtimeGOOS = value
+	t.Cleanup(func() {
+		runtimeGOOS = previous
+	})
+	fn()
+}
+
+type fakeStat struct {
+	Dev uint64
+}
+
+type fakeFileInfo struct {
+	name string
+	size int64
+	mode os.FileMode
+	mod  time.Time
+	sys  any
+	dir  bool
+}
+
+func (info fakeFileInfo) Name() string {
+	return info.name
+}
+
+func (info fakeFileInfo) Size() int64 {
+	return info.size
+}
+
+func (info fakeFileInfo) Mode() os.FileMode {
+	return info.mode
+}
+
+func (info fakeFileInfo) ModTime() time.Time {
+	return info.mod
+}
+
+func (info fakeFileInfo) IsDir() bool {
+	return info.dir
+}
+
+func (info fakeFileInfo) Sys() any {
+	return info.sys
 }
 
 func testRegistry() Registry {

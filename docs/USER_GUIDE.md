@@ -69,6 +69,11 @@ Flags:
 
 - `--repo <path>`: repo path (defaults to git root from cwd)
 - `--repo-only`: exclude user scope (scan repo only)
+- `--global-scope`: include global/system scope roots (e.g., `/etc`)
+- `--global-max-files <n>`: max files scanned in global scope (0 = unlimited)
+- `--global-max-bytes <n>`: max bytes scanned in global scope (0 = unlimited)
+- `--global-xdev`: do not cross filesystem boundaries in global scope
+- `--scan-workers <n>`: parallel scan workers (0 = auto)
 - `--stdin`: read additional paths from stdin (one per line)
 - `--format <json|jsonl>`: output format (default: json)
 - `--jsonl`: emit JSONL output (alias for `--format jsonl`)
@@ -81,6 +86,7 @@ Notes:
 
 - Progress updates stream to stderr when stdout is a TTY and `--quiet` is not set.
 - Exit code is 0 for success (even with warnings) and 1 for fatal errors.
+- Global scope is unsupported on Windows; a warning is emitted when `--global-scope` is set.
 
 Examples:
 
@@ -103,6 +109,11 @@ Flags:
 
 - `--ref <ref>`: git reference (branch, tag, commit) to checkout
 - `--repo-only`: exclude user scope (scan repo only)
+- `--global-scope`: include global/system scope roots (e.g., `/etc`)
+- `--global-max-files <n>`: max files scanned in global scope (0 = unlimited)
+- `--global-max-bytes <n>`: max bytes scanned in global scope (0 = unlimited)
+- `--global-xdev`: do not cross filesystem boundaries in global scope
+- `--scan-workers <n>`: parallel scan workers (0 = auto)
 - `--include-content`: include file contents in output (default)
 - `--no-content`: exclude file contents from output
 - `--format <json|jsonl>`: output format (default: json)
@@ -114,6 +125,7 @@ Notes:
 
 - Clones the repository to a temporary directory, scans it, then removes the directory.
 - Use with `--no-content` for large repositories if content is not needed, but be aware that audit might require content.
+- Global scope is unsupported on Windows; a warning is emitted when `--global-scope` is set.
 
 Examples:
 
@@ -141,6 +153,10 @@ Flags:
 - `--include-scan-warnings`: include raw scan warnings in output
 - `--repo <path>`: repo path (defaults to git root from cwd; internal scan only)
 - `--repo-only`: exclude user scope (scan repo only)
+- `--global-scope`: include global/system scope roots (e.g., `/etc`)
+- `--global-max-files <n>`: max files scanned in global scope (0 = unlimited)
+- `--global-max-bytes <n>`: max bytes scanned in global scope (0 = unlimited)
+- `--global-xdev`: do not cross filesystem boundaries in global scope
 - `--stdin`: read additional paths from stdin (one per line)
 - `--no-content`: exclude file contents from internal scan
 
@@ -151,6 +167,7 @@ Notes:
 - Non-repo paths are redacted with precedence: `$XDG_CONFIG_HOME` > `$HOME` > `<ABS_PATH_N>` (deterministic per run).
 - `--input` cannot be combined with scan flags (`--repo`, `--repo-only`, `--stdin`).
 - Audit reads file contents by default when running an internal scan (content is not emitted in audit output).
+- Global scope is unsupported on Windows; a warning is emitted when `--global-scope` is set.
 
 Examples:
 

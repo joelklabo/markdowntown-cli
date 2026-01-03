@@ -25,6 +25,9 @@ type Options struct {
 	Registry       Registry
 	Patterns       []CompiledPattern
 	ScanWorkers    int
+	GlobalMaxFiles int
+	GlobalMaxBytes int64
+	GlobalXDev     bool
 	Fs             afero.Fs
 }
 

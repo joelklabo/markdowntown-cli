@@ -174,6 +174,16 @@ Default user roots scanned (unless `--repo-only` is set):
 - `~/.cursor`
 - `~/.claude`
 
+## Global scope (opt-in)
+
+Use `--global-scope` to include system roots (default: `/etc` on Unix-like systems).
+Guardrails for global scans:
+
+- `--global-max-files` and `--global-max-bytes` cap traversal (0 = unlimited).
+- `--global-xdev` avoids crossing filesystem boundaries.
+
+On Windows, `--global-scope` is unsupported and emits a warning.
+
 ## Repo scope (.github)
 
 Repo scanning is pattern-based from the registry — `markdowntown` does **not** scan every file in `.github`.

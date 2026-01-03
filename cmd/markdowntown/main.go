@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -50,6 +51,9 @@ Flags:
   --repo <path>         Repo path (defaults to git root from cwd)
   --repo-only           Exclude user scope; scan repo only
   --global-scope        Include global/system scope roots (e.g., /etc)
+  --global-max-files <n> Max files to scan in global scope (0 = unlimited)
+  --global-max-bytes <n> Max bytes to scan in global scope (0 = unlimited)
+  --global-xdev         Do not cross filesystem boundaries in global scope
   --scan-workers <n>    Parallel scan workers (0 = auto)
   --stdin               Read additional paths from stdin (one per line)
   --include-content     Include file contents in output (default)
@@ -71,6 +75,9 @@ Flags:
   --ref <ref>           Git reference (branch, tag, commit) to checkout
   --repo-only           Exclude user scope; scan repo only
   --global-scope        Include global/system scope roots (e.g., /etc)
+  --global-max-files <n> Max files to scan in global scope (0 = unlimited)
+  --global-max-bytes <n> Max bytes to scan in global scope (0 = unlimited)
+  --global-xdev         Do not cross filesystem boundaries in global scope
   --scan-workers <n>    Parallel scan workers (0 = auto)
   --include-content     Include file contents in output (default)
   --no-content          Exclude file contents from output
@@ -99,6 +106,9 @@ Flags:
   --repo <path>             Repo path (defaults to git root)
   --repo-only               Exclude user scope when running internal scan
   --global-scope            Include global/system scope roots (e.g., /etc)
+  --global-max-files <n>    Max files to scan in global scope (0 = unlimited)
+  --global-max-bytes <n>    Max bytes to scan in global scope (0 = unlimited)
+  --global-xdev             Do not cross filesystem boundaries in global scope
   --scan-workers <n>        Parallel scan workers (0 = auto)
   --stdin                   Read additional scan roots from stdin
   --no-content              Exclude file contents from internal scan
@@ -179,6 +189,9 @@ func runScan(args []string) error {
 	var repoPath string
 	var repoOnly bool
 	var globalScope bool
+	var globalMaxFiles int
+	var globalMaxBytes int64
+	var globalXDev bool
 	var scanWorkers int
 	var readStdin bool
 	var includeContent bool
@@ -193,6 +206,9 @@ func runScan(args []string) error {
 	flags.StringVar(&repoPath, "repo", "", "repo path (defaults to git root)")
 	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
 	flags.BoolVar(&globalScope, "global-scope", false, "include global/system scope roots")
+	flags.IntVar(&globalMaxFiles, "global-max-files", 0, "max files to scan in global scope (0 = unlimited)")
+	flags.Int64Var(&globalMaxBytes, "global-max-bytes", 0, "max bytes to scan in global scope (0 = unlimited)")
+	flags.BoolVar(&globalXDev, "global-xdev", false, "do not cross filesystem boundaries in global scope")
 	flags.IntVar(&scanWorkers, "scan-workers", 0, "parallel scan workers (0 = auto)")
 	flags.BoolVar(&readStdin, "stdin", false, "read additional paths from stdin")
 	flags.BoolVar(&includeContent, "include-content", true, "include file contents")
@@ -216,6 +232,15 @@ func runScan(args []string) error {
 
 	if flags.NArg() > 0 {
 		return fmt.Errorf("unexpected arguments: %s", strings.Join(flags.Args(), " "))
+	}
+	if globalMaxFiles < 0 {
+		return fmt.Errorf("global-max-files must be >= 0")
+	}
+	if globalMaxBytes < 0 {
+		return fmt.Errorf("global-max-bytes must be >= 0")
+	}
+	if globalScope && runtime.GOOS == "windows" {
+		_, _ = fmt.Fprintln(os.Stderr, "warning: --global-scope is not supported on Windows")
 	}
 
 	if jsonl {
@@ -252,6 +277,9 @@ func runScan(args []string) error {
 		IncludeGlobal:  globalScope,
 		IncludeContent: includeContent,
 		ScanWorkers:    scanWorkers,
+		GlobalMaxFiles: globalMaxFiles,
+		GlobalMaxBytes: globalMaxBytes,
+		GlobalXDev:     globalXDev,
 		Progress:       progress,
 		StdinPaths:     stdinPaths,
 		Registry:       registry,
@@ -299,6 +327,9 @@ func runScanRemote(args []string) error {
 	var ref string
 	var repoOnly bool
 	var globalScope bool
+	var globalMaxFiles int
+	var globalMaxBytes int64
+	var globalXDev bool
 	var scanWorkers int
 	var includeContent bool
 	var noContent bool
@@ -311,6 +342,9 @@ func runScanRemote(args []string) error {
 	flags.StringVar(&ref, "ref", "", "git reference to checkout")
 	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
 	flags.BoolVar(&globalScope, "global-scope", false, "include global/system scope roots")
+	flags.IntVar(&globalMaxFiles, "global-max-files", 0, "max files to scan in global scope (0 = unlimited)")
+	flags.Int64Var(&globalMaxBytes, "global-max-bytes", 0, "max bytes to scan in global scope (0 = unlimited)")
+	flags.BoolVar(&globalXDev, "global-xdev", false, "do not cross filesystem boundaries in global scope")
 	flags.IntVar(&scanWorkers, "scan-workers", 0, "parallel scan workers (0 = auto)")
 	flags.BoolVar(&includeContent, "include-content", true, "include file contents")
 	flags.BoolVar(&noContent, "no-content", false, "exclude file contents")
@@ -332,6 +366,15 @@ func runScanRemote(args []string) error {
 
 	if flags.NArg() != 1 {
 		return fmt.Errorf("git URL required")
+	}
+	if globalMaxFiles < 0 {
+		return fmt.Errorf("global-max-files must be >= 0")
+	}
+	if globalMaxBytes < 0 {
+		return fmt.Errorf("global-max-bytes must be >= 0")
+	}
+	if globalScope && runtime.GOOS == "windows" {
+		_, _ = fmt.Fprintln(os.Stderr, "warning: --global-scope is not supported on Windows")
 	}
 	url := flags.Arg(0)
 
@@ -366,6 +409,9 @@ func runScanRemote(args []string) error {
 		IncludeGlobal:  globalScope,
 		IncludeContent: includeContent,
 		ScanWorkers:    scanWorkers,
+		GlobalMaxFiles: globalMaxFiles,
+		GlobalMaxBytes: globalMaxBytes,
+		GlobalXDev:     globalXDev,
 		Progress:       progress,
 		Registry:       registry,
 		Fs:             afero.NewOsFs(),
@@ -405,6 +451,7 @@ func runServe(_ []string) error {
 	return lsp.RunServer(version.ToolVersion)
 }
 
+//nolint:gocyclo // Flag parsing/validation is intentionally linear.
 func runAudit(args []string) error {
 	flags := flag.NewFlagSet("audit", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
@@ -418,6 +465,9 @@ func runAudit(args []string) error {
 	var repoPath string
 	var repoOnly bool
 	var globalScope bool
+	var globalMaxFiles int
+	var globalMaxBytes int64
+	var globalXDev bool
 	var scanWorkers int
 	var readStdin bool
 	var noContent bool
@@ -438,6 +488,9 @@ func runAudit(args []string) error {
 	flags.StringVar(&repoPath, "repo", "", "repo path (defaults to git root)")
 	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
 	flags.BoolVar(&globalScope, "global-scope", false, "include global/system scope roots")
+	flags.IntVar(&globalMaxFiles, "global-max-files", 0, "max files to scan in global scope (0 = unlimited)")
+	flags.Int64Var(&globalMaxBytes, "global-max-bytes", 0, "max bytes to scan in global scope (0 = unlimited)")
+	flags.BoolVar(&globalXDev, "global-xdev", false, "do not cross filesystem boundaries in global scope")
 	flags.IntVar(&scanWorkers, "scan-workers", 0, "parallel scan workers (0 = auto)")
 	flags.BoolVar(&readStdin, "stdin", false, "read additional paths from stdin")
 	flags.BoolVar(&noContent, "no-content", false, "exclude file contents from internal scan")
@@ -453,6 +506,15 @@ func runAudit(args []string) error {
 	}
 	if flags.NArg() > 0 {
 		return newCLIError(fmt.Errorf("unexpected arguments: %s", strings.Join(flags.Args(), " ")), 2)
+	}
+	if globalMaxFiles < 0 {
+		return newCLIError(fmt.Errorf("global-max-files must be >= 0"), 2)
+	}
+	if globalMaxBytes < 0 {
+		return newCLIError(fmt.Errorf("global-max-bytes must be >= 0"), 2)
+	}
+	if globalScope && runtime.GOOS == "windows" {
+		_, _ = fmt.Fprintln(os.Stderr, "warning: --global-scope is not supported on Windows")
 	}
 
 	if inputPath != "" && (repoPath != "" || repoOnly || readStdin) {
@@ -510,6 +572,9 @@ func runAudit(args []string) error {
 			IncludeGlobal:  globalScope,
 			IncludeContent: !noContent,
 			ScanWorkers:    scanWorkers,
+			GlobalMaxFiles: globalMaxFiles,
+			GlobalMaxBytes: globalMaxBytes,
+			GlobalXDev:     globalXDev,
 			Progress:       progress,
 			StdinPaths:     stdinPaths,
 			Registry:       registry,

@@ -175,6 +175,56 @@ func TestScanIntegrationGlobalSymlinkEscape(t *testing.T) {
 	}
 }
 
+func TestScanIntegrationGlobalGuardrails(t *testing.T) {
+	repoRoot := t.TempDir()
+	globalRoot := t.TempDir()
+	writeTestFile(t, filepath.Join(globalRoot, "a.md"), "a")
+	writeTestFile(t, filepath.Join(globalRoot, "b.md"), "b")
+
+	registry := Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "global-config",
+				ToolID:       "global-tool",
+				ToolName:     "Global Tool",
+				Kind:         "config",
+				Scope:        ScopeGlobal,
+				Paths:        []string{"*.md"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+
+	result, err := Scan(Options{
+		RepoRoot:       repoRoot,
+		IncludeGlobal:  true,
+		GlobalRoots:    []string{globalRoot},
+		GlobalMaxFiles: 1,
+		Registry:       registry,
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	output := BuildOutput(result, OutputOptions{
+		SchemaVersion:   "test",
+		RegistryVersion: "1",
+		ToolVersion:     "test",
+		RepoRoot:        repoRoot,
+	})
+
+	if hasEntryWithPath(output.Configs, filepath.Join(globalRoot, "b.md")) {
+		t.Fatalf("expected b.md to be skipped due to max files guardrail")
+	}
+	if !hasWarning(output.Warnings, filepath.Join(globalRoot, "b.md"), "GLOBAL_MAX_FILES") {
+		t.Fatalf("expected GLOBAL_MAX_FILES warning")
+	}
+}
+
 func integrationRegistry() Registry {
 	return Registry{
 		Version: "test",

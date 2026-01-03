@@ -38,6 +38,11 @@ markdowntown tools list          # List recognized tools
 | --- | --- | --- | --- |
 | `--repo` | path | (auto) | Explicit repo root. Required if not in a git repo. |
 | `--repo-only` | bool | false | Exclude user scope; scan repo only. |
+| `--global-scope` | bool | false | Include global/system scope roots (e.g., `/etc`). |
+| `--global-max-files` | int | 0 | Max files scanned in global scope (0 = unlimited). |
+| `--global-max-bytes` | int | 0 | Max bytes scanned in global scope (0 = unlimited). |
+| `--global-xdev` | bool | false | Do not cross filesystem boundaries in global scope. |
+| `--scan-workers` | int | 0 | Parallel scan workers (0 = auto). |
 | `-q`, `--quiet` | bool | false | Suppress progress output; JSON only to stdout. |
 | `--include-content` | bool | true | Include file contents in output (default). |
 | `--no-content` | bool | false | Exclude file contents from output. |
@@ -89,12 +94,13 @@ Exit with error if git is not available.
 | --- | --- |
 | `repo` | Files within the git repository |
 | `user` | Files in user home directories (`~/.tool/`) |
-| `global` | System-wide configs (`/etc/`) - reserved for future use |
+| `global` | System-wide configs (e.g., `/etc/`), opt-in with `--global-scope` (not supported on Windows) |
 
 ### Scope Defaults
 
 - **Default**: repo + user scopes
 - `--repo-only`: excludes user scope
+- `--global-scope`: includes global scope roots (e.g., `/etc` on Unix)
 
 ### User-Scope Roots
 
@@ -118,6 +124,13 @@ Checked with `exists: bool` in output:
 - **Track visited inodes** to detect and handle circular symlinks
 - Report warning for circular symlinks, skip the cycle
 - Include external targets (symlinks pointing outside scan roots)
+
+### Global Scope Guardrails
+
+- Global scope is opt-in via `--global-scope` and defaults to `/etc` on Unix-like systems.
+- `--global-max-files` and `--global-max-bytes` cap global-scope traversal; when exceeded, the scan skips remaining paths and emits warnings.
+- `--global-xdev` prevents crossing filesystem boundaries during global-scope scans.
+- On Windows, global scope is unsupported; scans emit `GLOBAL_SCOPE_UNSUPPORTED` warnings and skip global roots.
 - **Show full resolved path** for external symlinks in output
 
 ### Directory Configs
@@ -416,6 +429,13 @@ Paths provided via `--stdin` that don't match any registered pattern:
 ```
 
 **One warning per occurrence** - no deduplication.
+
+Common guardrail warnings:
+
+- `GLOBAL_MAX_FILES`: global file limit exceeded.
+- `GLOBAL_MAX_BYTES`: global byte limit exceeded.
+- `GLOBAL_XDEV`: global scope path skipped due to filesystem boundary.
+- `GLOBAL_SCOPE_UNSUPPORTED`: global scope requested on an unsupported platform.
 
 ### Conflict Detection
 
