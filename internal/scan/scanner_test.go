@@ -120,6 +120,46 @@ func TestPopulateEntryContentFrontmatterError(t *testing.T) {
 	}
 }
 
+func TestPopulateEntriesContentMissingAfterDiscovery(t *testing.T) {
+	fs := afero.NewOsFs()
+	repoRoot := t.TempDir()
+	path := filepath.Join(repoRoot, "README.md")
+	writeTestFile(t, path, "content")
+
+	patterns, err := CompilePatterns(testRegistry())
+	if err != nil {
+		t.Fatalf("compile patterns: %v", err)
+	}
+
+	entries := make(map[string]*ConfigEntry)
+	var result Result
+	scanRepoRoots(fs, []string{repoRoot}, patterns, entries, &result, Options{
+		RepoRoot: repoRoot,
+		Registry: testRegistry(),
+	})
+
+	if err := os.Remove(path); err != nil {
+		t.Fatalf("remove path: %v", err)
+	}
+
+	// Best-effort: missing files are recorded with ENOENT rather than failing the scan.
+	populateEntriesContent(fs, entries, true, 4, nil)
+
+	var missing *ConfigEntry
+	for _, entry := range entries {
+		if entry != nil && strings.HasSuffix(entry.Path, "README.md") {
+			missing = entry
+			break
+		}
+	}
+	if missing == nil {
+		t.Fatalf("expected entry for README.md")
+	}
+	if missing.Error == nil || *missing.Error != "ENOENT" {
+		t.Fatalf("expected ENOENT error, got %#v", missing.Error)
+	}
+}
+
 func TestScanUserRootMissing(t *testing.T) {
 	repoRoot := copyFixture(t, "security")
 	missingRoot := filepath.Join(t.TempDir(), "missing-root")

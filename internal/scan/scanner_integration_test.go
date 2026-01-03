@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -113,6 +114,36 @@ func TestScanIntegrationGlobalScope(t *testing.T) {
 
 	if !hasEntryWithPath(output.Configs, filepath.Join(globalRoot, "global.md")) {
 		t.Fatalf("expected global config entry in output")
+	}
+}
+
+func TestScanIntegrationParallelWorkers(t *testing.T) {
+	repoRoot := t.TempDir()
+	writeTestFile(t, filepath.Join(repoRoot, "repo.md"), "repo")
+
+	globalRoot := copyFixture(t, "global-scope")
+	registry := Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "global-mixed",
+				ToolID:       "global-tool",
+				ToolName:     "Global Tool",
+				Kind:         "config",
+				Scope:        ScopeGlobal,
+				Paths:        []string{"global.md", "small.txt", "medium.txt", "large.txt"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+
+	baseline := scanOutputForGlobalWorkers(t, repoRoot, globalRoot, registry, 1)
+	got := scanOutputForGlobalWorkers(t, repoRoot, globalRoot, registry, 4)
+	if !reflect.DeepEqual(baseline, got) {
+		t.Fatalf("parallel scan mismatch\nexpected:\n%s\nactual:\n%s", mustMarshal(t, baseline), mustMarshal(t, got))
 	}
 }
 
@@ -239,6 +270,32 @@ func TestScanIntegrationGlobalSymlinkMultiHopEscape(t *testing.T) {
 	if !hasWarning(output.Warnings, linkOne, "SYMLINK_ESCAPE") {
 		t.Fatalf("expected SYMLINK_ESCAPE warning for %s", linkOne)
 	}
+}
+
+func scanOutputForGlobalWorkers(t *testing.T, repoRoot string, globalRoot string, registry Registry, workers int) Output {
+	t.Helper()
+	result, err := Scan(Options{
+		RepoRoot:       repoRoot,
+		IncludeGlobal:  true,
+		GlobalRoots:    []string{globalRoot},
+		Registry:       registry,
+		IncludeContent: true,
+		ScanWorkers:    workers,
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	output := BuildOutput(result, OutputOptions{
+		SchemaVersion:   "test",
+		RegistryVersion: registry.Version,
+		ToolVersion:     "test",
+		RepoRoot:        repoRoot,
+	})
+	for i := range output.Configs {
+		output.Configs[i].Mtime = 0
+	}
+	return output
 }
 
 func TestScanIntegrationGlobalGuardrails(t *testing.T) {
