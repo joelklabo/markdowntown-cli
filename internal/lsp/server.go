@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf16"
 
 	"markdowntown-cli/internal/audit"
 	"markdowntown-cli/internal/scan"
@@ -24,6 +25,11 @@ import (
 const (
 	serverName      = "markdowntown"
 	debounceTimeout = 500 * time.Millisecond
+
+	actionTitleRemoveFrontmatter   = "Remove invalid frontmatter block"
+	actionTitleInsertPlaceholder   = "Insert placeholder instructions"
+	actionTitleAllowGitignoreEntry = "Allow this config in .gitignore"
+	actionTitleCreateRepoPrefix    = "Create repo config at "
 )
 
 // Server holds LSP state and handlers.
@@ -70,6 +76,7 @@ func NewServer(version string) *Server {
 		TextDocumentDidClose:   s.didClose,
 		TextDocumentHover:      s.hover,
 		TextDocumentDefinition: s.definition,
+		TextDocumentCompletion: s.completion,
 	}
 
 	s.server = server.NewServer(s.handler, serverName, false)
@@ -95,6 +102,9 @@ func (s *Server) initialize(_ *glsp.Context, params *protocol.InitializeParams) 
 		TextDocumentSync:   protocol.TextDocumentSyncKindFull,
 		HoverProvider:      true,
 		DefinitionProvider: true,
+		CompletionProvider: &protocol.CompletionOptions{
+			TriggerCharacters: []string{":", " "},
+		},
 	}
 
 	return protocol.InitializeResult{
@@ -331,6 +341,9 @@ func (s *Server) runDiagnostics(context *glsp.Context, uri string) {
 	if err != nil {
 		return
 	}
+	if updated, err := scan.ApplyGitignore(result, repoRoot); err == nil {
+		result = updated
+	}
 
 	redactor := audit.NewRedactor(repoRoot, "", "", audit.RedactNever)
 	auditCtx := audit.Context{
@@ -344,7 +357,7 @@ func (s *Server) runDiagnostics(context *glsp.Context, uri string) {
 	rules := audit.DefaultRules()
 	issues := audit.RunRules(auditCtx, rules)
 
-	var diagnostics []protocol.Diagnostic
+	diagnostics := make([]protocol.Diagnostic, 0)
 	for _, issue := range issues {
 		match := false
 		for _, p := range issue.Paths {
@@ -357,12 +370,33 @@ func (s *Server) runDiagnostics(context *glsp.Context, uri string) {
 		if match {
 			code := protocol.IntegerOrString{Value: issue.RuleID}
 			source := serverName
+			message := issue.Message
+			if issue.Title != "" && !strings.HasPrefix(issue.Message, issue.Title) {
+				message = fmt.Sprintf("%s: %s", issue.Title, issue.Message)
+			}
 			diag := protocol.Diagnostic{
 				Range:    issueToProtocolRange(issue.Range),
 				Severity: severityToProtocolSeverity(issue.Severity),
 				Code:     &code,
 				Source:   &source,
-				Message:  issue.Message,
+				Message:  message,
+				Data: map[string]any{
+					"ruleId":     issue.RuleID,
+					"title":      issue.Title,
+					"suggestion": issue.Suggestion,
+					"evidence":   issue.Evidence,
+				},
+			}
+			if issue.Suggestion != "" {
+				diag.RelatedInformation = []protocol.DiagnosticRelatedInformation{
+					{
+						Location: protocol.Location{
+							URI:   uri,
+							Range: diag.Range,
+						},
+						Message: "Suggestion: " + issue.Suggestion,
+					},
+				}
 			}
 			diagnostics = append(diagnostics, diag)
 		}
@@ -485,6 +519,403 @@ func clampToUint32(value int) uint32 {
 	}
 	// #nosec G115 -- value is clamped to uint32 range.
 	return uint32(value)
+}
+
+func (s *Server) codeAction(_ *glsp.Context, params *protocol.CodeActionParams) (any, error) {
+	if params == nil {
+		return nil, nil
+	}
+	if len(params.Context.Diagnostics) == 0 {
+		return nil, nil
+	}
+
+	if len(params.Context.Only) > 0 {
+		allowed := false
+		for _, kind := range params.Context.Only {
+			if kind == protocol.CodeActionKindQuickFix || kind == protocol.CodeActionKindEmpty {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return nil, nil
+		}
+	}
+
+	path, err := urlToPath(params.TextDocument.URI)
+	if err != nil {
+		return nil, err
+	}
+	data, err := afero.ReadFile(s.fs, path)
+	if err != nil {
+		return nil, nil
+	}
+	content := string(data)
+
+	var actions []protocol.CodeAction
+	for _, diag := range params.Context.Diagnostics {
+		ruleID := diagnosticRuleID(diag)
+		switch ruleID {
+		case "MD003":
+			if fmRange := frontmatterBlockRange(content); fmRange != nil {
+				kind := protocol.CodeActionKindQuickFix
+				preferred := true
+				action := protocol.CodeAction{
+					Title:       actionTitleRemoveFrontmatter,
+					Kind:        &kind,
+					Diagnostics: []protocol.Diagnostic{diag},
+					IsPreferred: &preferred,
+					Edit: &protocol.WorkspaceEdit{
+						Changes: map[string][]protocol.TextEdit{
+							params.TextDocument.URI: {
+								{
+									Range:   *fmRange,
+									NewText: "",
+								},
+							},
+						},
+					},
+				}
+				actions = append(actions, action)
+			}
+		case "MD004":
+			if strings.TrimSpace(content) == "" {
+				if stub := stubContentForPath(path); stub != "" {
+					kind := protocol.CodeActionKindQuickFix
+					preferred := true
+					action := protocol.CodeAction{
+						Title:       actionTitleInsertPlaceholder,
+						Kind:        &kind,
+						Diagnostics: []protocol.Diagnostic{diag},
+						IsPreferred: &preferred,
+						Edit: &protocol.WorkspaceEdit{
+							Changes: map[string][]protocol.TextEdit{
+								params.TextDocument.URI: {
+									{
+										Range:   protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+										NewText: stub,
+									},
+								},
+							},
+						},
+					}
+					actions = append(actions, action)
+				}
+			}
+		case "MD002":
+			if repoRoot := repoRootForPath(s.rootPath, path); repoRoot != "" {
+				if rel, ok := relativeRepoPath(repoRoot, path); ok {
+					entry := "!" + rel
+					gitignorePath := filepath.Join(repoRoot, ".gitignore")
+					action := quickFixGitignore(s.fs, entry, gitignorePath, diag)
+					if action != nil {
+						actions = append(actions, *action)
+					}
+				}
+			}
+		case "MD005":
+			candidate := candidateRepoPathFromDiagnostic(diag)
+			if candidate == "" {
+				continue
+			}
+			repoRoot := repoRootForPath(s.rootPath, path)
+			if repoRoot == "" {
+				continue
+			}
+			if isGlobPath(candidate) {
+				continue
+			}
+			absPath := filepath.Join(repoRoot, filepath.FromSlash(candidate))
+			if _, err := s.fs.Stat(absPath); err == nil {
+				continue
+			}
+			parent := filepath.Dir(absPath)
+			if info, err := s.fs.Stat(parent); err != nil || !info.IsDir() {
+				continue
+			}
+			stub := stubContentForPath(absPath)
+			if stub == "" {
+				continue
+			}
+			uri := pathToURI(absPath)
+			kind := protocol.CodeActionKindQuickFix
+			action := protocol.CodeAction{
+				Title:       actionTitleCreateRepoPrefix + candidate,
+				Kind:        &kind,
+				Diagnostics: []protocol.Diagnostic{diag},
+				Edit: &protocol.WorkspaceEdit{
+					DocumentChanges: []any{
+						protocol.CreateFile{
+							Kind:    "create",
+							URI:     uri,
+							Options: &protocol.CreateFileOptions{IgnoreIfExists: boolPtr(true)},
+						},
+						protocol.TextDocumentEdit{
+							TextDocument: protocol.OptionalVersionedTextDocumentIdentifier{
+								TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+							},
+							Edits: []any{
+								protocol.TextEdit{
+									Range:   protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+									NewText: stub,
+								},
+							},
+						},
+					},
+				},
+			}
+			actions = append(actions, action)
+		}
+	}
+
+	if len(actions) == 0 {
+		return nil, nil
+	}
+	return actions, nil
+}
+
+func diagnosticRuleID(diag protocol.Diagnostic) string {
+	if diag.Code != nil {
+		if value, ok := diag.Code.Value.(string); ok && value != "" {
+			return value
+		}
+	}
+	if diag.Data != nil {
+		if data, ok := diag.Data.(map[string]any); ok {
+			if value, ok := data["ruleId"].(string); ok {
+				return value
+			}
+		}
+	}
+	return ""
+}
+
+func candidateRepoPathFromDiagnostic(diag protocol.Diagnostic) string {
+	if diag.Data == nil {
+		return ""
+	}
+	data, ok := diag.Data.(map[string]any)
+	if !ok {
+		return ""
+	}
+	evidence, ok := data["evidence"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	raw, ok := evidence["candidatePaths"]
+	if !ok {
+		return ""
+	}
+	switch typed := raw.(type) {
+	case []string:
+		if len(typed) > 0 {
+			return typed[0]
+		}
+	case []any:
+		for _, item := range typed {
+			if s, ok := item.(string); ok && s != "" {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+func quickFixGitignore(fs afero.Fs, entry string, gitignorePath string, diag protocol.Diagnostic) *protocol.CodeAction {
+	if entry == "!" {
+		return nil
+	}
+	uri := pathToURI(gitignorePath)
+	kind := protocol.CodeActionKindQuickFix
+	preferred := true
+
+	content := ""
+	if data, err := afero.ReadFile(fs, gitignorePath); err == nil {
+		content = string(data)
+	}
+
+	if hasGitignoreEntry(content, entry) {
+		return nil
+	}
+
+	insert := entry + "\n"
+	if content != "" && !strings.HasSuffix(content, "\n") {
+		insert = "\n" + entry + "\n"
+	}
+
+	edit := &protocol.WorkspaceEdit{}
+	if _, err := fs.Stat(gitignorePath); err == nil {
+		pos := endPositionForContent(content)
+		edit.Changes = map[string][]protocol.TextEdit{
+			uri: {
+				{
+					Range:   protocol.Range{Start: pos, End: pos},
+					NewText: insert,
+				},
+			},
+		}
+	} else {
+		edit.DocumentChanges = []any{
+			protocol.CreateFile{
+				Kind:    "create",
+				URI:     uri,
+				Options: &protocol.CreateFileOptions{IgnoreIfExists: boolPtr(true)},
+			},
+			protocol.TextDocumentEdit{
+				TextDocument: protocol.OptionalVersionedTextDocumentIdentifier{
+					TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+				},
+				Edits: []any{
+					protocol.TextEdit{
+						Range:   protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+						NewText: insert,
+					},
+				},
+			},
+		}
+	}
+
+	action := protocol.CodeAction{
+		Title:       actionTitleAllowGitignoreEntry,
+		Kind:        &kind,
+		Diagnostics: []protocol.Diagnostic{diag},
+		IsPreferred: &preferred,
+		Edit:        edit,
+	}
+	return &action
+}
+
+func hasGitignoreEntry(content string, entry string) bool {
+	if entry == "" {
+		return true
+	}
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		if strings.TrimSpace(line) == entry {
+			return true
+		}
+		if strings.TrimSpace(line) == "!/"+strings.TrimPrefix(entry, "!") {
+			return true
+		}
+	}
+	return false
+}
+
+func repoRootForPath(root string, path string) string {
+	if root != "" {
+		return filepath.Clean(root)
+	}
+	return filepath.Dir(path)
+}
+
+func relativeRepoPath(repoRoot string, path string) (string, bool) {
+	if repoRoot == "" || path == "" {
+		return "", false
+	}
+	rel, err := filepath.Rel(repoRoot, path)
+	if err != nil {
+		return "", false
+	}
+	if strings.HasPrefix(rel, "..") {
+		return "", false
+	}
+	rel = filepath.ToSlash(rel)
+	rel = strings.TrimPrefix(rel, "./")
+	return rel, rel != ""
+}
+
+func isGlobPath(path string) bool {
+	return strings.ContainsAny(path, "*?[")
+}
+
+func stubContentForPath(path string) string {
+	lower := strings.ToLower(path)
+	switch strings.ToLower(filepath.Ext(lower)) {
+	case ".md", ".markdown", ".mdx":
+		return "# Instructions\n"
+	case ".json":
+		return "{\n}\n"
+	case ".yml", ".yaml", ".toml":
+		return "# TODO: add instructions\n"
+	case ".txt":
+		return "TODO: add instructions\n"
+	default:
+		if strings.HasSuffix(lower, ".prompt.md") || strings.HasSuffix(lower, ".instructions.md") {
+			return "# Instructions\n"
+		}
+		return ""
+	}
+}
+
+func endPositionForContent(content string) protocol.Position {
+	lines := strings.Split(content, "\n")
+	if len(lines) == 0 {
+		return protocol.Position{Line: 0, Character: 0}
+	}
+	line := len(lines) - 1
+	return protocol.Position{Line: clampToUint32(line), Character: utf16Len(lines[line])}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
+}
+
+func pathToURI(path string) string {
+	if path == "" {
+		return ""
+	}
+	abs := path
+	if !filepath.IsAbs(abs) {
+		if resolved, err := filepath.Abs(abs); err == nil {
+			abs = resolved
+		}
+	}
+	abs = filepath.Clean(abs)
+	filePath := filepath.ToSlash(abs)
+	if runtime.GOOS == "windows" && !strings.HasPrefix(filePath, "/") {
+		filePath = "/" + filePath
+	}
+	return (&url.URL{Scheme: "file", Path: filePath}).String()
+}
+
+func frontmatterBlockRange(content string) *protocol.Range {
+	lines := strings.Split(content, "\n")
+	if len(lines) == 0 {
+		return nil
+	}
+	if strings.TrimSpace(strings.TrimRight(lines[0], "\r")) != "---" {
+		return nil
+	}
+
+	endLine := -1
+	for i := 1; i < len(lines); i++ {
+		if strings.TrimSpace(strings.TrimRight(lines[i], "\r")) == "---" {
+			endLine = i
+			break
+		}
+	}
+	if endLine == -1 {
+		return nil
+	}
+
+	end := endLine
+	endChar := utf16Len(lines[endLine])
+	if endLine+1 < len(lines) {
+		end = endLine + 1
+		endChar = 0
+	}
+
+	return &protocol.Range{
+		Start: protocol.Position{Line: 0, Character: 0},
+		End:   protocol.Position{Line: clampToUint32(end), Character: endChar},
+	}
+}
+
+func utf16Len(value string) uint32 {
+	if value == "" {
+		return 0
+	}
+	return clampToUint32(len(utf16.Encode([]rune(value))))
 }
 
 // RunServer runs the LSP server with the given tool version.

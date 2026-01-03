@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,16 +80,11 @@ func TestDiagnosticsOverPipe(t *testing.T) {
 		if len(params.Diagnostics) == 0 {
 			t.Fatal("expected diagnostics, got none")
 		}
-		found := false
-		for _, diag := range params.Diagnostics {
-			if diag.Message == "Invalid YAML frontmatter." {
-				found = true
-				break
-			}
-		}
-		if !found {
+		diag := requireDiagnostic(t, params.Diagnostics, "MD003")
+		if diag.Message != "Invalid YAML frontmatter." {
 			t.Fatalf("expected frontmatter diagnostic, got %#v", params.Diagnostics)
 		}
+		requireDiagnosticSuggestion(t, diag)
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out waiting for diagnostics")
 	}
@@ -239,6 +235,502 @@ func TestDiagnosticsDebounceLastChange(t *testing.T) {
 	}
 }
 
+func TestDiagnosticsConflict(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	dir := filepath.Join(repoRoot, ".github", "instructions")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("mkdir instructions dir: %v", err)
+	}
+	paths := []string{
+		filepath.Join(dir, "a.instructions.md"),
+		filepath.Join(dir, "b.instructions.md"),
+	}
+	for _, path := range paths {
+		if err := os.WriteFile(path, []byte("# Instruction\n"), 0o600); err != nil {
+			t.Fatalf("write instructions file: %v", err)
+		}
+	}
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(paths[0])
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: "# Instruction\n",
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	diag := requireDiagnostic(t, params.Diagnostics, "MD001")
+	requireDiagnosticSuggestion(t, diag)
+}
+
+func TestDiagnosticsDuplicateFrontmatter(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	paths := []string{
+		filepath.Join(repoRoot, ".codex", "skills", "one", "SKILL.md"),
+		filepath.Join(repoRoot, ".codex", "skills", "two", "SKILL.md"),
+	}
+	for _, path := range paths {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatalf("mkdir skill dir: %v", err)
+		}
+		content := "---\nname: shared\n---\n# Skill\n"
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatalf("write skill file: %v", err)
+		}
+	}
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(paths[0])
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: "---\nname: shared\n---\n# Skill\n",
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	diag := requireDiagnostic(t, params.Diagnostics, "MD007")
+	requireDiagnosticSuggestion(t, diag)
+}
+
+func TestDiagnosticsUnreadable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod not supported on windows")
+	}
+
+	s := NewServer("0.1.0")
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	path := filepath.Join(repoRoot, "AGENTS.md")
+	if err := os.WriteFile(path, []byte("# Locked\n"), 0o600); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+	if err := os.Chmod(path, 0); err != nil {
+		t.Fatalf("chmod AGENTS.md: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(path, 0o600)
+	})
+
+	uri := pathToURL(path)
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 1)
+	ctx := &glsp.Context{
+		Notify: func(method string, params any) {
+			if method != protocol.ServerTextDocumentPublishDiagnostics {
+				return
+			}
+			payload, ok := params.(protocol.PublishDiagnosticsParams)
+			if !ok {
+				return
+			}
+			select {
+			case diagnostics <- payload:
+			default:
+			}
+		},
+	}
+	s.rootPath = repoRoot
+	s.runDiagnostics(ctx, uri)
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	_ = requireDiagnostic(t, params.Diagnostics, "MD006")
+}
+
+func TestCodeActionRemoveInvalidFrontmatter(t *testing.T) {
+	t.Skip("TODO: implement code actions")
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "AGENTS.md"))
+	content := "---\nkey: value\ninvalid: [\n---\n# Hello"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	if len(params.Diagnostics) == 0 {
+		t.Fatal("expected diagnostics for invalid frontmatter")
+	}
+
+	var actions []protocol.CodeAction
+	if err := clientRPC.Call(ctx, protocol.MethodTextDocumentCodeAction, protocol.CodeActionParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Range:        protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+		Context:      protocol.CodeActionContext{Diagnostics: params.Diagnostics},
+	}, &actions); err != nil {
+		t.Fatalf("codeAction request failed: %v", err)
+	}
+
+	found := false
+	for _, action := range actions {
+		if action.Title != "Remove invalid frontmatter block" {
+			continue
+		}
+		if action.Edit == nil {
+			t.Fatalf("expected edit for code action")
+		}
+		edits := action.Edit.Changes[uri]
+		if len(edits) == 0 {
+			t.Fatalf("expected text edits for uri %s", uri)
+		}
+		if edits[0].NewText != "" {
+			t.Fatalf("expected quick fix to remove text, got %q", edits[0].NewText)
+		}
+		found = true
+		break
+	}
+	if !found {
+		t.Fatalf("expected quick fix action, got %#v", actions)
+	}
+}
+
+func TestCodeActionInsertPlaceholder(t *testing.T) {
+	t.Skip("TODO: implement code actions")
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "AGENTS.md"))
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: "",
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	if len(params.Diagnostics) == 0 {
+		t.Fatal("expected diagnostics for empty config")
+	}
+
+	var actions []protocol.CodeAction
+	if err := clientRPC.Call(ctx, protocol.MethodTextDocumentCodeAction, protocol.CodeActionParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Range:        protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+		Context:      protocol.CodeActionContext{Diagnostics: params.Diagnostics},
+	}, &actions); err != nil {
+		t.Fatalf("codeAction request failed: %v", err)
+	}
+
+	assertActionContainsText(t, actions, actionTitleInsertPlaceholder, "# Instructions")
+}
+
+func TestCodeActionAllowGitignore(t *testing.T) {
+	t.Skip("TODO: implement code actions")
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	if err := os.WriteFile(filepath.Join(repoRoot, ".gitignore"), []byte("AGENTS.md\n"), 0o600); err != nil {
+		t.Fatalf("write .gitignore: %v", err)
+	}
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "AGENTS.md"))
+	content := "# Hello"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	if len(params.Diagnostics) == 0 {
+		t.Fatal("expected diagnostics for gitignored config")
+	}
+
+	var actions []protocol.CodeAction
+	if err := clientRPC.Call(ctx, protocol.MethodTextDocumentCodeAction, protocol.CodeActionParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Range:        protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+		Context:      protocol.CodeActionContext{Diagnostics: params.Diagnostics},
+	}, &actions); err != nil {
+		t.Fatalf("codeAction request failed: %v", err)
+	}
+
+	assertActionContainsText(t, actions, actionTitleAllowGitignoreEntry, "!AGENTS.md")
+}
+
+func TestCodeActionCreateRepoConfig(t *testing.T) {
+	t.Skip("TODO: implement code actions")
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	tempHome := t.TempDir()
+	codexHome := filepath.Join(tempHome, ".codex")
+	t.Setenv("HOME", tempHome)
+	t.Setenv("CODEX_HOME", codexHome)
+
+	if err := os.MkdirAll(codexHome, 0o700); err != nil {
+		t.Fatalf("mkdir codex home: %v", err)
+	}
+
+	userAgents := filepath.Join(codexHome, "AGENTS.md")
+	if err := os.WriteFile(userAgents, []byte("# User\n"), 0o600); err != nil {
+		t.Fatalf("write user AGENTS.md: %v", err)
+	}
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(userAgents)
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: "# User\n",
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	if len(params.Diagnostics) == 0 {
+		t.Fatal("expected diagnostics for missing repo config")
+	}
+
+	var actions []protocol.CodeAction
+	if err := clientRPC.Call(ctx, protocol.MethodTextDocumentCodeAction, protocol.CodeActionParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Range:        protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+		Context:      protocol.CodeActionContext{Diagnostics: params.Diagnostics},
+	}, &actions); err != nil {
+		t.Fatalf("codeAction request failed: %v", err)
+	}
+
+	found := false
+	for _, action := range actions {
+		if !strings.HasPrefix(action.Title, actionTitleCreateRepoPrefix) {
+			continue
+		}
+		found = true
+		if !actionHasEditText(action, "# Instructions") {
+			t.Fatalf("expected repo config quick fix to include stub content, got %#v", action.Edit)
+		}
+		break
+	}
+	if !found {
+		t.Fatalf("expected repo config quick fix, got %#v", actions)
+	}
+}
+
 func TestServeCanary(t *testing.T) {
 	binPath := buildMarkdowntownBinary(t)
 
@@ -315,6 +807,120 @@ func waitForDiagnostics(t *testing.T, diagnostics <-chan protocol.PublishDiagnos
 		t.Fatal("timed out waiting for diagnostics")
 	}
 	return protocol.PublishDiagnosticsParams{}
+}
+
+func requireDiagnostic(t *testing.T, diags []protocol.Diagnostic, ruleID string) protocol.Diagnostic {
+	t.Helper()
+	for _, diag := range diags {
+		if diagnosticRuleID(diag) == ruleID {
+			return diag
+		}
+	}
+	t.Fatalf("expected diagnostic %s, got %#v", ruleID, diags)
+	return protocol.Diagnostic{}
+}
+
+func requireDiagnosticSuggestion(t *testing.T, diag protocol.Diagnostic) {
+	t.Helper()
+	if diag.Message == "" {
+		t.Fatalf("expected diagnostic message")
+	}
+	if len(diag.RelatedInformation) == 0 {
+		t.Fatalf("expected related information with suggestion")
+	}
+	if !strings.Contains(diag.RelatedInformation[0].Message, "Suggestion:") {
+		t.Fatalf("expected suggestion related info, got %q", diag.RelatedInformation[0].Message)
+	}
+	data, ok := diag.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("expected diagnostic data map, got %#v", diag.Data)
+	}
+	if value, ok := data["suggestion"].(string); !ok || value == "" {
+		t.Fatalf("expected suggestion in diagnostic data, got %#v", data["suggestion"])
+	}
+	if value, ok := data["ruleId"].(string); !ok || value == "" {
+		t.Fatalf("expected ruleId in diagnostic data, got %#v", data["ruleId"])
+	}
+}
+
+func assertActionContainsText(t *testing.T, actions []protocol.CodeAction, title string, expected string) {
+	t.Helper()
+	for _, action := range actions {
+		if action.Title != title {
+			continue
+		}
+		if actionHasEditText(action, expected) {
+			return
+		}
+		t.Fatalf("expected %q to include %q, got %#v", title, expected, action.Edit)
+	}
+	t.Fatalf("expected code action %q, got %#v", title, actions)
+}
+
+func actionHasEditText(action protocol.CodeAction, expected string) bool {
+	if action.Edit == nil {
+		return false
+	}
+	if containsTextEdit(action.Edit.Changes, expected) {
+		return true
+	}
+	if len(action.Edit.DocumentChanges) == 0 {
+		return false
+	}
+	for _, change := range action.Edit.DocumentChanges {
+		switch typed := change.(type) {
+		case protocol.TextDocumentEdit:
+			if containsDocumentEdit(typed, expected) {
+				return true
+			}
+		case map[string]any:
+			if containsDocumentEditMap(typed, expected) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func containsTextEdit(changes map[protocol.DocumentUri][]protocol.TextEdit, expected string) bool {
+	for _, edits := range changes {
+		for _, edit := range edits {
+			if strings.Contains(edit.NewText, expected) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func containsDocumentEdit(edit protocol.TextDocumentEdit, expected string) bool {
+	for _, raw := range edit.Edits {
+		if te, ok := raw.(protocol.TextEdit); ok {
+			if strings.Contains(te.NewText, expected) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func containsDocumentEditMap(change map[string]any, expected string) bool {
+	edits, ok := change["edits"].([]any)
+	if !ok {
+		return false
+	}
+	for _, raw := range edits {
+		edit, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if text, ok := edit["newText"].(string); ok {
+			if strings.Contains(text, expected) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func newServerRPC(t *testing.T, s *Server, conn io.ReadWriteCloser) *jsonrpc2.Conn {

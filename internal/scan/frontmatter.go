@@ -24,9 +24,11 @@ type NodeRange = Range
 
 // ParsedFrontmatter contains the frontmatter data and its locations.
 type ParsedFrontmatter struct {
-	Data      map[string]any   `json:"data"`
-	Locations map[string]Range `json:"locations"` // Key locations
-	Values    map[string]Range `json:"values"`    // Value locations
+	Data           map[string]any   `json:"data"`
+	Locations      map[string]Range `json:"locations"` // Key locations
+	Values         map[string]Range `json:"values"`    // Value locations
+	BlockStartLine int              `json:"blockStartLine"`
+	BlockEndLine   int              `json:"blockEndLine"`
 }
 
 // ParseFrontmatter extracts YAML frontmatter between --- delimiters.
@@ -43,15 +45,19 @@ func ParseFrontmatter(content []byte) (*ParsedFrontmatter, bool, error) {
 
 	var lines []string
 	startLine := 1 // delimiter is at line 1
+	currentLine := 1
 	for scanner.Scan() {
+		currentLine++
 		line := strings.TrimRight(scanner.Text(), "\r")
 		if strings.TrimSpace(line) == "---" {
 			yamlText := strings.Join(lines, "\n")
 			if strings.TrimSpace(yamlText) == "" {
 				return &ParsedFrontmatter{
-						Data:      map[string]any{},
-						Locations: map[string]Range{},
-						Values:    map[string]Range{},
+						Data:           map[string]any{},
+						Locations:      map[string]Range{},
+						Values:         map[string]Range{},
+						BlockStartLine: startLine,
+						BlockEndLine:   currentLine,
 					},
 					true, nil
 			}
@@ -62,9 +68,11 @@ func ParseFrontmatter(content []byte) (*ParsedFrontmatter, bool, error) {
 			}
 
 			parsed := &ParsedFrontmatter{
-				Data:      make(map[string]any),
-				Locations: make(map[string]Range),
-				Values:    make(map[string]Range),
+				Data:           make(map[string]any),
+				Locations:      make(map[string]Range),
+				Values:         make(map[string]Range),
+				BlockStartLine: startLine,
+				BlockEndLine:   currentLine,
 			}
 
 			if len(node.Content) > 0 {
