@@ -6,7 +6,7 @@ GO ?= go
 PYTHON ?= python3
 GOLANGCI_LINT ?= golangci-lint
 
-.PHONY: build test lint fmt check clean install coverage coverage-report coverage-html release snapshot run watch dev
+.PHONY: build test lint fmt check clean install coverage coverage-report coverage-html release snapshot run watch dev lsp-vscode
 
 build:
 	@mkdir -p $(BIN_DIR)
@@ -53,3 +53,6 @@ watch:
 
 dev:
 	air
+
+lsp-vscode:
+	./scripts/lsp-vscode

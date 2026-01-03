@@ -35,6 +35,16 @@ rm "$(go env GOPATH)/bin/markdowntown"
 markdowntown scan --repo /path/to/repo --repo-only
 ```
 
+## LSP overlay (VS Code)
+
+One command to build and launch the VS Code LSP client (uses the in-memory overlay for unsaved buffers):
+
+```bash
+make lsp-vscode
+```
+
+Requirements: VS Code's CLI in PATH (`code` or `code-insiders`) and Node/npm for the extension build. Use `CODE_BIN=code-insiders make lsp-vscode` to force Insiders, and `scripts/lsp-vscode --dry-run` to preview the launch command.
+
 Audit scan results:
 
 ```bash
