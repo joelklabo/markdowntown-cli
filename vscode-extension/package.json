@@ -12,7 +12,10 @@
   ],
   "activationEvents": [
     "onLanguage:markdown",
-    "onLanguage:json"
+    "onLanguage:json",
+    "onLanguage:yaml",
+    "onLanguage:toml",
+    "onLanguage:instructions"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -23,6 +26,63 @@
           "type": "string",
           "default": "markdowntown",
           "description": "Path to the markdowntown CLI binary."
+        },
+        "markdowntown.registryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to ai-config-patterns.json (overrides registry discovery)."
+        },
+        "markdowntown.diagnostics.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable markdowntown diagnostics."
+        },
+        "markdowntown.diagnostics.delayMs": {
+          "type": "number",
+          "default": 500,
+          "minimum": 0,
+          "description": "Debounce delay for diagnostics in milliseconds."
+        },
+        "markdowntown.diagnostics.rulesEnabled": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Only enable these rule IDs (e.g., MD001)."
+        },
+        "markdowntown.diagnostics.rulesDisabled": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Disable these rule IDs."
+        },
+        "markdowntown.diagnostics.severityOverrides": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "string",
+            "enum": ["error", "warning", "info"]
+          },
+          "description": "Override rule severity (e.g., MD002: warning)."
+        },
+        "markdowntown.diagnostics.includeRelatedInfo": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include related information in diagnostics."
+        },
+        "markdowntown.diagnostics.includeEvidence": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include evidence payloads in diagnostics."
+        },
+        "markdowntown.diagnostics.redactPaths": {
+          "type": "string",
+          "default": "never",
+          "enum": ["auto", "always", "never"],
+          "description": "Redact paths in diagnostics."
         }
       }
     }

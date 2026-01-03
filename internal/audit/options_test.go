@@ -84,6 +84,30 @@ func TestFilterRules(t *testing.T) {
 	}
 }
 
+func TestApplySeverityOverrides(t *testing.T) {
+	rules := []Rule{
+		{ID: "MD001", Severity: SeverityError, Run: func(Context) []Issue { return nil }},
+		{ID: "MD002", Severity: SeverityWarning, Run: func(Context) []Issue { return nil }},
+		{ID: "MD003", Severity: SeverityInfo, Run: func(Context) []Issue { return nil }},
+	}
+
+	overrides := map[string]Severity{
+		"md002": SeverityError,
+	}
+
+	updated, err := ApplySeverityOverrides(rules, overrides)
+	if err != nil {
+		t.Fatalf("ApplySeverityOverrides error: %v", err)
+	}
+	if updated[1].Severity != SeverityError {
+		t.Fatalf("expected severity override, got %s", updated[1].Severity)
+	}
+
+	if _, err := ApplySeverityOverrides(rules, map[string]Severity{"MD999": SeverityError}); err == nil {
+		t.Fatalf("expected error for unknown rule id override")
+	}
+}
+
 func TestFilterOutput(t *testing.T) {
 	output := scan.Output{
 		RepoRoot: "/repo",

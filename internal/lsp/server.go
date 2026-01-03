@@ -51,6 +51,11 @@ type Server struct {
 	// Workspace state
 	rootPath string
 
+	settingsMu       sync.RWMutex
+	settings         Settings
+	diagnosticCaps   DiagnosticCapabilities
+	diagnosticCapsMu sync.RWMutex
+
 	// Diagnostics state
 	diagnosticsMu    sync.Mutex
 	diagnosticTimers map[string]*time.Timer
@@ -68,24 +73,26 @@ func NewServer(version string) *Server {
 		overlay:          afero.NewMemMapFs(),
 		base:             afero.NewOsFs(),
 		diagnosticTimers: make(map[string]*time.Timer),
-		Debounce:         debounceTimeout,
+		Debounce:         0,
+		settings:         DefaultSettings(),
 		frontmatterCache: make(map[string]*scan.ParsedFrontmatter),
 	}
 	s.fs = afero.NewCopyOnWriteFs(s.base, s.overlay)
 
 	s.handler = &protocol.Handler{
-		Initialize:             s.initialize,
-		Initialized:            s.initialized,
-		Shutdown:               s.shutdown,
-		SetTrace:               s.setTrace,
-		TextDocumentDidOpen:    s.didOpen,
-		TextDocumentDidChange:  s.didChange,
-		TextDocumentDidClose:   s.didClose,
-		TextDocumentHover:      s.hover,
-		TextDocumentDefinition: s.definition,
-		TextDocumentCompletion: s.completion,
-		TextDocumentCodeAction: s.codeAction,
-		TextDocumentCodeLens:   s.codeLens,
+		Initialize:                      s.initialize,
+		Initialized:                     s.initialized,
+		Shutdown:                        s.shutdown,
+		SetTrace:                        s.setTrace,
+		TextDocumentDidOpen:             s.didOpen,
+		TextDocumentDidChange:           s.didChange,
+		TextDocumentDidClose:            s.didClose,
+		TextDocumentHover:               s.hover,
+		TextDocumentDefinition:          s.definition,
+		TextDocumentCompletion:          s.completion,
+		TextDocumentCodeAction:          s.codeAction,
+		TextDocumentCodeLens:            s.codeLens,
+		WorkspaceDidChangeConfiguration: s.didChangeConfiguration,
 	}
 
 	s.server = server.NewServer(s.handler, serverName, false)
@@ -98,6 +105,9 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) initialize(_ *glsp.Context, params *protocol.InitializeParams) (any, error) {
+	if params == nil {
+		params = &protocol.InitializeParams{}
+	}
 	if params.RootURI != nil {
 		path, err := urlToPath(*params.RootURI)
 		if err == nil {
@@ -106,6 +116,9 @@ func (s *Server) initialize(_ *glsp.Context, params *protocol.InitializeParams) 
 	} else if params.RootPath != nil {
 		s.rootPath = *params.RootPath
 	}
+
+	s.applySettings(params.InitializationOptions)
+	s.setDiagnosticCapabilities(params.Capabilities)
 
 	capabilities := protocol.ServerCapabilities{
 		TextDocumentSync:   protocol.TextDocumentSyncKindFull,
@@ -139,6 +152,69 @@ func (s *Server) shutdown(_ *glsp.Context) error {
 func (s *Server) setTrace(_ *glsp.Context, params *protocol.SetTraceParams) error {
 	protocol.SetTraceValue(params.Value)
 	return nil
+}
+
+func (s *Server) didChangeConfiguration(context *glsp.Context, params *protocol.DidChangeConfigurationParams) error {
+	if params == nil {
+		return nil
+	}
+	s.applySettings(params.Settings)
+	s.cacheMu.Lock()
+	uris := make([]string, 0, len(s.frontmatterCache))
+	for uri := range s.frontmatterCache {
+		uris = append(uris, uri)
+	}
+	s.cacheMu.Unlock()
+	for _, uri := range uris {
+		s.triggerDiagnostics(context, uri)
+	}
+	return nil
+}
+
+func (s *Server) applySettings(input any) {
+	settings, warnings := ParseSettings(input)
+	s.settingsMu.Lock()
+	s.settings = settings
+	s.settingsMu.Unlock()
+
+	logger := commonlog.GetLogger(serverName)
+	for _, warning := range warnings {
+		logger.Warning(warning)
+	}
+}
+
+func (s *Server) currentSettings() Settings {
+	s.settingsMu.RLock()
+	defer s.settingsMu.RUnlock()
+	return s.settings
+}
+
+func (s *Server) setDiagnosticCapabilities(capabilities protocol.ClientCapabilities) {
+	diagCaps := DiagnosticCapabilities{RelatedInformation: true}
+	if capabilities.TextDocument != nil && capabilities.TextDocument.PublishDiagnostics != nil {
+		publish := capabilities.TextDocument.PublishDiagnostics
+		if publish.RelatedInformation != nil {
+			diagCaps.RelatedInformation = boolValue(publish.RelatedInformation)
+		}
+		diagCaps.CodeDescription = boolValue(publish.CodeDescriptionSupport)
+		if publish.TagSupport != nil && len(publish.TagSupport.ValueSet) > 0 {
+			diagCaps.Tags = true
+		}
+	}
+
+	s.diagnosticCapsMu.Lock()
+	s.diagnosticCaps = diagCaps
+	s.diagnosticCapsMu.Unlock()
+}
+
+func (s *Server) diagnosticCapsSnapshot() DiagnosticCapabilities {
+	s.diagnosticCapsMu.RLock()
+	defer s.diagnosticCapsMu.RUnlock()
+	return s.diagnosticCaps
+}
+
+func boolValue(value *bool) bool {
+	return value != nil && *value
 }
 
 func (s *Server) didOpen(context *glsp.Context, params *protocol.DidOpenTextDocumentParams) error {
@@ -325,6 +401,12 @@ func (s *Server) triggerDiagnostics(context *glsp.Context, uri string) {
 
 	delay := s.Debounce
 	if delay <= 0 {
+		settings := s.currentSettings()
+		if settings.Diagnostics.DelayMs > 0 {
+			delay = time.Duration(settings.Diagnostics.DelayMs) * time.Millisecond
+		}
+	}
+	if delay <= 0 {
 		delay = debounceTimeout
 	}
 	s.diagnosticTimers[uri] = time.AfterFunc(delay, func() {
@@ -338,12 +420,63 @@ func (s *Server) runDiagnostics(context *glsp.Context, uri string) {
 		return
 	}
 
+	settings := s.currentSettings()
+	caps := s.diagnosticCapsSnapshot()
+	if !settings.Diagnostics.Enabled {
+		s.publishDiagnostics(context, uri, nil)
+		return
+	}
+
 	repoRoot := s.rootPath
 	if repoRoot == "" {
 		repoRoot = filepath.Dir(path)
 	}
 	repoRoot = filepath.Clean(repoRoot)
 
+	result, registry, err := s.scanForDiagnostics(path, repoRoot)
+	if err != nil {
+		if errors.Is(err, scan.ErrRegistryNotFound) ||
+			errors.Is(err, scan.ErrRegistryPathMissing) ||
+			errors.Is(err, scan.ErrMultipleRegistries) {
+			s.publishDiagnosticsError(context, uri, registryErrorMessage(err), err, registryErrorSuggestion(err), settings, caps)
+		} else {
+			s.publishDiagnosticsError(context, uri, "Scan failed", err, "Verify the registry path and config permissions, then retry.", settings, caps)
+		}
+		return
+	}
+
+	homeDir := ""
+	xdgConfigHome := ""
+	if home, err := os.UserHomeDir(); err == nil {
+		homeDir = home
+		if xdg := os.Getenv("XDG_CONFIG_HOME"); strings.TrimSpace(xdg) != "" {
+			xdgConfigHome = xdg
+		} else {
+			xdgConfigHome = filepath.Join(homeDir, ".config")
+		}
+	}
+	redactor := audit.NewRedactor(repoRoot, homeDir, xdgConfigHome, settings.Diagnostics.RedactPaths)
+	auditCtx := audit.Context{
+		Scan: scan.BuildOutput(result, scan.OutputOptions{
+			RepoRoot: repoRoot,
+		}),
+		Registry: registry,
+		Redactor: redactor,
+	}
+
+	rules := s.rulesForSettings(settings)
+	issues := audit.RunRules(auditCtx, rules)
+	s.logDiagnosticsSummary(issues)
+
+	diagnostics := s.diagnosticsForIssues(issues, uri, path, repoRoot, settings, caps)
+	if diag := s.unknownToolIDDiagnostic(uri, path, registry, settings, caps); diag != nil {
+		diagnostics = append(diagnostics, *diag)
+	}
+
+	s.publishDiagnostics(context, uri, diagnostics)
+}
+
+func (s *Server) scanForDiagnostics(path string, repoRoot string) (scan.Result, scan.Registry, error) {
 	repoOnly := true
 	var userRoots []string
 	if userRoot, ok := userRootForPath(path); ok {
@@ -356,8 +489,7 @@ func (s *Server) runDiagnostics(context *glsp.Context, uri string) {
 
 	registry, _, err := scan.LoadRegistry()
 	if err != nil {
-		s.publishDiagnosticsError(context, uri, registryErrorMessage(err), err, registryErrorSuggestion(err))
-		return
+		return scan.Result{}, scan.Registry{}, err
 	}
 
 	var stdinPaths []string
@@ -377,99 +509,131 @@ func (s *Server) runDiagnostics(context *glsp.Context, uri string) {
 		Fs:             s.fs,
 	})
 	if err != nil {
-		s.publishDiagnosticsError(context, uri, "Scan failed", err, "Verify the registry path and config permissions, then retry.")
-		return
+		return scan.Result{}, registry, err
 	}
 	if updated, err := scan.ApplyGitignore(result, repoRoot); err == nil {
 		result = updated
 	}
 
-	redactor := audit.NewRedactor(repoRoot, "", "", audit.RedactNever)
-	auditCtx := audit.Context{
-		Scan: scan.BuildOutput(result, scan.OutputOptions{
-			RepoRoot: repoRoot,
-		}),
-		Registry: registry,
-		Redactor: redactor,
-	}
-
-	rules := audit.DefaultRules()
-	issues := audit.RunRules(auditCtx, rules)
-
-	diagnostics := make([]protocol.Diagnostic, 0)
-	for _, issue := range issues {
-		match := false
-		for _, p := range issue.Paths {
-			if p.Path == path || filepath.Join(repoRoot, p.Path) == path {
-				match = true
-				break
-			}
-		}
-
-		if match {
-			code := protocol.IntegerOrString{Value: issue.RuleID}
-			source := serverName
-			message := issue.Message
-			if issue.Title != "" && !strings.HasPrefix(issue.Message, issue.Title) {
-				message = fmt.Sprintf("%s: %s", issue.Title, issue.Message)
-			}
-			diag := protocol.Diagnostic{
-				Range:    issueToProtocolRange(issue.Range),
-				Severity: severityToProtocolSeverity(issue.Severity),
-				Code:     &code,
-				Source:   &source,
-				Message:  message,
-				Data: map[string]any{
-					"ruleId":     issue.RuleID,
-					"title":      issue.Title,
-					"suggestion": issue.Suggestion,
-					"evidence":   issue.Evidence,
-					"paths":      issue.Paths,
-					"tools":      issue.Tools,
-				},
-			}
-			var related []protocol.DiagnosticRelatedInformation
-			addRelated := func(message string) {
-				if message == "" {
-					return
-				}
-				related = append(related, protocol.DiagnosticRelatedInformation{
-					Location: protocol.Location{
-						URI:   uri,
-						Range: diag.Range,
-					},
-					Message: message,
-				})
-			}
-			if issue.Suggestion != "" {
-				addRelated("Suggestion: " + issue.Suggestion)
-			}
-			if tools := formatTools(issue.Tools); tools != "" {
-				addRelated("Tools: " + tools)
-			}
-			if relatedPaths := formatPaths(issue.Paths, 3); relatedPaths != "" && len(issue.Paths) > 1 {
-				addRelated("Related configs: " + relatedPaths)
-			}
-			if evidence := formatEvidence(issue.Evidence); evidence != "" {
-				addRelated("Evidence: " + evidence)
-			}
-			if len(related) > 0 {
-				diag.RelatedInformation = related
-			}
-			diagnostics = append(diagnostics, diag)
-		}
-	}
-	if diag := s.unknownToolIDDiagnostic(uri, path, registry); diag != nil {
-		diagnostics = append(diagnostics, *diag)
-	}
-
-	context.Notify(protocol.ServerTextDocumentPublishDiagnostics, protocol.PublishDiagnosticsParams{
-		URI:         uri,
-		Diagnostics: diagnostics,
-	})
+	return result, registry, nil
 }
 
-func (s *Server) unknownToolIDDiagnostic(uri string, path string, registry scan.Registry) *protocol.Diagnostic {
+func (s *Server) rulesForSettings(settings Settings) []audit.Rule {
+	rules := audit.DefaultRules()
+	if len(settings.Diagnostics.SeverityOverrides) > 0 {
+		if updated, err := audit.ApplySeverityOverrides(rules, settings.Diagnostics.SeverityOverrides); err != nil {
+			commonlog.GetLogger(serverName).Warningf("severity overrides ignored: %v", err)
+		} else {
+			rules = updated
+		}
+	}
+	if len(settings.Diagnostics.RulesEnabled) > 0 || len(settings.Diagnostics.RulesDisabled) > 0 {
+		if filtered, err := audit.FilterRules(rules, settings.Diagnostics.RulesEnabled, settings.Diagnostics.RulesDisabled); err != nil {
+			commonlog.GetLogger(serverName).Warningf("rule filters ignored: %v", err)
+		} else {
+			rules = filtered
+		}
+	}
+	return rules
+}
+
+func (s *Server) diagnosticsForIssues(issues []audit.Issue, uri string, path string, repoRoot string, settings Settings, caps DiagnosticCapabilities) []protocol.Diagnostic {
+	diagnostics := make([]protocol.Diagnostic, 0)
+	includeRelatedInfo := settings.Diagnostics.IncludeRelatedInfo && caps.RelatedInformation
+	includeEvidence := settings.Diagnostics.IncludeEvidence
+	includeTags := caps.Tags
+	includeCodeDescription := caps.CodeDescription
+
+	for _, issue := range issues {
+		if !issueMatchesPath(issue, path, repoRoot) {
+			continue
+		}
+		diag := diagnosticForIssue(issue, uri, repoRoot, includeRelatedInfo, includeEvidence, includeTags, includeCodeDescription)
+		diagnostics = append(diagnostics, diag)
+	}
+
+	return diagnostics
+}
+
+func issueMatchesPath(issue audit.Issue, path string, repoRoot string) bool {
+	for _, p := range issue.Paths {
+		if p.Path == path || filepath.Join(repoRoot, p.Path) == path {
+			return true
+		}
+	}
+	return false
+}
+
+func diagnosticForIssue(issue audit.Issue, uri string, repoRoot string, includeRelatedInfo bool, includeEvidence bool, includeTags bool, includeCodeDescription bool) protocol.Diagnostic {
+	code := protocol.IntegerOrString{Value: issue.RuleID}
+	source := serverName
+	message := issue.Message
+	if issue.Title != "" && !strings.HasPrefix(issue.Message, issue.Title) {
+		message = fmt.Sprintf("%s: %s", issue.Title, issue.Message)
+	}
+
+	diag := protocol.Diagnostic{
+		Range:    issueToProtocolRange(issue.Range),
+		Severity: severityToProtocolSeverity(issue.Severity),
+		Code:     &code,
+		Source:   &source,
+		Message:  message,
+		Data:     buildDiagnosticData(issue, includeEvidence),
+	}
+
+	if includeCodeDescription {
+		if meta := issueRuleData(issue); meta != nil && meta.DocURL != "" {
+			if desc := diagnosticCodeDescription(meta.DocURL, repoRoot); desc != nil {
+				diag.CodeDescription = desc
+			}
+		}
+	}
+	if includeTags {
+		if tags := diagnosticTags(issue); len(tags) > 0 {
+			diag.Tags = tags
+		}
+	}
+	if includeRelatedInfo {
+		related := buildRelatedInfo(issue, uri, diag.Range, includeEvidence)
+		if len(related) > 0 {
+			diag.RelatedInformation = related
+		}
+	}
+	return diag
+}
+
+func buildRelatedInfo(issue audit.Issue, uri string, rng protocol.Range, includeEvidence bool) []protocol.DiagnosticRelatedInformation {
+	var related []protocol.DiagnosticRelatedInformation
+	addRelated := func(message string) {
+		if message == "" {
+			return
+		}
+		related = append(related, protocol.DiagnosticRelatedInformation{
+			Location: protocol.Location{
+				URI:   uri,
+				Range: rng,
+			},
+			Message: message,
+		})
+	}
+	if issue.Suggestion != "" {
+		addRelated("Suggestion: " + issue.Suggestion)
+	}
+	if tools := formatTools(issue.Tools); tools != "" {
+		addRelated("Tools: " + tools)
+	}
+	if relatedPaths := formatPaths(issue.Paths, 3); relatedPaths != "" && len(issue.Paths) > 1 {
+		addRelated("Related configs: " + relatedPaths)
+	}
+	if includeEvidence {
+		if evidence := formatEvidence(issue.Evidence); evidence != "" {
+			addRelated("Evidence: " + evidence)
+		}
+	}
+	return related
+}
+
+func (s *Server) unknownToolIDDiagnostic(uri string, path string, registry scan.Registry, settings Settings, caps DiagnosticCapabilities) *protocol.Diagnostic {
 	parsed := s.frontmatterForURI(uri, path)
 	if parsed == nil {
 		return nil
@@ -504,6 +668,11 @@ func (s *Server) unknownToolIDDiagnostic(uri string, path string, registry scan.
 	code := protocol.IntegerOrString{Value: "MD015"}
 	source := serverName
 	severity := protocol.DiagnosticSeverityWarning
+	if override, ok := settings.Diagnostics.SeverityOverrides["MD015"]; ok {
+		if mapped := severityToProtocolSeverity(override); mapped != nil {
+			severity = *mapped
+		}
+	}
 	diag := protocol.Diagnostic{
 		Range:    frontmatterValueRange(parsed, "toolId"),
 		Severity: &severity,
@@ -518,7 +687,7 @@ func (s *Server) unknownToolIDDiagnostic(uri string, path string, registry scan.
 			"replacement": replacement,
 		},
 	}
-	if suggestion != "" {
+	if suggestion != "" && settings.Diagnostics.IncludeRelatedInfo && caps.RelatedInformation {
 		diag.RelatedInformation = []protocol.DiagnosticRelatedInformation{
 			{
 				Location: protocol.Location{
@@ -582,7 +751,7 @@ func frontmatterValueRange(parsed *scan.ParsedFrontmatter, key string) protocol.
 	return protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}}
 }
 
-func (s *Server) publishDiagnosticsError(context *glsp.Context, uri string, message string, err error, suggestion string) {
+func (s *Server) publishDiagnosticsError(context *glsp.Context, uri string, message string, err error, suggestion string, settings Settings, caps DiagnosticCapabilities) {
 	if context == nil {
 		return
 	}
@@ -605,7 +774,7 @@ func (s *Server) publishDiagnosticsError(context *glsp.Context, uri string, mess
 			"suggestion": suggestion,
 		},
 	}
-	if suggestion != "" {
+	if suggestion != "" && settings.Diagnostics.IncludeRelatedInfo && caps.RelatedInformation {
 		diag.RelatedInformation = []protocol.DiagnosticRelatedInformation{
 			{
 				Location: protocol.Location{
@@ -616,9 +785,19 @@ func (s *Server) publishDiagnosticsError(context *glsp.Context, uri string, mess
 			},
 		}
 	}
+	s.publishDiagnostics(context, uri, []protocol.Diagnostic{diag})
+}
+
+func (s *Server) publishDiagnostics(context *glsp.Context, uri string, diagnostics []protocol.Diagnostic) {
+	if context == nil {
+		return
+	}
+	if diagnostics == nil {
+		diagnostics = []protocol.Diagnostic{}
+	}
 	context.Notify(protocol.ServerTextDocumentPublishDiagnostics, protocol.PublishDiagnosticsParams{
 		URI:         uri,
-		Diagnostics: []protocol.Diagnostic{diag},
+		Diagnostics: diagnostics,
 	})
 }
 
@@ -646,6 +825,124 @@ func registryErrorSuggestion(err error) string {
 	default:
 		return "Check MARKDOWNTOWN_REGISTRY or your global registry install."
 	}
+}
+
+func buildDiagnosticData(issue audit.Issue, includeEvidence bool) map[string]any {
+	data := map[string]any{
+		"ruleId":     issue.RuleID,
+		"title":      issue.Title,
+		"suggestion": issue.Suggestion,
+		"paths":      issue.Paths,
+		"tools":      issue.Tools,
+	}
+	if includeEvidence {
+		data["evidence"] = issue.Evidence
+	}
+	return data
+}
+
+func issueRuleData(issue audit.Issue) *audit.RuleData {
+	switch typed := issue.Data.(type) {
+	case audit.RuleData:
+		return &typed
+	case *audit.RuleData:
+		return typed
+	default:
+		return nil
+	}
+}
+
+func diagnosticTags(issue audit.Issue) []protocol.DiagnosticTag {
+	meta := issueRuleData(issue)
+	if meta == nil || len(meta.Tags) == 0 {
+		return nil
+	}
+	tags := make([]protocol.DiagnosticTag, 0, len(meta.Tags))
+	seen := make(map[protocol.DiagnosticTag]struct{})
+	for _, tag := range meta.Tags {
+		switch strings.ToLower(tag) {
+		case "unnecessary":
+			seen[protocol.DiagnosticTagUnnecessary] = struct{}{}
+		case "deprecated":
+			seen[protocol.DiagnosticTagDeprecated] = struct{}{}
+		}
+	}
+	for tag := range seen {
+		tags = append(tags, tag)
+	}
+	sort.Slice(tags, func(i, j int) bool {
+		return tags[i] < tags[j]
+	})
+	return tags
+}
+
+func diagnosticCodeDescription(docURL string, repoRoot string) *protocol.CodeDescription {
+	docURL = strings.TrimSpace(docURL)
+	if docURL == "" {
+		return nil
+	}
+	href := docURL
+	if !strings.Contains(docURL, "://") && repoRoot != "" {
+		path := filepath.Join(repoRoot, filepath.FromSlash(docURL))
+		href = pathToURL(path)
+	}
+	return &protocol.CodeDescription{HRef: href}
+}
+
+func (s *Server) logDiagnosticsSummary(issues []audit.Issue) {
+	logger := commonlog.GetLogger(serverName)
+	if logger == nil {
+		return
+	}
+	counts := audit.BuildSummary(issues)
+	total := counts.IssueCounts.Error + counts.IssueCounts.Warning + counts.IssueCounts.Info
+	topRules := topRuleIDs(issues, 3)
+	if total == 0 {
+		logger.Infof("Diagnostics summary: 0 issues")
+		return
+	}
+	logger.Infof("Diagnostics summary: %d issues (E:%d W:%d I:%d) top rules: %s",
+		total,
+		counts.IssueCounts.Error,
+		counts.IssueCounts.Warning,
+		counts.IssueCounts.Info,
+		strings.Join(topRules, ", "),
+	)
+}
+
+func topRuleIDs(issues []audit.Issue, limit int) []string {
+	if limit <= 0 {
+		return nil
+	}
+	counts := make(map[string]int)
+	for _, issue := range issues {
+		if issue.RuleID == "" {
+			continue
+		}
+		counts[issue.RuleID]++
+	}
+	type pair struct {
+		id    string
+		count int
+	}
+	pairs := make([]pair, 0, len(counts))
+	for id, count := range counts {
+		pairs = append(pairs, pair{id: id, count: count})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		if pairs[i].count != pairs[j].count {
+			return pairs[i].count > pairs[j].count
+		}
+		return pairs[i].id < pairs[j].id
+	})
+	if len(pairs) > limit {
+		pairs = pairs[:limit]
+	}
+	out := make([]string, 0, len(pairs))
+	for _, item := range pairs {
+		out = append(out, item.id)
+	}
+	return out
 }
 
 func getValue(data map[string]any, keyPath string) (any, bool) {

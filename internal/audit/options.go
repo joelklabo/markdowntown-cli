@@ -71,6 +71,41 @@ func FilterRules(rules []Rule, onlyValues, ignoreValues []string) ([]Rule, error
 	return filtered, nil
 }
 
+// ApplySeverityOverrides updates rule severities based on override values.
+func ApplySeverityOverrides(rules []Rule, overrides map[string]Severity) ([]Rule, error) {
+	if len(overrides) == 0 {
+		return rules, nil
+	}
+
+	allowed := make(map[string]struct{}, len(rules))
+	for _, rule := range rules {
+		allowed[strings.ToUpper(rule.ID)] = struct{}{}
+	}
+
+	normalized := make(map[string]Severity, len(overrides))
+	for key, severity := range overrides {
+		ruleID := strings.ToUpper(strings.TrimSpace(key))
+		if ruleID == "" {
+			continue
+		}
+		if _, ok := allowed[ruleID]; !ok {
+			return nil, fmt.Errorf("unknown rule id: %s", ruleID)
+		}
+		normalized[ruleID] = severity
+	}
+
+	updated := make([]Rule, 0, len(rules))
+	for _, rule := range rules {
+		id := strings.ToUpper(rule.ID)
+		if override, ok := normalized[id]; ok {
+			rule.Severity = override
+		}
+		updated = append(updated, rule)
+	}
+
+	return updated, nil
+}
+
 // FilterOutput removes configs and warnings that match excluded path globs.
 func FilterOutput(output scan.Output, exclude []string) (scan.Output, error) {
 	patterns := normalizePatterns(exclude)
