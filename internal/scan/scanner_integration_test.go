@@ -74,6 +74,45 @@ func TestScanIntegrationGolden(t *testing.T) {
 	}
 }
 
+func TestScanIntegrationGlobalScope(t *testing.T) {
+	repoRoot := t.TempDir()
+	writeTestFile(t, filepath.Join(repoRoot, "repo.md"), "repo")
+
+	globalRoot := copyFixture(t, "global-scope")
+
+	result, err := Scan(Options{
+		RepoRoot:      repoRoot,
+		IncludeGlobal: true,
+		GlobalRoots:   []string{globalRoot},
+		Registry:      globalScopeRegistry(),
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	output := BuildOutput(result, OutputOptions{
+		SchemaVersion:   "test",
+		RegistryVersion: "1",
+		ToolVersion:     "test",
+		RepoRoot:        repoRoot,
+	})
+
+	foundGlobal := false
+	for _, scan := range output.Scans {
+		if scan.Scope == ScopeGlobal && filepath.Clean(scan.Root) == filepath.Clean(globalRoot) {
+			foundGlobal = true
+			break
+		}
+	}
+	if !foundGlobal {
+		t.Fatalf("expected global scan root %s", globalRoot)
+	}
+
+	if !hasEntryWithPath(output.Configs, filepath.Join(globalRoot, "global.md")) {
+		t.Fatalf("expected global config entry in output")
+	}
+}
+
 func integrationRegistry() Registry {
 	return Registry{
 		Version: "test",

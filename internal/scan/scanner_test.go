@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -148,6 +149,141 @@ func TestScanUserRootMissing(t *testing.T) {
 	}
 }
 
+func TestScanGlobalScopeOrdering(t *testing.T) {
+	repoRoot := t.TempDir()
+	writeTestFile(t, filepath.Join(repoRoot, "repo.md"), "repo")
+
+	userRoot := t.TempDir()
+	writeTestFile(t, filepath.Join(userRoot, "AGENTS.md"), "user")
+
+	globalRoot := copyFixture(t, "global-scope")
+
+	result, err := Scan(Options{
+		RepoRoot:      repoRoot,
+		UserRoots:     []string{userRoot},
+		IncludeGlobal: true,
+		GlobalRoots:   []string{globalRoot},
+		Registry:      globalScopeRegistry(),
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	output := BuildOutput(result, OutputOptions{
+		SchemaVersion:   "test",
+		RegistryVersion: "1",
+		ToolVersion:     "test",
+		RepoRoot:        repoRoot,
+	})
+
+	foundGlobal := false
+	for _, scan := range output.Scans {
+		if scan.Scope == ScopeGlobal && filepath.Clean(scan.Root) == filepath.Clean(globalRoot) {
+			foundGlobal = true
+			break
+		}
+	}
+	if !foundGlobal {
+		t.Fatalf("expected global scan root %s", globalRoot)
+	}
+
+	seenGlobal := false
+	for _, entry := range output.Configs {
+		if entry.Scope == ScopeGlobal {
+			seenGlobal = true
+			continue
+		}
+		if seenGlobal {
+			t.Fatalf("expected global configs last, saw %s after global", entry.Scope)
+		}
+	}
+}
+
+func TestScanGlobalScopeSkipsSpecialFiles(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("special files not supported on Windows")
+	}
+
+	repoRoot := t.TempDir()
+	globalRoot := copyFixture(t, "global-scope")
+	fifoPath := filepath.Join(globalRoot, "named-pipe")
+	if err := syscall.Mkfifo(fifoPath, 0o600); err != nil {
+		t.Skipf("mkfifo unavailable: %v", err)
+	}
+
+	registry := Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "global-config",
+				ToolID:       "global-tool",
+				ToolName:     "Global Tool",
+				Kind:         "config",
+				Scope:        ScopeGlobal,
+				Paths:        []string{"global.md", "named-pipe"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+
+	result, err := Scan(Options{
+		RepoRoot:      repoRoot,
+		IncludeGlobal: true,
+		GlobalRoots:   []string{globalRoot},
+		Registry:      registry,
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	if hasEntryWithPath(result.Entries, fifoPath) {
+		t.Fatalf("expected fifo %s to be skipped", fifoPath)
+	}
+	if !hasEntryWithPath(result.Entries, filepath.Join(globalRoot, "global.md")) {
+		t.Fatalf("expected global config to be scanned")
+	}
+}
+
+func TestScanGlobalScopeWarnsOnPermissionDenied(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission bits are unreliable on Windows")
+	}
+
+	repoRoot := t.TempDir()
+	globalRoot := copyFixture(t, "global-scope")
+	restricted := filepath.Join(globalRoot, "restricted")
+	if err := os.Mkdir(restricted, 0o700); err != nil {
+		t.Fatalf("mkdir restricted: %v", err)
+	}
+	if err := os.Chmod(restricted, 0); err != nil {
+		t.Fatalf("chmod restricted: %v", err)
+	}
+	t.Cleanup(func() {
+		// #nosec G302 -- directory needs execute bit for cleanup.
+		_ = os.Chmod(restricted, 0o700)
+	})
+	if _, err := os.ReadDir(restricted); err == nil {
+		t.Skip("unable to simulate permission denied on this system")
+	}
+
+	result, err := Scan(Options{
+		RepoRoot:      repoRoot,
+		IncludeGlobal: true,
+		GlobalRoots:   []string{globalRoot},
+		Registry:      globalScopeRegistry(),
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	if !hasWarning(result.Warnings, restricted, "EACCES") {
+		t.Fatalf("expected EACCES warning for %s", restricted)
+	}
+}
+
 func hasWarning(warnings []Warning, path string, code string) bool {
 	for _, warning := range warnings {
 		if warning.Code == code && warning.Path == path {
@@ -184,6 +320,59 @@ func testRegistry() Registry {
 			},
 		},
 	}
+}
+
+func globalScopeRegistry() Registry {
+	return Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "repo-config",
+				ToolID:       "repo-tool",
+				ToolName:     "Repo Tool",
+				Kind:         "config",
+				Scope:        ScopeRepo,
+				Paths:        []string{"repo.md"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+			{
+				ID:           "user-config",
+				ToolID:       "user-tool",
+				ToolName:     "User Tool",
+				Kind:         "config",
+				Scope:        ScopeUser,
+				Paths:        []string{"AGENTS.md"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+			{
+				ID:           "global-config",
+				ToolID:       "global-tool",
+				ToolName:     "Global Tool",
+				Kind:         "config",
+				Scope:        ScopeGlobal,
+				Paths:        []string{"global.md"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+}
+
+func hasEntryWithPath(entries []ConfigEntry, path string) bool {
+	for _, entry := range entries {
+		if entry.Path == path {
+			return true
+		}
+	}
+	return false
 }
 
 func copyFixture(t *testing.T, name string) string {
