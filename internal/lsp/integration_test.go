@@ -967,6 +967,90 @@ func TestCodeActionReplaceToolID(t *testing.T) {
 	assertActionContainsText(t, actions, actionTitleReplaceToolIDPrefix+"gemini-cli", "gemini-cli")
 }
 
+func TestCodeLensShadowedByOverride(t *testing.T) {
+	s := NewServer("0.1.0")
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	basePath := filepath.Join(repoRoot, "AGENTS.md")
+	overridePath := filepath.Join(repoRoot, "AGENTS.override.md")
+	if err := os.WriteFile(basePath, []byte("# Base"), 0o600); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+	if err := os.WriteFile(overridePath, []byte("# Override"), 0o600); err != nil {
+		t.Fatalf("write AGENTS.override.md: %v", err)
+	}
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 1)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(basePath)
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: "# Base",
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	var lenses []protocol.CodeLens
+	if err := clientRPC.Call(ctx, protocol.MethodTextDocumentCodeLens, protocol.CodeLensParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	}, &lenses); err != nil {
+		t.Fatalf("codeLens failed: %v", err)
+	}
+
+	if len(lenses) == 0 {
+		t.Fatal("expected code lens, got none")
+	}
+
+	found := false
+	for _, lens := range lenses {
+		if lens.Command == nil {
+			continue
+		}
+		if lens.Command.Title == "Shadowed by AGENTS.override.md" {
+			found = true
+		}
+		if lens.Range.Start.Line != 0 {
+			t.Fatalf("expected code lens to start at line 0, got %d", lens.Range.Start.Line)
+		}
+	}
+	if !found {
+		t.Fatalf("expected shadowed code lens, got %#v", lenses)
+	}
+}
+
 func TestServeCanary(t *testing.T) {
 	binPath := buildMarkdowntownBinary(t)
 

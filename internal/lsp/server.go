@@ -85,6 +85,7 @@ func NewServer(version string) *Server {
 		TextDocumentDefinition: s.definition,
 		TextDocumentCompletion: s.completion,
 		TextDocumentCodeAction: s.codeAction,
+		TextDocumentCodeLens:   s.codeLens,
 	}
 
 	s.server = server.NewServer(s.handler, serverName, false)
@@ -114,6 +115,7 @@ func (s *Server) initialize(_ *glsp.Context, params *protocol.InitializeParams) 
 			TriggerCharacters: []string{":", " "},
 		},
 		CodeActionProvider: true,
+		CodeLensProvider:   &protocol.CodeLensOptions{},
 	}
 
 	return protocol.InitializeResult{

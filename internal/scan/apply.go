@@ -104,6 +104,77 @@ func FilterForFile(result Result, targetPath string) Result {
 	}
 }
 
+// EntryForPath returns the config entry matching the provided path.
+func EntryForPath(result Result, targetPath string) *ConfigEntry {
+	absTarget, err := filepath.Abs(targetPath)
+	if err != nil {
+		return nil
+	}
+	absTarget = filepath.Clean(absTarget)
+	resolvedTarget := absTarget
+	if resolved, err := filepath.EvalSymlinks(absTarget); err == nil {
+		resolvedTarget = filepath.Clean(resolved)
+	}
+
+	for i := range result.Entries {
+		entry := &result.Entries[i]
+		if samePath(entry.Path, absTarget) || samePath(entry.Path, resolvedTarget) ||
+			samePath(entry.Resolved, absTarget) || samePath(entry.Resolved, resolvedTarget) {
+			return entry
+		}
+	}
+
+	return nil
+}
+
+// ShadowingEntry returns the higher-precedence entry that shadows targetPath, if any.
+func ShadowingEntry(result Result, targetPath string) (*ConfigEntry, *ToolEntry) {
+	entry := EntryForPath(result, targetPath)
+	if entry == nil || len(entry.Tools) == 0 {
+		return nil, nil
+	}
+
+	for _, tool := range entry.Tools {
+		if override := overrideEntryForTool(result, entry, tool); override != nil {
+			return override, &tool
+		}
+	}
+
+	entryRank := scopeRank(entry.Scope)
+	var best *ConfigEntry
+	var bestTool *ToolEntry
+	bestRank := int(^uint(0) >> 1)
+	bestKey := ""
+
+	for _, tool := range entry.Tools {
+		if isMultiFileLoadBehavior(tool.LoadBehavior) {
+			continue
+		}
+		for i := range result.Entries {
+			other := &result.Entries[i]
+			if sameEntry(entry, other) {
+				continue
+			}
+			if scopeRank(other.Scope) >= entryRank {
+				continue
+			}
+			if !entryHasTool(other, tool) {
+				continue
+			}
+			rank := scopeRank(other.Scope)
+			key := sortPathKey(other.Path)
+			if best == nil || rank < bestRank || (rank == bestRank && key < bestKey) {
+				best = other
+				bestTool = &tool
+				bestRank = rank
+				bestKey = key
+			}
+		}
+	}
+
+	return best, bestTool
+}
+
 func markKept(kept map[int]map[int]bool, occ struct{ entryIndex, toolIndex int }) {
 	if kept[occ.entryIndex] == nil {
 		kept[occ.entryIndex] = make(map[int]bool)
@@ -158,4 +229,71 @@ func isAncestorDir(ancestor, child string) bool {
 		return false
 	}
 	return !strings.HasPrefix(rel, "..")
+}
+
+func sameEntry(left *ConfigEntry, right *ConfigEntry) bool {
+	if left == nil || right == nil {
+		return false
+	}
+	if samePath(left.Path, right.Path) {
+		return true
+	}
+	if left.Resolved != "" && samePath(left.Resolved, right.Path) {
+		return true
+	}
+	if right.Resolved != "" && samePath(left.Path, right.Resolved) {
+		return true
+	}
+	return left.Resolved != "" && right.Resolved != "" && samePath(left.Resolved, right.Resolved)
+}
+
+func samePath(left string, right string) bool {
+	if left == "" || right == "" {
+		return false
+	}
+	return filepath.Clean(left) == filepath.Clean(right)
+}
+
+func entryHasTool(entry *ConfigEntry, tool ToolEntry) bool {
+	for _, candidate := range entry.Tools {
+		if candidate.ToolID == tool.ToolID && candidate.Kind == tool.Kind {
+			return true
+		}
+	}
+	return false
+}
+
+func overrideEntryForTool(result Result, entry *ConfigEntry, tool ToolEntry) *ConfigEntry {
+	if entry == nil {
+		return nil
+	}
+	if !isAgentsBase(entry.Path) {
+		return nil
+	}
+	entryDir := filepath.Dir(entry.Path)
+	for i := range result.Entries {
+		other := &result.Entries[i]
+		if other == nil || sameEntry(entry, other) {
+			continue
+		}
+		if !isAgentsOverride(other.Path) {
+			continue
+		}
+		if filepath.Dir(other.Path) != entryDir {
+			continue
+		}
+		if !entryHasTool(other, tool) {
+			continue
+		}
+		return other
+	}
+	return nil
+}
+
+func isAgentsBase(path string) bool {
+	return strings.EqualFold(filepath.Base(path), "agents.md")
+}
+
+func isAgentsOverride(path string) bool {
+	return strings.EqualFold(filepath.Base(path), "agents.override.md")
 }
