@@ -24,6 +24,7 @@ extension in development mode.
 
 Environment:
   BIN_DIR  Override output directory for the CLI binary (default: ./bin)
+  CODE_BIN Override VS Code CLI (default: auto-detect code/code-insiders)
 EOF
 }
 

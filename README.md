@@ -45,6 +45,12 @@ make lsp-vscode
 
 Requirements: VS Code's CLI in PATH (`code` or `code-insiders`) and Node/npm for the extension build. Use `CODE_BIN=code-insiders make lsp-vscode` to force Insiders, and `scripts/lsp-vscode --dry-run` to preview the launch command.
 
+Automated smoke test (runs the VS Code extension test runner and asserts overlay diagnostics):
+
+```bash
+make lsp-vscode-test
+```
+
 Audit scan results:
 
 ```bash
