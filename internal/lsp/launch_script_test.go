@@ -4,11 +4,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestVSCodeLaunchScriptDryRun(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping test on windows because scripts/lsp-vscode is a bash script")
+	}
 	repoRoot := findRepoRoot(t)
 	scriptPath := filepath.Join(repoRoot, "scripts", "lsp-vscode")
 
