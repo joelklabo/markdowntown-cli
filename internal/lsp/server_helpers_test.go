@@ -44,6 +44,30 @@ func TestTriggerDiagnostics(t *testing.T) {
 	timer.Stop()
 }
 
+func TestDidChangeConfigurationTriggersDiagnostics(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.frontmatterCache["file:///tmp/test.md"] = &scan.ParsedFrontmatter{}
+
+	ctx := &glsp.Context{Notify: func(string, any) {}}
+	if err := s.didChangeConfiguration(ctx, &protocol.DidChangeConfigurationParams{
+		Settings: map[string]any{
+			"diagnostics": map[string]any{
+				"enabled": false,
+			},
+		},
+	}); err != nil {
+		t.Fatalf("didChangeConfiguration: %v", err)
+	}
+
+	s.diagnosticsMu.Lock()
+	timer := s.diagnosticTimers["file:///tmp/test.md"]
+	s.diagnosticsMu.Unlock()
+	if timer == nil {
+		t.Fatalf("expected timer to be scheduled")
+	}
+	timer.Stop()
+}
+
 func TestIssueToProtocolRange(t *testing.T) {
 	empty := issueToProtocolRange(nil)
 	if empty.Start.Line != 0 || empty.End.Line != 0 {
@@ -187,6 +211,51 @@ func TestURLToPath(t *testing.T) {
 	})
 }
 
+func TestPathToURI(t *testing.T) {
+	base := filepath.Join(t.TempDir(), "space here", "file.md")
+	uri := pathToURI(base)
+	if !strings.HasPrefix(uri, "file://") {
+		t.Fatalf("expected file URI, got %s", uri)
+	}
+	if !strings.Contains(uri, "space%20here") {
+		t.Fatalf("expected escaped space in URI, got %s", uri)
+	}
+}
+
+func TestIssueMatchesPathNormalized(t *testing.T) {
+	repoRoot := filepath.Join(t.TempDir(), "repo")
+	path := filepath.Join(repoRoot, "AGENTS.md")
+
+	issue := audit.Issue{
+		Paths: []audit.Path{
+			{Path: filepath.ToSlash(path), Scope: "repo"},
+		},
+	}
+	if !issueMatchesPath(issue, path, repoRoot) {
+		t.Fatalf("expected match for absolute path")
+	}
+
+	issue = audit.Issue{
+		Paths: []audit.Path{
+			{Path: "./AGENTS.md", Scope: "repo"},
+		},
+	}
+	if !issueMatchesPath(issue, path, repoRoot) {
+		t.Fatalf("expected match for repo-relative path")
+	}
+
+	if runtime.GOOS == "windows" {
+		issue = audit.Issue{
+			Paths: []audit.Path{
+				{Path: strings.ToUpper(filepath.ToSlash(path)), Scope: "repo"},
+			},
+		}
+		if !issueMatchesPath(issue, path, repoRoot) {
+			t.Fatalf("expected match for case-insensitive path")
+		}
+	}
+}
+
 func TestClampToUint32(t *testing.T) {
 	if got := clampToUint32(-5); got != 0 {
 		t.Fatalf("expected 0, got %d", got)
@@ -201,6 +270,107 @@ func TestClampToUint32(t *testing.T) {
 		}
 	} else {
 		t.Skip("int size does not allow overflow test")
+	}
+}
+
+func TestBoolValue(t *testing.T) {
+	if boolValue(nil) {
+		t.Fatalf("expected nil to be false")
+	}
+	value := true
+	if !boolValue(&value) {
+		t.Fatalf("expected true pointer to be true")
+	}
+	off := false
+	if boolValue(&off) {
+		t.Fatalf("expected false pointer to be false")
+	}
+}
+
+func TestDecodeContentChange(t *testing.T) {
+	event := protocol.TextDocumentContentChangeEvent{Text: "hello"}
+	got, ok := decodeContentChange(event)
+	if !ok || got.Text != "hello" {
+		t.Fatalf("expected event, got %#v (ok=%v)", got, ok)
+	}
+
+	whole := protocol.TextDocumentContentChangeEventWhole{Text: "whole"}
+	got, ok = decodeContentChange(whole)
+	if !ok || got.Text != "whole" || got.Range != nil {
+		t.Fatalf("expected whole event, got %#v (ok=%v)", got, ok)
+	}
+
+	if _, ok := decodeContentChange((*protocol.TextDocumentContentChangeEvent)(nil)); ok {
+		t.Fatalf("expected nil pointer to return false")
+	}
+
+	mapped := map[string]any{
+		"text": "mapped",
+		"range": map[string]any{
+			"start": map[string]any{"line": 1, "character": 2},
+			"end":   map[string]any{"line": 1, "character": 4},
+		},
+	}
+	got, ok = decodeContentChange(mapped)
+	if !ok || got.Text != "mapped" || got.Range == nil {
+		t.Fatalf("expected mapped event, got %#v (ok=%v)", got, ok)
+	}
+	if got.Range.Start.Line != 1 || got.Range.Start.Character != 2 {
+		t.Fatalf("unexpected range start: %#v", got.Range.Start)
+	}
+
+	if _, ok := decodeContentChange("nope"); ok {
+		t.Fatalf("expected unsupported change to return false")
+	}
+}
+
+func TestToUint32(t *testing.T) {
+	if _, ok := toUint32(-1); ok {
+		t.Fatalf("expected negative int to fail")
+	}
+	if got, ok := toUint32(123); !ok || got != 123 {
+		t.Fatalf("expected 123, got %d (ok=%v)", got, ok)
+	}
+	if _, ok := toUint32(uint64(^uint32(0)) + 1); ok {
+		t.Fatalf("expected overflow uint64 to fail")
+	}
+	if _, ok := toUint32(float64(-1)); ok {
+		t.Fatalf("expected negative float to fail")
+	}
+	if got, ok := toUint32(float64(42)); !ok || got != 42 {
+		t.Fatalf("expected 42, got %d (ok=%v)", got, ok)
+	}
+}
+
+func TestApplyContentChange(t *testing.T) {
+	content := "hello"
+	change := protocol.TextDocumentContentChangeEvent{
+		Range: &protocol.Range{
+			Start: protocol.Position{Line: 0, Character: 1},
+			End:   protocol.Position{Line: 0, Character: 3},
+		},
+		Text: "X",
+	}
+	updated, ok := applyContentChange(content, change)
+	if !ok || updated != "hXlo" {
+		t.Fatalf("expected hXlo, got %q (ok=%v)", updated, ok)
+	}
+
+	replaceAll, ok := applyContentChange(content, protocol.TextDocumentContentChangeEvent{Text: "reset"})
+	if !ok || replaceAll != "reset" {
+		t.Fatalf("expected reset, got %q (ok=%v)", replaceAll, ok)
+	}
+
+	invalid := protocol.TextDocumentContentChangeEvent{
+		Range: &protocol.Range{
+			Start: protocol.Position{Line: 0, Character: 3},
+			End:   protocol.Position{Line: 0, Character: 2},
+		},
+		Text: "nope",
+	}
+	updated, ok = applyContentChange(content, invalid)
+	if ok || updated != content {
+		t.Fatalf("expected invalid change to fail and keep content, got %q (ok=%v)", updated, ok)
 	}
 }
 

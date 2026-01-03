@@ -131,3 +131,17 @@ func TestWriteResolveReportUnsupportedFormat(t *testing.T) {
 		t.Fatalf("expected error for unsupported format")
 	}
 }
+
+func TestFormatMarkdownURLs(t *testing.T) {
+	input := "See https://example.com, <https://wrapped.example> and https://example.com/path)."
+	output := formatMarkdownURLs(input)
+	if !strings.Contains(output, "<https://example.com>,") {
+		t.Fatalf("expected bare URL to be wrapped, got %q", output)
+	}
+	if !strings.Contains(output, "<https://wrapped.example>") {
+		t.Fatalf("expected wrapped URL to remain, got %q", output)
+	}
+	if !strings.Contains(output, "<https://example.com/path>)") {
+		t.Fatalf("expected trailing punctuation preserved, got %q", output)
+	}
+}

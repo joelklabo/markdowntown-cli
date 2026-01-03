@@ -559,12 +559,35 @@ func (s *Server) diagnosticsForIssues(issues []audit.Issue, uri string, path str
 }
 
 func issueMatchesPath(issue audit.Issue, path string, repoRoot string) bool {
+	normalizedPath := normalizePathForMatch(path)
+	if normalizedPath == "" {
+		return false
+	}
+	root := filepath.Clean(repoRoot)
 	for _, p := range issue.Paths {
-		if p.Path == path || filepath.Join(repoRoot, p.Path) == path {
+		if normalizePathForMatch(p.Path) == normalizedPath {
 			return true
+		}
+		if root != "" {
+			candidate := filepath.Join(root, filepath.FromSlash(p.Path))
+			if normalizePathForMatch(candidate) == normalizedPath {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+func normalizePathForMatch(value string) string {
+	if value == "" {
+		return ""
+	}
+	normalized := filepath.Clean(filepath.FromSlash(value))
+	normalized = filepath.ToSlash(normalized)
+	if runtime.GOOS == "windows" {
+		normalized = strings.ToLower(normalized)
+	}
+	return normalized
 }
 
 func (s *Server) unknownToolIDDiagnostic(uri string, path string, registry scan.Registry, settings Settings, caps DiagnosticCapabilities) *protocol.Diagnostic {

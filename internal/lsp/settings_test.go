@@ -65,3 +65,24 @@ func TestParseSettingsOverrides(t *testing.T) {
 		t.Fatalf("expected rulesDisabled length 1, got %d", len(settings.Diagnostics.RulesDisabled))
 	}
 }
+
+func TestParseSettingsWarnings(t *testing.T) {
+	input := map[string]any{
+		"diagnostics": map[string]any{
+			"delayMs":           -1,
+			"redactPaths":       "invalid",
+			"severityOverrides": map[string]any{"MD001": "nope", "MD002": 3},
+		},
+	}
+
+	settings, warnings := ParseSettings(input)
+	if len(warnings) == 0 {
+		t.Fatalf("expected warnings for invalid settings")
+	}
+	if settings.Diagnostics.DelayMs != defaultDiagnosticsDelayMs {
+		t.Fatalf("expected delayMs to remain default, got %d", settings.Diagnostics.DelayMs)
+	}
+	if settings.Diagnostics.RedactPaths != audit.RedactNever {
+		t.Fatalf("expected redactPaths to remain default, got %s", settings.Diagnostics.RedactPaths)
+	}
+}

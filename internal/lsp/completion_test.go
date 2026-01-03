@@ -74,13 +74,15 @@ key: val
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uri := "file://" + filepath.Join(repoRoot, "test.md")
-			_ = s.didOpen(nil, &protocol.DidOpenTextDocumentParams{
+			uri := pathToURI(filepath.Join(repoRoot, "test.md"))
+			if err := s.didOpen(nil, &protocol.DidOpenTextDocumentParams{
 				TextDocument: protocol.TextDocumentItem{
 					URI:  uri,
 					Text: tt.content,
 				},
-			})
+			}); err != nil {
+				t.Fatalf("didOpen error: %v", err)
+			}
 
 			res, err := s.completion(&glsp.Context{}, &protocol.CompletionParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
