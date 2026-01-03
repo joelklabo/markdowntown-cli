@@ -24,6 +24,7 @@
 - Default global root is `/etc` (Unix-like); global scope is **disabled by default**.
 - Do not expand global scope to `/` or other system roots without an explicit flag.
 - Skip special files (device nodes, FIFOs, sockets) to avoid hangs or unsafe reads.
+- Treat partial failures as non-fatal; aggregate warnings for audits instead of aborting.
 - Treat all permission issues as warnings; never fail the scan due to global scope access.
 - Avoid logging raw contents from global scope; prefer `--no-content` when possible.
 

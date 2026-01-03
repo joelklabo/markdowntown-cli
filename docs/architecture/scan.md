@@ -74,12 +74,15 @@
 - Default worker limit should be bounded (e.g., `runtime.NumCPU()` or a small multiple), and configurable via a flag (proposed: `--scan-workers`).
 - Discovery and content hashing can overlap, but output ordering is applied after collection.
 - Errors are aggregated into warnings where recoverable; fatal errors remain deterministic.
+- Shared mutable state (visited inode map, warning collection) must be synchronized (mutex or channel-owned state); prefer read-only snapshots for workers.
+- Cancellation should propagate through the errgroup context to stop outstanding work on fatal errors or interrupts.
 
 ## Error and Warning Handling
 
 - Unreadable files generate a config entry with null size/hash and an error code.
 - Circular symlinks and permission errors produce warnings and skip traversal.
 - Config conflicts are inferred by tool+scope+kind with explicit override exceptions, excluding multi-file `loadBehavior` patterns.
+- Partial failures (e.g., one worker hits EACCES) do not abort the scan; they are recorded as warnings and the scan continues.
 
 ## Test Plan
 
@@ -88,6 +91,8 @@
 - **Symlink loops**: cycles under global scope are detected and skipped.
 - **Concurrency determinism**: parallel scan ordering matches serial ordering across runs.
 - **Worker limits**: verify `--scan-workers=1` (serial) and higher counts behave correctly.
+- **Race detection**: run scan tests with `-race` to validate shared-state locking.
+- **Stress**: exercise large file sets to validate FD usage and cancellation behavior.
 
 ## CLI UX
 
