@@ -247,7 +247,7 @@ func TestBuildRelatedInfoIncludesConfigs(t *testing.T) {
 	related := buildRelatedInfo(issue, pathToURL(currentPath), currentPath, repoRoot, protocol.Range{
 		Start: protocol.Position{Line: 1, Character: 1},
 		End:   protocol.Position{Line: 1, Character: 2},
-	}, true)
+	}, true, audit.RedactNever)
 
 	otherURI := pathToURL(otherPath)
 	redactedURI := pathToURL(redactedPath)
@@ -299,12 +299,11 @@ func TestDiagnosticMetadata(t *testing.T) {
 		t.Fatalf("expected two tags, got %v", tags)
 	}
 
-	repoRoot := t.TempDir()
-	desc := diagnosticCodeDescription("docs/audit-spec-v1.md", repoRoot)
+	desc := diagnosticCodeDescription("docs/audit-spec-v1.md")
 	if desc == nil {
 		t.Fatal("expected code description")
 	}
-	expected := pathToURL(filepath.Join(repoRoot, "docs/audit-spec-v1.md"))
+	expected := docsBaseURL + "docs/audit-spec-v1.md"
 	if desc.HRef != expected {
 		t.Fatalf("expected code description %s, got %s", expected, desc.HRef)
 	}

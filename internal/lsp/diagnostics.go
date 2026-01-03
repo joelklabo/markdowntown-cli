@@ -2,6 +2,8 @@ package lsp
 
 import (
 	"fmt"
+	"net/url"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -16,9 +18,11 @@ const (
 	relatedConfigLimit = 3
 	// relatedInfoLimit caps total related info entries (suggestions/tools/evidence + configs).
 	relatedInfoLimit = 8
+	// docsBaseURL is used to turn relative doc URLs into HTTPS links.
+	docsBaseURL = "https://github.com/joelklabo/markdowntown-cli/blob/main/"
 )
 
-func diagnosticForIssue(issue audit.Issue, uri string, path string, repoRoot string, includeRelatedInfo bool, includeEvidence bool, includeTags bool, includeCodeDescription bool) protocol.Diagnostic {
+func diagnosticForIssue(issue audit.Issue, uri string, path string, repoRoot string, includeRelatedInfo bool, includeEvidence bool, includeTags bool, includeCodeDescription bool, redactMode audit.RedactMode) protocol.Diagnostic {
 	code := protocol.IntegerOrString{Value: issue.RuleID}
 	source := serverName
 	message := issue.Message
@@ -32,12 +36,12 @@ func diagnosticForIssue(issue audit.Issue, uri string, path string, repoRoot str
 		Code:     &code,
 		Source:   &source,
 		Message:  message,
-		Data:     buildDiagnosticData(issue, includeEvidence),
+		Data:     buildDiagnosticData(issue, includeEvidence, redactMode),
 	}
 
 	if includeCodeDescription {
 		if meta := issueRuleData(issue); meta != nil && meta.DocURL != "" {
-			if desc := diagnosticCodeDescription(meta.DocURL, repoRoot); desc != nil {
+			if desc := diagnosticCodeDescription(meta.DocURL); desc != nil {
 				diag.CodeDescription = desc
 			}
 		}
@@ -48,7 +52,7 @@ func diagnosticForIssue(issue audit.Issue, uri string, path string, repoRoot str
 		}
 	}
 	if includeRelatedInfo {
-		related := buildRelatedInfo(issue, uri, path, repoRoot, diag.Range, includeEvidence)
+		related := buildRelatedInfo(issue, uri, path, repoRoot, diag.Range, includeEvidence, redactMode)
 		if len(related) > 0 {
 			diag.RelatedInformation = related
 		}
@@ -56,7 +60,10 @@ func diagnosticForIssue(issue audit.Issue, uri string, path string, repoRoot str
 	return diag
 }
 
-func buildRelatedInfo(issue audit.Issue, uri string, path string, repoRoot string, rng protocol.Range, includeEvidence bool) []protocol.DiagnosticRelatedInformation {
+func buildRelatedInfo(issue audit.Issue, uri string, path string, repoRoot string, rng protocol.Range, includeEvidence bool, redactMode audit.RedactMode) []protocol.DiagnosticRelatedInformation {
+	if redactMode != audit.RedactNever {
+		return nil
+	}
 	related := make([]protocol.DiagnosticRelatedInformation, 0)
 	add := func(targetURI string, targetRange protocol.Range, message string) {
 		if message == "" || len(related) >= relatedInfoLimit {
@@ -160,18 +167,91 @@ func relatedConfigMessage(path audit.Path) string {
 	return fmt.Sprintf("Related config: %s", path.Path)
 }
 
-func buildDiagnosticData(issue audit.Issue, includeEvidence bool) map[string]any {
+func buildDiagnosticData(issue audit.Issue, includeEvidence bool, redactMode audit.RedactMode) map[string]any {
+	paths := filterDiagnosticPaths(issue.Paths, redactMode)
 	data := map[string]any{
 		"ruleId":     issue.RuleID,
 		"title":      issue.Title,
 		"suggestion": issue.Suggestion,
-		"paths":      issue.Paths,
+		"paths":      paths,
 		"tools":      issue.Tools,
 	}
 	if includeEvidence {
-		data["evidence"] = issue.Evidence
+		data["evidence"] = sanitizeEvidence(issue.Evidence, redactMode)
 	}
 	return data
+}
+
+func filterDiagnosticPaths(paths []audit.Path, redactMode audit.RedactMode) []audit.Path {
+	if redactMode == audit.RedactNever || len(paths) == 0 {
+		return paths
+	}
+	filtered := make([]audit.Path, 0, len(paths))
+	for _, path := range paths {
+		if path.Redacted {
+			filtered = append(filtered, path)
+			continue
+		}
+		if isAbsolutePath(path.Path) {
+			continue
+		}
+		filtered = append(filtered, path)
+	}
+	return filtered
+}
+
+func sanitizeEvidence(evidence map[string]any, redactMode audit.RedactMode) map[string]any {
+	if redactMode == audit.RedactNever || len(evidence) == 0 {
+		return evidence
+	}
+	sanitized := make(map[string]any, len(evidence))
+	for key, value := range evidence {
+		if cleaned, ok := sanitizeEvidenceValue(value); ok {
+			sanitized[key] = cleaned
+		}
+	}
+	return sanitized
+}
+
+func sanitizeEvidenceValue(value any) (any, bool) {
+	switch typed := value.(type) {
+	case string:
+		if isAbsolutePath(typed) {
+			return nil, false
+		}
+		return typed, true
+	case []string:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if isAbsolutePath(item) {
+				continue
+			}
+			out = append(out, item)
+		}
+		if len(out) == 0 {
+			return nil, false
+		}
+		return out, true
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			switch v := item.(type) {
+			case string:
+				if isAbsolutePath(v) {
+					continue
+				}
+				out = append(out, v)
+			default:
+				out = append(out, item)
+			}
+		}
+		if len(out) == 0 {
+			return nil, false
+		}
+		return out, true
+	default:
+		return value, true
+	}
 }
 
 func issueRuleData(issue audit.Issue) *audit.RuleData {
@@ -209,17 +289,46 @@ func diagnosticTags(issue audit.Issue) []protocol.DiagnosticTag {
 	return tags
 }
 
-func diagnosticCodeDescription(docURL string, repoRoot string) *protocol.CodeDescription {
-	docURL = strings.TrimSpace(docURL)
-	if docURL == "" {
+func diagnosticCodeDescription(docURL string) *protocol.CodeDescription {
+	href := sanitizeDocURL(docURL)
+	if href == "" {
 		return nil
 	}
-	href := docURL
-	if !strings.Contains(docURL, "://") && repoRoot != "" {
-		path := filepath.Join(repoRoot, filepath.FromSlash(docURL))
-		href = pathToURL(path)
-	}
 	return &protocol.CodeDescription{HRef: href}
+}
+
+func sanitizeDocURL(docURL string) string {
+	raw := strings.TrimSpace(docURL)
+	if raw == "" {
+		return ""
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	if parsed.Scheme != "" {
+		if strings.ToLower(parsed.Scheme) != "https" {
+			return ""
+		}
+		if parsed.Host == "" {
+			return ""
+		}
+		return parsed.String()
+	}
+
+	cleaned := path.Clean("/" + filepath.ToSlash(parsed.Path))
+	cleaned = strings.TrimPrefix(cleaned, "/")
+	if cleaned == "." || strings.HasPrefix(cleaned, "..") {
+		return ""
+	}
+	href := docsBaseURL + cleaned
+	if parsed.RawQuery != "" {
+		href += "?" + parsed.RawQuery
+	}
+	if parsed.Fragment != "" {
+		href += "#" + parsed.Fragment
+	}
+	return href
 }
 
 func formatTools(tools []audit.Tool) string {
@@ -310,4 +419,20 @@ func joinWithLimit(items []string, limit int) string {
 	}
 	extra := len(items) - limit
 	return strings.Join(items[:limit], ", ") + fmt.Sprintf(" (+%d more)", extra)
+}
+
+func isAbsolutePath(value string) bool {
+	if value == "" {
+		return false
+	}
+	if filepath.IsAbs(value) {
+		return true
+	}
+	if strings.HasPrefix(value, "/") || strings.HasPrefix(value, "\\") {
+		return true
+	}
+	if len(value) >= 2 && value[1] == ':' {
+		return true
+	}
+	return false
 }

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"markdowntown-cli/internal/audit"
+
 	"github.com/spf13/afero"
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -226,6 +228,85 @@ func TestDefinition(t *testing.T) {
 	loc := result.(protocol.Location)
 	if !strings.Contains(loc.URI, "AGENTS.md") {
 		t.Errorf("expected link to AGENTS.md, got %s", loc.URI)
+	}
+}
+
+func TestDiagnosticCodeDescriptionSanitize(t *testing.T) {
+	desc := diagnosticCodeDescription("https://example.com/docs")
+	if desc == nil || desc.HRef != "https://example.com/docs" {
+		t.Fatalf("expected https doc URL, got %#v", desc)
+	}
+
+	if desc := diagnosticCodeDescription("http://example.com/docs"); desc != nil {
+		t.Fatalf("expected http URL to be rejected")
+	}
+
+	if desc := diagnosticCodeDescription("file:///tmp/docs"); desc != nil {
+		t.Fatalf("expected file URL to be rejected")
+	}
+
+	if desc := diagnosticCodeDescription("command:open"); desc != nil {
+		t.Fatalf("expected command URL to be rejected")
+	}
+
+	if desc := diagnosticCodeDescription("javascript:alert(1)"); desc != nil {
+		t.Fatalf("expected javascript URL to be rejected")
+	}
+
+	if desc := diagnosticCodeDescription("data:text/plain,hello"); desc != nil {
+		t.Fatalf("expected data URL to be rejected")
+	}
+
+	desc = diagnosticCodeDescription("docs/audit-spec-v1.md")
+	if desc == nil || desc.HRef != docsBaseURL+"docs/audit-spec-v1.md" {
+		t.Fatalf("expected relative doc URL to map to base URL, got %#v", desc)
+	}
+}
+
+func TestDiagnosticRedactionFiltersPaths(t *testing.T) {
+	issue := audit.Issue{
+		RuleID:  "MD001",
+		Message: "message",
+		Paths: []audit.Path{
+			{Path: "/tmp/secret.md", Scope: "user"},
+		},
+		Evidence: map[string]any{
+			"path":         "/tmp/secret.md",
+			"requiredKeys": []string{"toolId"},
+		},
+	}
+
+	diag := diagnosticForIssue(issue, "file:///tmp/secret.md", "/tmp/secret.md", "/repo", true, true, false, false, audit.RedactAlways)
+	data, ok := diag.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("expected diagnostic data map, got %#v", diag.Data)
+	}
+	paths, ok := data["paths"].([]audit.Path)
+	if !ok {
+		t.Fatalf("expected diagnostic paths, got %#v", data["paths"])
+	}
+	if len(paths) != 0 {
+		t.Fatalf("expected redacted paths to be filtered, got %#v", paths)
+	}
+	evidence, ok := data["evidence"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected evidence map, got %#v", data["evidence"])
+	}
+	if _, ok := evidence["path"]; ok {
+		t.Fatalf("expected absolute path evidence to be removed")
+	}
+	if _, ok := evidence["requiredKeys"]; !ok {
+		t.Fatalf("expected non-path evidence to remain")
+	}
+	if diag.RelatedInformation != nil {
+		t.Fatalf("expected related info to be omitted when redaction is enabled")
+	}
+
+	diag = diagnosticForIssue(issue, "file:///tmp/secret.md", "/tmp/secret.md", "/repo", true, true, false, false, audit.RedactNever)
+	data = diag.Data.(map[string]any)
+	paths = data["paths"].([]audit.Path)
+	if len(paths) != 1 {
+		t.Fatalf("expected paths to remain when redaction disabled, got %#v", paths)
 	}
 }
 

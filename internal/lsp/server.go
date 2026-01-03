@@ -539,7 +539,9 @@ func (s *Server) rulesForSettings(settings Settings) []audit.Rule {
 
 func (s *Server) diagnosticsForIssues(issues []audit.Issue, uri string, path string, repoRoot string, settings Settings, caps DiagnosticCapabilities) []protocol.Diagnostic {
 	diagnostics := make([]protocol.Diagnostic, 0)
-	includeRelatedInfo := settings.Diagnostics.IncludeRelatedInfo && caps.RelatedInformation
+	redactMode := settings.Diagnostics.RedactPaths
+	redactEnabled := redactMode != audit.RedactNever
+	includeRelatedInfo := settings.Diagnostics.IncludeRelatedInfo && caps.RelatedInformation && !redactEnabled
 	includeEvidence := settings.Diagnostics.IncludeEvidence
 	includeTags := caps.Tags
 	includeCodeDescription := caps.CodeDescription
@@ -548,7 +550,7 @@ func (s *Server) diagnosticsForIssues(issues []audit.Issue, uri string, path str
 		if !issueMatchesPath(issue, path, repoRoot) {
 			continue
 		}
-		diag := diagnosticForIssue(issue, uri, path, repoRoot, includeRelatedInfo, includeEvidence, includeTags, includeCodeDescription)
+		diag := diagnosticForIssue(issue, uri, path, repoRoot, includeRelatedInfo, includeEvidence, includeTags, includeCodeDescription, redactMode)
 		diagnostics = append(diagnostics, diag)
 	}
 
@@ -618,7 +620,7 @@ func (s *Server) unknownToolIDDiagnostic(uri string, path string, registry scan.
 			"replacement": replacement,
 		},
 	}
-	if suggestion != "" && settings.Diagnostics.IncludeRelatedInfo && caps.RelatedInformation {
+	if suggestion != "" && settings.Diagnostics.IncludeRelatedInfo && caps.RelatedInformation && settings.Diagnostics.RedactPaths == audit.RedactNever {
 		diag.RelatedInformation = []protocol.DiagnosticRelatedInformation{
 			{
 				Location: protocol.Location{
@@ -705,7 +707,7 @@ func (s *Server) publishDiagnosticsError(context *glsp.Context, uri string, mess
 			"suggestion": suggestion,
 		},
 	}
-	if suggestion != "" && settings.Diagnostics.IncludeRelatedInfo && caps.RelatedInformation {
+	if suggestion != "" && settings.Diagnostics.IncludeRelatedInfo && caps.RelatedInformation && settings.Diagnostics.RedactPaths == audit.RedactNever {
 		diag.RelatedInformation = []protocol.DiagnosticRelatedInformation{
 			{
 				Location: protocol.Location{
