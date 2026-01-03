@@ -95,7 +95,13 @@ jobs:
       - name: Stage CLI binary
         run: |
           mkdir -p vscode-extension/bin
-          cp dist/markdowntown-${{ matrix.target }}/markdowntown${{ matrix.ext }} vscode-extension/bin/markdowntown${{ matrix.ext }}
+          binary_path=$(find dist -type f -name "markdowntown${{ matrix.ext }}" | head -n 1)
+          if [ -z "$binary_path" ]; then
+            echo "markdowntown binary not found under dist"
+            find dist -maxdepth 4 -type f
+            exit 1
+          fi
+          cp "$binary_path" vscode-extension/bin/markdowntown${{ matrix.ext }}
           if [ "${{ matrix.ext }}" = "" ]; then chmod +x vscode-extension/bin/markdowntown; fi
       - name: Package VSIX
         run: cd vscode-extension && npx vsce package --target ${{ matrix.target }} --out ../dist/markdowntown-${{ matrix.target }}.vsix --skip-license
