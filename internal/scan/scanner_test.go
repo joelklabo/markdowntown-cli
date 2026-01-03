@@ -296,6 +296,25 @@ func TestScanGlobalScopeSkipsSensitivePaths(t *testing.T) {
 	}
 }
 
+func TestNormalizeGlobalRelPathCasefoldAndSeparators(t *testing.T) {
+	normalized := normalizeGlobalRelPath(`SeCuRiTy\OpAssWd`)
+	if normalized != "security/opasswd" {
+		t.Fatalf("expected normalized path to be security/opasswd, got %q", normalized)
+	}
+
+	if !shouldSkipGlobalPath("/etc", `/etc/SeCuRiTy\OpAssWd`, nil) {
+		t.Fatalf("expected skip match for mixed-case path separators")
+	}
+}
+
+func TestNormalizeGlobalRelPathUnicodeNFC(t *testing.T) {
+	composed := "s\u00e9curity"
+	decomposed := "se\u0301curity"
+	if normalizeGlobalRelPath(composed) != normalizeGlobalRelPath(decomposed) {
+		t.Fatalf("expected Unicode normalization to treat composed and decomposed forms equally")
+	}
+}
+
 func TestScanGlobalScopeHonorsMaxFiles(t *testing.T) {
 	repoRoot := t.TempDir()
 	globalRoot := t.TempDir()

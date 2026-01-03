@@ -17,6 +17,8 @@ import (
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/unicode/norm"
 )
 
 // Result collects discovered entries and warnings.
@@ -27,6 +29,7 @@ type Result struct {
 }
 
 var runtimeGOOS = runtime.GOOS
+var foldCaser = cases.Fold()
 
 // Scan discovers files across repo/user scopes and stdin paths.
 func scanRepoRoots(fs afero.Fs, repoRoots []string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, opts Options) []string {
@@ -368,6 +371,8 @@ var globalSkipPrefixes = []string{
 	"wpa_supplicant.conf",
 }
 
+var globalSkipPrefixesNormalized = normalizeGlobalSkipPrefixes(globalSkipPrefixes)
+
 func shouldSkipGlobalPath(root string, path string, info os.FileInfo) bool {
 	if isSpecialFile(info) {
 		return true
@@ -384,13 +389,31 @@ func shouldSkipGlobalPath(root string, path string, info os.FileInfo) bool {
 		return true
 	}
 
-	rel = strings.ToLower(filepath.ToSlash(rel))
-	for _, prefix := range globalSkipPrefixes {
+	rel = normalizeGlobalRelPath(rel)
+	for _, prefix := range globalSkipPrefixesNormalized {
 		if rel == prefix || strings.HasPrefix(rel, prefix+"/") {
 			return true
 		}
 	}
 	return false
+}
+
+func normalizeGlobalRelPath(rel string) string {
+	if rel == "" {
+		return rel
+	}
+	rel = filepath.ToSlash(rel)
+	rel = strings.ReplaceAll(rel, "\\", "/")
+	rel = norm.NFC.String(rel)
+	return foldCaser.String(rel)
+}
+
+func normalizeGlobalSkipPrefixes(prefixes []string) []string {
+	normalized := make([]string, 0, len(prefixes))
+	for _, prefix := range prefixes {
+		normalized = append(normalized, normalizeGlobalRelPath(prefix))
+	}
+	return normalized
 }
 
 func isSpecialFile(info os.FileInfo) bool {
