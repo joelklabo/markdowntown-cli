@@ -548,7 +548,7 @@ func (s *Server) diagnosticsForIssues(issues []audit.Issue, uri string, path str
 		if !issueMatchesPath(issue, path, repoRoot) {
 			continue
 		}
-		diag := diagnosticForIssue(issue, uri, repoRoot, includeRelatedInfo, includeEvidence, includeTags, includeCodeDescription)
+		diag := diagnosticForIssue(issue, uri, path, repoRoot, includeRelatedInfo, includeEvidence, includeTags, includeCodeDescription)
 		diagnostics = append(diagnostics, diag)
 	}
 
@@ -562,75 +562,6 @@ func issueMatchesPath(issue audit.Issue, path string, repoRoot string) bool {
 		}
 	}
 	return false
-}
-
-func diagnosticForIssue(issue audit.Issue, uri string, repoRoot string, includeRelatedInfo bool, includeEvidence bool, includeTags bool, includeCodeDescription bool) protocol.Diagnostic {
-	code := protocol.IntegerOrString{Value: issue.RuleID}
-	source := serverName
-	message := issue.Message
-	if issue.Title != "" && !strings.HasPrefix(issue.Message, issue.Title) {
-		message = fmt.Sprintf("%s: %s", issue.Title, issue.Message)
-	}
-
-	diag := protocol.Diagnostic{
-		Range:    issueToProtocolRange(issue.Range),
-		Severity: severityToProtocolSeverity(issue.Severity),
-		Code:     &code,
-		Source:   &source,
-		Message:  message,
-		Data:     buildDiagnosticData(issue, includeEvidence),
-	}
-
-	if includeCodeDescription {
-		if meta := issueRuleData(issue); meta != nil && meta.DocURL != "" {
-			if desc := diagnosticCodeDescription(meta.DocURL, repoRoot); desc != nil {
-				diag.CodeDescription = desc
-			}
-		}
-	}
-	if includeTags {
-		if tags := diagnosticTags(issue); len(tags) > 0 {
-			diag.Tags = tags
-		}
-	}
-	if includeRelatedInfo {
-		related := buildRelatedInfo(issue, uri, diag.Range, includeEvidence)
-		if len(related) > 0 {
-			diag.RelatedInformation = related
-		}
-	}
-	return diag
-}
-
-func buildRelatedInfo(issue audit.Issue, uri string, rng protocol.Range, includeEvidence bool) []protocol.DiagnosticRelatedInformation {
-	var related []protocol.DiagnosticRelatedInformation
-	addRelated := func(message string) {
-		if message == "" {
-			return
-		}
-		related = append(related, protocol.DiagnosticRelatedInformation{
-			Location: protocol.Location{
-				URI:   uri,
-				Range: rng,
-			},
-			Message: message,
-		})
-	}
-	if issue.Suggestion != "" {
-		addRelated("Suggestion: " + issue.Suggestion)
-	}
-	if tools := formatTools(issue.Tools); tools != "" {
-		addRelated("Tools: " + tools)
-	}
-	if relatedPaths := formatPaths(issue.Paths, 3); relatedPaths != "" && len(issue.Paths) > 1 {
-		addRelated("Related configs: " + relatedPaths)
-	}
-	if includeEvidence {
-		if evidence := formatEvidence(issue.Evidence); evidence != "" {
-			addRelated("Evidence: " + evidence)
-		}
-	}
-	return related
 }
 
 func (s *Server) unknownToolIDDiagnostic(uri string, path string, registry scan.Registry, settings Settings, caps DiagnosticCapabilities) *protocol.Diagnostic {
@@ -825,68 +756,6 @@ func registryErrorSuggestion(err error) string {
 	default:
 		return "Check MARKDOWNTOWN_REGISTRY or your global registry install."
 	}
-}
-
-func buildDiagnosticData(issue audit.Issue, includeEvidence bool) map[string]any {
-	data := map[string]any{
-		"ruleId":     issue.RuleID,
-		"title":      issue.Title,
-		"suggestion": issue.Suggestion,
-		"paths":      issue.Paths,
-		"tools":      issue.Tools,
-	}
-	if includeEvidence {
-		data["evidence"] = issue.Evidence
-	}
-	return data
-}
-
-func issueRuleData(issue audit.Issue) *audit.RuleData {
-	switch typed := issue.Data.(type) {
-	case audit.RuleData:
-		return &typed
-	case *audit.RuleData:
-		return typed
-	default:
-		return nil
-	}
-}
-
-func diagnosticTags(issue audit.Issue) []protocol.DiagnosticTag {
-	meta := issueRuleData(issue)
-	if meta == nil || len(meta.Tags) == 0 {
-		return nil
-	}
-	tags := make([]protocol.DiagnosticTag, 0, len(meta.Tags))
-	seen := make(map[protocol.DiagnosticTag]struct{})
-	for _, tag := range meta.Tags {
-		switch strings.ToLower(tag) {
-		case "unnecessary":
-			seen[protocol.DiagnosticTagUnnecessary] = struct{}{}
-		case "deprecated":
-			seen[protocol.DiagnosticTagDeprecated] = struct{}{}
-		}
-	}
-	for tag := range seen {
-		tags = append(tags, tag)
-	}
-	sort.Slice(tags, func(i, j int) bool {
-		return tags[i] < tags[j]
-	})
-	return tags
-}
-
-func diagnosticCodeDescription(docURL string, repoRoot string) *protocol.CodeDescription {
-	docURL = strings.TrimSpace(docURL)
-	if docURL == "" {
-		return nil
-	}
-	href := docURL
-	if !strings.Contains(docURL, "://") && repoRoot != "" {
-		path := filepath.Join(repoRoot, filepath.FromSlash(docURL))
-		href = pathToURL(path)
-	}
-	return &protocol.CodeDescription{HRef: href}
 }
 
 func (s *Server) logDiagnosticsSummary(issues []audit.Issue) {
@@ -1446,115 +1315,6 @@ func quickFixGitignore(fs afero.Fs, entry string, gitignorePath string, diag pro
 		Edit:        edit,
 	}
 	return &action
-}
-
-func formatTools(tools []audit.Tool) string {
-	if len(tools) == 0 {
-		return ""
-	}
-	items := make([]string, 0, len(tools))
-	for _, tool := range tools {
-		if tool.ToolID == "" && tool.Kind == "" {
-			continue
-		}
-		if tool.ToolID != "" && tool.Kind != "" {
-			items = append(items, fmt.Sprintf("%s (%s)", tool.ToolID, tool.Kind))
-			continue
-		}
-		if tool.ToolID != "" {
-			items = append(items, tool.ToolID)
-			continue
-		}
-		if tool.Kind != "" {
-			items = append(items, tool.Kind)
-		}
-	}
-	return strings.Join(items, ", ")
-}
-
-func formatPaths(paths []audit.Path, limit int) string {
-	if len(paths) == 0 {
-		return ""
-	}
-	items := make([]string, 0, len(paths))
-	for _, path := range paths {
-		if path.Path == "" {
-			continue
-		}
-		if path.Scope != "" {
-			items = append(items, fmt.Sprintf("%s:%s", path.Scope, path.Path))
-		} else {
-			items = append(items, path.Path)
-		}
-	}
-	return joinWithLimit(items, limit)
-}
-
-func formatEvidence(evidence map[string]any) string {
-	if len(evidence) == 0 {
-		return ""
-	}
-	keys := make([]string, 0, len(evidence))
-	for key := range evidence {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	parts := make([]string, 0, len(keys))
-	for _, key := range keys {
-		value := formatEvidenceValue(evidence[key])
-		if value == "" {
-			continue
-		}
-		parts = append(parts, fmt.Sprintf("%s=%s", key, value))
-	}
-	return strings.Join(parts, ", ")
-}
-
-func formatEvidenceValue(value any) string {
-	switch typed := value.(type) {
-	case string:
-		return typed
-	case fmt.Stringer:
-		return typed.String()
-	case bool:
-		return fmt.Sprintf("%t", typed)
-	case int, int8, int16, int32, int64:
-		return fmt.Sprintf("%d", typed)
-	case uint, uint8, uint16, uint32, uint64:
-		return fmt.Sprintf("%d", typed)
-	case float32, float64:
-		return fmt.Sprintf("%v", typed)
-	case []string:
-		return joinWithLimit(typed, 3)
-	case []any:
-		items := make([]string, 0, len(typed))
-		for _, item := range typed {
-			switch v := item.(type) {
-			case string:
-				if v != "" {
-					items = append(items, v)
-				}
-			default:
-				if item != nil {
-					items = append(items, fmt.Sprintf("%v", item))
-				}
-			}
-		}
-		return joinWithLimit(items, 3)
-	default:
-		return fmt.Sprintf("%v", typed)
-	}
-}
-
-func joinWithLimit(items []string, limit int) string {
-	if len(items) == 0 {
-		return ""
-	}
-	if limit <= 0 || len(items) <= limit {
-		return strings.Join(items, ", ")
-	}
-	extra := len(items) - limit
-	return strings.Join(items[:limit], ", ") + fmt.Sprintf(" (+%d more)", extra)
 }
 
 func hasGitignoreEntry(content string, entry string) bool {

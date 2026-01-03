@@ -222,3 +222,90 @@ func TestGetValue(t *testing.T) {
 		t.Fatalf("expected non-map path to be false")
 	}
 }
+
+func TestBuildRelatedInfoIncludesConfigs(t *testing.T) {
+	repoRoot := t.TempDir()
+	currentPath := filepath.Join(repoRoot, "AGENTS.md")
+	otherPath := filepath.Join(repoRoot, "AGENTS.override.md")
+	redactedPath := filepath.Join(repoRoot, "secret.md")
+
+	issue := audit.Issue{
+		RuleID:     "MD001",
+		Message:    "message",
+		Suggestion: "Use the repo config",
+		Paths: []audit.Path{
+			{Path: "AGENTS.md", Scope: "repo"},
+			{Path: "AGENTS.override.md", Scope: "repo"},
+			{Path: "secret.md", Scope: "user", Redacted: true},
+		},
+		Tools: []audit.Tool{{ToolID: "codex", Kind: "agent"}},
+		Evidence: map[string]any{
+			"field": "value",
+		},
+	}
+
+	related := buildRelatedInfo(issue, pathToURL(currentPath), currentPath, repoRoot, protocol.Range{
+		Start: protocol.Position{Line: 1, Character: 1},
+		End:   protocol.Position{Line: 1, Character: 2},
+	}, true)
+
+	otherURI := pathToURL(otherPath)
+	redactedURI := pathToURL(redactedPath)
+	foundOther := false
+	for _, info := range related {
+		if info.Location.URI == otherURI {
+			foundOther = true
+			if !strings.Contains(info.Message, "Related config") {
+				t.Fatalf("expected related config message, got %q", info.Message)
+			}
+		}
+		if info.Location.URI == redactedURI || strings.Contains(info.Message, "secret.md") {
+			t.Fatalf("expected redacted path to be skipped, got %q", info.Message)
+		}
+	}
+	if !foundOther {
+		t.Fatalf("expected related info entry for other config")
+	}
+}
+
+func TestRelatedConfigsLimit(t *testing.T) {
+	repoRoot := t.TempDir()
+	currentPath := filepath.Join(repoRoot, "one.md")
+	paths := []audit.Path{
+		{Path: "one.md"},
+		{Path: "two.md"},
+		{Path: "three.md"},
+		{Path: "four.md"},
+		{Path: "five.md"},
+		{Path: "six.md"},
+	}
+	related := relatedConfigs(paths, currentPath, repoRoot, relatedConfigLimit)
+	if len(related) != relatedConfigLimit {
+		t.Fatalf("expected %d related configs, got %d", relatedConfigLimit, len(related))
+	}
+}
+
+func TestDiagnosticMetadata(t *testing.T) {
+	issue := audit.Issue{
+		RuleID: "MD002",
+		Data: audit.RuleData{
+			Tags:   []string{"deprecated", "unnecessary", "other"},
+			DocURL: "docs/audit-spec-v1.md",
+		},
+	}
+
+	tags := diagnosticTags(issue)
+	if len(tags) != 2 {
+		t.Fatalf("expected two tags, got %v", tags)
+	}
+
+	repoRoot := t.TempDir()
+	desc := diagnosticCodeDescription("docs/audit-spec-v1.md", repoRoot)
+	if desc == nil {
+		t.Fatal("expected code description")
+	}
+	expected := pathToURL(filepath.Join(repoRoot, "docs/audit-spec-v1.md"))
+	if desc.HRef != expected {
+		t.Fatalf("expected code description %s, got %s", expected, desc.HRef)
+	}
+}
