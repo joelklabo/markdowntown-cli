@@ -99,12 +99,29 @@ func TestApplySeverityOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplySeverityOverrides error: %v", err)
 	}
+	if rules[1].Severity != SeverityWarning {
+		t.Fatalf("expected original rules slice to remain unchanged, got %s", rules[1].Severity)
+	}
 	if updated[1].Severity != SeverityError {
 		t.Fatalf("expected severity override, got %s", updated[1].Severity)
 	}
 
 	if _, err := ApplySeverityOverrides(rules, map[string]Severity{"MD999": SeverityError}); err == nil {
 		t.Fatalf("expected error for unknown rule id override")
+	}
+}
+
+func TestApplySeverityOverridesCaseInsensitive(t *testing.T) {
+	rules := []Rule{
+		{ID: "MD010", Severity: SeverityWarning, Run: func(Context) []Issue { return nil }},
+	}
+
+	updated, err := ApplySeverityOverrides(rules, map[string]Severity{"md010": SeverityInfo})
+	if err != nil {
+		t.Fatalf("ApplySeverityOverrides error: %v", err)
+	}
+	if updated[0].Severity != SeverityInfo {
+		t.Fatalf("expected severity override, got %s", updated[0].Severity)
 	}
 }
 

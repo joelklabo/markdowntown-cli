@@ -90,6 +90,296 @@ func TestDiagnosticsOverPipe(t *testing.T) {
 	}
 }
 
+func TestDiagnosticsMetadataIncludesTagsAndCodeDescription(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	if err := os.WriteFile(filepath.Join(repoRoot, ".gitignore"), []byte("AGENTS.md\n"), 0o600); err != nil {
+		t.Fatalf("write .gitignore: %v", err)
+	}
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	caps := protocol.ClientCapabilities{
+		TextDocument: &protocol.TextDocumentClientCapabilities{
+			PublishDiagnostics: &protocol.PublishDiagnosticsClientCapabilities{
+				RelatedInformation:     boolPtr(true),
+				CodeDescriptionSupport: boolPtr(true),
+				TagSupport: &struct {
+					ValueSet []protocol.DiagnosticTag `json:"valueSet"`
+				}{
+					ValueSet: []protocol.DiagnosticTag{protocol.DiagnosticTagUnnecessary},
+				},
+			},
+		},
+	}
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI:      &rootURI,
+		Capabilities: caps,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "AGENTS.md"))
+	content := "# Hello"
+	if err := os.WriteFile(filepath.Join(repoRoot, "AGENTS.md"), []byte(content), 0o600); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	diag := requireDiagnostic(t, params.Diagnostics, "MD002")
+	if diag.CodeDescription == nil || !strings.Contains(diag.CodeDescription.HRef, "docs/audit-spec-v1.md") {
+		t.Fatalf("expected code description for MD002, got %#v", diag.CodeDescription)
+	}
+	if !diagnosticHasTag(diag, protocol.DiagnosticTagUnnecessary) {
+		t.Fatalf("expected unnecessary tag, got %#v", diag.Tags)
+	}
+}
+
+func TestDiagnosticsRelatedInfoSettingDisabled(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	initOptions := map[string]any{
+		"diagnostics": map[string]any{
+			"includeRelatedInfo": false,
+		},
+	}
+	caps := protocol.ClientCapabilities{
+		TextDocument: &protocol.TextDocumentClientCapabilities{
+			PublishDiagnostics: &protocol.PublishDiagnosticsClientCapabilities{
+				RelatedInformation: boolPtr(true),
+			},
+		},
+	}
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI:               &rootURI,
+		Capabilities:          caps,
+		InitializationOptions: initOptions,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
+	content := "---\nkey: value\ninvalid: [\n---\n# Hello"
+	if err := os.WriteFile(filepath.Join(repoRoot, "GEMINI.md"), []byte(content), 0o600); err != nil {
+		t.Fatalf("write GEMINI.md: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	diag := requireDiagnostic(t, params.Diagnostics, "MD003")
+	if len(diag.RelatedInformation) > 0 {
+		t.Fatalf("expected related info to be disabled, got %#v", diag.RelatedInformation)
+	}
+}
+
+func TestDiagnosticsRulesDisabled(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	initOptions := map[string]any{
+		"diagnostics": map[string]any{
+			"rulesDisabled": []string{"MD003"},
+		},
+	}
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI:               &rootURI,
+		InitializationOptions: initOptions,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
+	content := "---\nkey: value\ninvalid: [\n---\n# Hello"
+	if err := os.WriteFile(filepath.Join(repoRoot, "GEMINI.md"), []byte(content), 0o600); err != nil {
+		t.Fatalf("write GEMINI.md: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	for _, diag := range params.Diagnostics {
+		if diag.Code != nil && diag.Code.Value == "MD003" {
+			t.Fatalf("expected MD003 to be suppressed, got %#v", params.Diagnostics)
+		}
+	}
+}
+
+func TestDiagnosticsSeverityOverride(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	initOptions := map[string]any{
+		"diagnostics": map[string]any{
+			"severityOverrides": map[string]any{"MD003": "info"},
+		},
+	}
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI:               &rootURI,
+		InitializationOptions: initOptions,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+	if got, ok := s.currentSettings().Diagnostics.SeverityOverrides["MD003"]; !ok || strings.ToLower(string(got)) != "info" {
+		t.Fatalf("expected severity override to be applied, got %#v", s.currentSettings().Diagnostics.SeverityOverrides)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
+	content := "---\nkey: value\ninvalid: [\n---\n# Hello"
+	if err := os.WriteFile(filepath.Join(repoRoot, "GEMINI.md"), []byte(content), 0o600); err != nil {
+		t.Fatalf("write GEMINI.md: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	diag := requireDiagnostic(t, params.Diagnostics, "MD003")
+	if diag.Severity == nil {
+		t.Fatalf("expected info severity, got nil")
+	}
+	if *diag.Severity != protocol.DiagnosticSeverityInformation {
+		t.Fatalf("expected info severity, got %v", *diag.Severity)
+	}
+}
+
 func TestDiagnosticsOverlayOnly(t *testing.T) {
 	s := NewServer("0.1.0")
 	s.Debounce = 50 * time.Millisecond
@@ -1214,6 +1504,15 @@ func requireDiagnostic(t *testing.T, diags []protocol.Diagnostic, ruleID string)
 	}
 	t.Fatalf("expected diagnostic %s, got %#v", ruleID, diags)
 	return protocol.Diagnostic{}
+}
+
+func diagnosticHasTag(diag protocol.Diagnostic, tag protocol.DiagnosticTag) bool {
+	for _, candidate := range diag.Tags {
+		if candidate == tag {
+			return true
+		}
+	}
+	return false
 }
 
 func requireDiagnosticSuggestion(t *testing.T, diag protocol.Diagnostic) {

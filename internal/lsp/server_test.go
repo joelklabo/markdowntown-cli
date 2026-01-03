@@ -263,6 +263,37 @@ func TestDiagnosticCodeDescriptionSanitize(t *testing.T) {
 	}
 }
 
+func TestDiagnosticForIssueMetadata(t *testing.T) {
+	issue := audit.Issue{
+		RuleID:     "MD002",
+		Severity:   audit.SeverityWarning,
+		Title:      "Gitignored config",
+		Message:    "Repo config is ignored by git; teammates and CI will not see it.",
+		Suggestion: "Remove this path from .gitignore or move the file to a tracked location.",
+		Paths:      []audit.Path{{Path: "/repo/AGENTS.md", Scope: "repo"}},
+		Data: audit.RuleData{
+			Category: "scope",
+			DocURL:   "docs/audit-spec-v1.md",
+			Tags:     []string{"unnecessary"},
+		},
+	}
+
+	diag := diagnosticForIssue(issue, "file:///repo/AGENTS.md", "/repo/AGENTS.md", "/repo", false, false, true, true, audit.RedactNever)
+	if diag.CodeDescription == nil || !strings.Contains(diag.CodeDescription.HRef, "docs/audit-spec-v1.md") {
+		t.Fatalf("expected code description, got %#v", diag.CodeDescription)
+	}
+	found := false
+	for _, tag := range diag.Tags {
+		if tag == protocol.DiagnosticTagUnnecessary {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected unnecessary tag, got %#v", diag.Tags)
+	}
+}
+
 func TestDiagnosticRedactionFiltersPaths(t *testing.T) {
 	issue := audit.Issue{
 		RuleID:  "MD001",

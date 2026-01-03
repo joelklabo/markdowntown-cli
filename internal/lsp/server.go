@@ -467,6 +467,7 @@ func (s *Server) runDiagnostics(context *glsp.Context, uri string) {
 
 	rules := s.rulesForSettings(settings)
 	issues := audit.RunRules(auditCtx, rules)
+	issues = applySeverityOverridesToIssues(issues, settings.Diagnostics.SeverityOverrides)
 	s.logDiagnosticsSummary(issues)
 
 	diagnostics := s.diagnosticsForIssues(issues, uri, path, repoRoot, settings, caps)
@@ -536,6 +537,21 @@ func (s *Server) rulesForSettings(settings Settings) []audit.Rule {
 		}
 	}
 	return rules
+}
+
+func applySeverityOverridesToIssues(issues []audit.Issue, overrides map[string]audit.Severity) []audit.Issue {
+	if len(overrides) == 0 {
+		return issues
+	}
+	for i := range issues {
+		if issues[i].RuleID == "" {
+			continue
+		}
+		if override, ok := overrides[strings.ToUpper(issues[i].RuleID)]; ok {
+			issues[i].Severity = override
+		}
+	}
+	return issues
 }
 
 func (s *Server) diagnosticsForIssues(issues []audit.Issue, uri string, path string, repoRoot string, settings Settings, caps DiagnosticCapabilities) []protocol.Diagnostic {

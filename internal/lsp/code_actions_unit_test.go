@@ -105,6 +105,19 @@ func TestDefaultQuickFixesForRule(t *testing.T) {
 	}
 }
 
+func TestCodeActionInsertPlaceholderIdempotent(t *testing.T) {
+	diag := protocol.Diagnostic{}
+	uri := "file:///tmp/AGENTS.md"
+	path := "/tmp/AGENTS.md"
+
+	if action := codeActionInsertPlaceholder(diag, uri, path, ""); action == nil {
+		t.Fatalf("expected placeholder action for empty content")
+	}
+	if action := codeActionInsertPlaceholder(diag, uri, path, "# Not empty"); action != nil {
+		t.Fatalf("expected placeholder action to be skipped when content is non-empty")
+	}
+}
+
 func extractSettingsPayload(t *testing.T, action *protocol.CodeAction) string {
 	t.Helper()
 	if action == nil || action.Edit == nil {

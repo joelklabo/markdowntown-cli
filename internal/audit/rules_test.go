@@ -45,6 +45,34 @@ func TestRuleConflictSkipsMultiFileKinds(t *testing.T) {
 	}
 }
 
+func TestRuleGitignored(t *testing.T) {
+	repoEntry := configEntry("/repo/AGENTS.md", "repo", "codex", "instructions")
+	repoEntry.Gitignored = true
+	userEntry := configEntry("/home/user/AGENTS.md", "user", "codex", "instructions")
+	userEntry.Gitignored = true
+	ctx := testContext([]scan.ConfigEntry{repoEntry, userEntry}, scan.Registry{})
+	issues := ruleGitignored(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one gitignored issue, got %d", len(issues))
+	}
+	if issues[0].RuleID != "MD002" {
+		t.Fatalf("unexpected rule id: %s", issues[0].RuleID)
+	}
+	if issues[0].Severity != SeverityWarning {
+		t.Fatalf("expected warning severity, got %s", issues[0].Severity)
+	}
+	if issues[0].Message != "Repo config is ignored by git; teammates and CI will not see it." {
+		t.Fatalf("unexpected message: %s", issues[0].Message)
+	}
+	if issues[0].Suggestion != "Remove this path from .gitignore or move the file to a tracked location." {
+		t.Fatalf("unexpected suggestion: %s", issues[0].Suggestion)
+	}
+	if issues[0].Evidence["gitignored"] != true {
+		t.Fatalf("expected gitignored evidence, got %#v", issues[0].Evidence["gitignored"])
+	}
+	requireRuleData(t, issues[0], "scope")
+}
+
 func TestRuleFrontmatterStableMessage(t *testing.T) {
 	errText := "yaml: bad"
 	entry := configEntry("/repo/AGENTS.md", "repo", "codex", "instructions")
@@ -124,6 +152,29 @@ func TestRuleEmptyUsesWarningOrSize(t *testing.T) {
 	issues := ruleEmpty(ctx)
 	if len(issues) != 2 {
 		t.Fatalf("expected two empty issues, got %d", len(issues))
+	}
+	var warningIssue *Issue
+	var sizeIssue *Issue
+	for i := range issues {
+		issue := &issues[i]
+		if issue.Message != "Config file is empty and will be ignored." {
+			t.Fatalf("unexpected message: %s", issue.Message)
+		}
+		if issue.Suggestion != "Add the intended instructions or delete the file." {
+			t.Fatalf("unexpected suggestion: %s", issue.Suggestion)
+		}
+		if value, ok := issue.Evidence["warning"].(string); ok && value == "empty" {
+			warningIssue = issue
+		}
+		if value, ok := issue.Evidence["sizeBytes"].(int64); ok && value == 0 {
+			sizeIssue = issue
+		}
+	}
+	if warningIssue == nil {
+		t.Fatalf("expected warning evidence for empty config")
+	}
+	if sizeIssue == nil {
+		t.Fatalf("expected sizeBytes evidence for empty config")
 	}
 }
 
