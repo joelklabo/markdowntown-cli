@@ -263,7 +263,7 @@ func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) 
 					agentsPath := filepath.Join(repoRoot, "AGENTS.md")
 					if _, err := s.fs.Stat(agentsPath); err == nil {
 						return protocol.Location{
-							URI: "file://" + agentsPath,
+							URI: pathToURL(agentsPath),
 							Range: protocol.Range{
 								Start: protocol.Position{Line: 0, Character: 0},
 								End:   protocol.Position{Line: 0, Character: 0},
@@ -455,6 +455,23 @@ func urlToPath(uri string) (string, error) {
 	}
 
 	return filepath.Clean(filepath.FromSlash(path)), nil
+}
+
+// pathToURL converts a filesystem path to a file URI.
+func pathToURL(path string) string {
+	path = filepath.Clean(path)
+	if runtime.GOOS == "windows" {
+		if len(path) >= 2 && path[1] == ':' {
+			// Local drive path: file:///C:/path/to/file
+			return "file:///" + filepath.ToSlash(path)
+		}
+		if strings.HasPrefix(path, `\\`) {
+			// UNC path: file://server/share/path
+			return "file:" + filepath.ToSlash(path)
+		}
+	}
+	// Unix path: file:///path/to/file
+	return "file://" + filepath.ToSlash(path)
 }
 
 func clampToUint32(value int) uint32 {

@@ -46,7 +46,7 @@ func TestDiagnosticsOverPipe(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rootURI := "file://" + repoRoot
+	rootURI := pathToURL(repoRoot)
 	var initResult protocol.InitializeResult
 	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
 		RootURI: &rootURI,
@@ -57,7 +57,7 @@ func TestDiagnosticsOverPipe(t *testing.T) {
 		t.Fatalf("initialized notify failed: %v", err)
 	}
 
-	uri := "file://" + filepath.Join(repoRoot, "GEMINI.md")
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
 	content := "---\nkey: value\ninvalid: [\n---\n# Hello"
 	if err := os.WriteFile(filepath.Join(repoRoot, "GEMINI.md"), []byte(content), 0o600); err != nil {
 		t.Fatalf("write GEMINI.md: %v", err)
@@ -121,7 +121,7 @@ func TestDiagnosticsOverlayOnly(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rootURI := "file://" + repoRoot
+	rootURI := pathToURL(repoRoot)
 	var initResult protocol.InitializeResult
 	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
 		RootURI: &rootURI,
@@ -132,7 +132,7 @@ func TestDiagnosticsOverlayOnly(t *testing.T) {
 		t.Fatalf("initialized notify failed: %v", err)
 	}
 
-	uri := "file://" + filepath.Join(repoRoot, "GEMINI.md")
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
 	content := "---\nkey: value\ninvalid: [\n---\n# Hello"
 	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
@@ -176,7 +176,7 @@ func TestDiagnosticsDebounceLastChange(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rootURI := "file://" + repoRoot
+	rootURI := pathToURL(repoRoot)
 	var initResult protocol.InitializeResult
 	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
 		RootURI: &rootURI,
@@ -187,7 +187,7 @@ func TestDiagnosticsDebounceLastChange(t *testing.T) {
 		t.Fatalf("initialized notify failed: %v", err)
 	}
 
-	uri := "file://" + filepath.Join(repoRoot, "GEMINI.md")
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
 	valid := "---\ntoolId: gemini-cli\n---\n# Hello"
 	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
 		TextDocument: protocol.TextDocumentItem{
@@ -272,7 +272,7 @@ func TestServeCanary(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rootURI := "file://" + t.TempDir()
+	rootURI := pathToURL(t.TempDir())
 	var initResult protocol.InitializeResult
 	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
 		RootURI: &rootURI,

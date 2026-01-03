@@ -35,8 +35,8 @@ func TestInitialize(t *testing.T) {
 
 func TestDocumentSync(t *testing.T) {
 	s := NewServer("0.1.0")
-	uri := "file:///repo/test.md"
-	path := "/repo/test.md"
+	path := filepath.Join(t.TempDir(), "test.md")
+	uri := pathToURL(path)
 	content := "# Hello"
 
 	// 1. didOpen
@@ -53,7 +53,7 @@ func TestDocumentSync(t *testing.T) {
 	// Verify in overlay
 	data, err := afero.ReadFile(s.overlay, path)
 	if err != nil {
-		t.Fatalf("read overlay failed: %v", err)
+		t.Fatalf("read overlay failed: %v (path: %s)", err, path)
 	}
 	if string(data) != content {
 		t.Errorf("expected %s, got %s", content, string(data))
@@ -124,7 +124,7 @@ func TestRunDiagnosticsWithError(t *testing.T) {
 		},
 	}
 
-	uri := "file://" + path
+	uri := pathToURL(path)
 	s.runDiagnostics(context, uri)
 
 	select {
@@ -146,7 +146,8 @@ func TestRunDiagnosticsWithError(t *testing.T) {
 
 func TestHover(t *testing.T) {
 	s := NewServer("0.1.0")
-	uri := "file:///repo/GEMINI.md"
+	path := filepath.Join(t.TempDir(), "GEMINI.md")
+	uri := pathToURL(path)
 	content := "---\ntoolId: gemini-cli\n---\n# Hello"
 	setRegistryEnv(t)
 
@@ -188,7 +189,7 @@ func TestDefinition(t *testing.T) {
 	s.rootPath = repoRoot
 	s.fs = afero.NewCopyOnWriteFs(afero.NewOsFs(), s.overlay)
 
-	uri := "file://" + filepath.Join(repoRoot, "GEMINI.md")
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
 	content := "---\ntoolId: gemini-cli\n---\n# Hello"
 
 	// Create AGENTS.md
