@@ -1,0 +1,123 @@
+{
+  "id": "golden-suite",
+  "cases": [
+    {
+      "id": "codex-cli-root-and-cwd",
+      "tool": "codex-cli",
+      "cwd": "apps/web",
+      "files": [
+        { "path": "AGENTS.md", "content": "# Root agents" },
+        { "path": "AGENTS.override.md", "content": "# Root override" },
+        { "path": "apps/web/AGENTS.md", "content": "# Web agents" },
+        { "path": "apps/web/AGENTS.override.md", "content": "# Web override" },
+        { "path": "apps/admin/AGENTS.md", "content": "# Admin agents" }
+      ],
+      "expected": {
+        "loaded": [
+          "AGENTS.md",
+          "AGENTS.override.md",
+          "apps/web/AGENTS.md",
+          "apps/web/AGENTS.override.md"
+        ],
+        "shadowed": ["apps/admin/AGENTS.md"],
+        "warnings": []
+      }
+    },
+    {
+      "id": "claude-code-imports",
+      "tool": "claude-code",
+      "cwd": "apps/web",
+      "files": [
+        { "path": "CLAUDE.md", "content": "@docs/overview.md\n@prompts/base.md" },
+        { "path": "apps/web/CLAUDE.md", "content": "Project instructions" },
+        { "path": "docs/overview.md", "content": "" },
+        { "path": "prompts/base.md", "content": "" }
+      ],
+      "expected": {
+        "loaded": [
+          "CLAUDE.md",
+          "apps/web/CLAUDE.md",
+          "docs/overview.md",
+          "prompts/base.md"
+        ],
+        "shadowed": [],
+        "warnings": []
+      }
+    },
+    {
+      "id": "gemini-cli-ancestors",
+      "tool": "gemini-cli",
+      "cwd": "apps/web",
+      "files": [
+        { "path": "GEMINI.md", "content": "# Root" },
+        { "path": "apps/web/GEMINI.md", "content": "# Web" }
+      ],
+      "expected": {
+        "loaded": ["GEMINI.md", "apps/web/GEMINI.md"],
+        "shadowed": [],
+        "warnings": []
+      }
+    },
+    {
+      "id": "github-copilot-scoped",
+      "tool": "github-copilot",
+      "cwd": "",
+      "files": [
+        { "path": ".github/copilot-instructions.md", "content": "# Root" },
+        { "path": ".github/instructions/app.instructions.md", "content": "# App" },
+        { "path": ".github/instructions/cli.instructions.md", "content": "# CLI" }
+      ],
+      "expected": {
+        "loaded": [
+          ".github/copilot-instructions.md",
+          ".github/instructions/app.instructions.md",
+          ".github/instructions/cli.instructions.md"
+        ],
+        "shadowed": [],
+        "warnings": []
+      }
+    },
+    {
+      "id": "copilot-cli-scoped",
+      "tool": "copilot-cli",
+      "cwd": "",
+      "files": [
+        { "path": ".github/copilot-instructions.md", "content": "# Root" },
+        { "path": ".github/copilot-instructions/app.instructions.md", "content": "# App" },
+        { "path": ".github/copilot-instructions/zeta.instructions.md", "content": "# Zeta" },
+        { "path": ".github/agents/assistant.md", "content": "# Assistant" },
+        { "path": ".github/agents/release.agent.md", "content": "# Release" }
+      ],
+      "expected": {
+        "loaded": [
+          ".github/copilot-instructions.md",
+          ".github/copilot-instructions/app.instructions.md",
+          ".github/copilot-instructions/zeta.instructions.md",
+          ".github/agents/assistant.md",
+          ".github/agents/release.agent.md"
+        ],
+        "shadowed": [],
+        "warnings": []
+      }
+    },
+    {
+      "id": "cursor-rules",
+      "tool": "cursor",
+      "cwd": "",
+      "files": [
+        { "path": ".cursor/rules/always.mdc", "content": "# Always" },
+        { "path": ".cursor/rules/security.mdc", "content": "# Security" },
+        { "path": ".cursorrules", "content": "# Legacy" }
+      ],
+      "expected": {
+        "loaded": [
+          ".cursor/rules/always.mdc",
+          ".cursor/rules/security.mdc",
+          ".cursorrules"
+        ],
+        "shadowed": [],
+        "warnings": ["deprecated.cursorrules"]
+      }
+    }
+  ]
+}

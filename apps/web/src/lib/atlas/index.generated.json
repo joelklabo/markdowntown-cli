@@ -1,0 +1,399 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2025-12-19T14:49:53.176Z",
+  "items": [
+    {
+      "id": "platform:claude-code",
+      "kind": "platform",
+      "title": "Claude Code",
+      "platformId": "claude-code",
+      "filePath": "atlas/facts/claude-code.json"
+    },
+    {
+      "id": "platform:codex-cli",
+      "kind": "platform",
+      "title": "Codex CLI",
+      "platformId": "codex-cli",
+      "filePath": "atlas/facts/codex-cli.json"
+    },
+    {
+      "id": "platform:copilot-cli",
+      "kind": "platform",
+      "title": "Copilot CLI",
+      "platformId": "copilot-cli",
+      "filePath": "atlas/facts/copilot-cli.json"
+    },
+    {
+      "id": "platform:cursor",
+      "kind": "platform",
+      "title": "Cursor",
+      "platformId": "cursor",
+      "filePath": "atlas/facts/cursor.json"
+    },
+    {
+      "id": "platform:gemini-cli",
+      "kind": "platform",
+      "title": "Gemini CLI",
+      "platformId": "gemini-cli",
+      "filePath": "atlas/facts/gemini-cli.json"
+    },
+    {
+      "id": "platform:github-copilot",
+      "kind": "platform",
+      "title": "GitHub Copilot",
+      "platformId": "github-copilot",
+      "filePath": "atlas/facts/github-copilot.json"
+    },
+    {
+      "id": "platform:windsurf",
+      "kind": "platform",
+      "title": "Windsurf",
+      "platformId": "windsurf",
+      "filePath": "atlas/facts/windsurf.json"
+    },
+    {
+      "id": "guide:concepts:context-budget",
+      "kind": "guide",
+      "title": "Context budget",
+      "guideKind": "concepts",
+      "slug": "context-budget",
+      "filePath": "atlas/guides/concepts/context-budget.mdx"
+    },
+    {
+      "id": "guide:concepts:imports",
+      "kind": "guide",
+      "title": "Imports",
+      "guideKind": "concepts",
+      "slug": "imports",
+      "filePath": "atlas/guides/concepts/imports.mdx"
+    },
+    {
+      "id": "guide:concepts:mcp",
+      "kind": "guide",
+      "title": "MCP",
+      "guideKind": "concepts",
+      "slug": "mcp",
+      "filePath": "atlas/guides/concepts/mcp.mdx"
+    },
+    {
+      "id": "guide:concepts:precedence",
+      "kind": "guide",
+      "title": "Precedence",
+      "guideKind": "concepts",
+      "slug": "precedence",
+      "filePath": "atlas/guides/concepts/precedence.mdx"
+    },
+    {
+      "id": "guide:concepts:scoping",
+      "kind": "guide",
+      "title": "Scoping",
+      "guideKind": "concepts",
+      "slug": "scoping",
+      "filePath": "atlas/guides/concepts/scoping.mdx"
+    },
+    {
+      "id": "guide:concepts:security",
+      "kind": "guide",
+      "title": "Security",
+      "guideKind": "concepts",
+      "slug": "security",
+      "filePath": "atlas/guides/concepts/security.mdx"
+    },
+    {
+      "id": "guide:recipes:mono-repo-scoping",
+      "kind": "guide",
+      "title": "Mono-repo scoping",
+      "guideKind": "recipes",
+      "slug": "mono-repo-scoping",
+      "filePath": "atlas/guides/recipes/mono-repo-scoping.mdx"
+    },
+    {
+      "id": "guide:recipes:safe-shell-commands",
+      "kind": "guide",
+      "title": "Safe shell commands",
+      "guideKind": "recipes",
+      "slug": "safe-shell-commands",
+      "filePath": "atlas/guides/recipes/safe-shell-commands.mdx"
+    },
+    {
+      "id": "guide:recipes:vendor-neutral-baseline",
+      "kind": "guide",
+      "title": "Vendor-neutral baseline",
+      "guideKind": "recipes",
+      "slug": "vendor-neutral-baseline",
+      "filePath": "atlas/guides/recipes/vendor-neutral-baseline.mdx"
+    },
+    {
+      "id": "example:claude-code:CLAUDE.md",
+      "kind": "example",
+      "title": "CLAUDE.md",
+      "platformId": "claude-code",
+      "fileName": "CLAUDE.md",
+      "filePath": "atlas/examples/claude-code/CLAUDE.md"
+    },
+    {
+      "id": "example:claude-code:rules.example.md",
+      "kind": "example",
+      "title": "rules.example.md",
+      "platformId": "claude-code",
+      "fileName": "rules.example.md",
+      "filePath": "atlas/examples/claude-code/rules.example.md"
+    },
+    {
+      "id": "example:codex-cli:AGENTS.md",
+      "kind": "example",
+      "title": "AGENTS.md",
+      "platformId": "codex-cli",
+      "fileName": "AGENTS.md",
+      "filePath": "atlas/examples/codex-cli/AGENTS.md"
+    },
+    {
+      "id": "example:codex-cli:AGENTS.override.md",
+      "kind": "example",
+      "title": "AGENTS.override.md",
+      "platformId": "codex-cli",
+      "fileName": "AGENTS.override.md",
+      "filePath": "atlas/examples/codex-cli/AGENTS.override.md"
+    },
+    {
+      "id": "example:gemini-cli:GEMINI.md",
+      "kind": "example",
+      "title": "GEMINI.md",
+      "platformId": "gemini-cli",
+      "fileName": "GEMINI.md",
+      "filePath": "atlas/examples/gemini-cli/GEMINI.md"
+    },
+    {
+      "id": "example:gemini-cli:geminiignore.example",
+      "kind": "example",
+      "title": "geminiignore.example",
+      "platformId": "gemini-cli",
+      "fileName": "geminiignore.example",
+      "filePath": "atlas/examples/gemini-cli/geminiignore.example"
+    },
+    {
+      "id": "example:github-copilot:agents.example.agent.md",
+      "kind": "example",
+      "title": "agents.example.agent.md",
+      "platformId": "github-copilot",
+      "fileName": "agents.example.agent.md",
+      "filePath": "atlas/examples/github-copilot/agents.example.agent.md"
+    },
+    {
+      "id": "example:github-copilot:copilot-instructions.md",
+      "kind": "example",
+      "title": "copilot-instructions.md",
+      "platformId": "github-copilot",
+      "fileName": "copilot-instructions.md",
+      "filePath": "atlas/examples/github-copilot/copilot-instructions.md"
+    },
+    {
+      "id": "example:github-copilot:instructions.applyTo.example.instructions.md",
+      "kind": "example",
+      "title": "instructions.applyTo.example.instructions.md",
+      "platformId": "github-copilot",
+      "fileName": "instructions.applyTo.example.instructions.md",
+      "filePath": "atlas/examples/github-copilot/instructions.applyTo.example.instructions.md"
+    },
+    {
+      "id": "claim:claude-code:claude-code.path-scoping.directory-memory",
+      "kind": "claim",
+      "title": "Claude Code supports directory-scoped memory via additional CLAUDE.md files in subdirectories.",
+      "platformId": "claude-code",
+      "claimId": "claude-code.path-scoping.directory-memory",
+      "filePath": "atlas/facts/claude-code.json"
+    },
+    {
+      "id": "claim:claude-code:claude-code.path-scoping.precedence",
+      "kind": "claim",
+      "title": "More specific Claude Code memory can take precedence over more general project memory.",
+      "platformId": "claude-code",
+      "claimId": "claude-code.path-scoping.precedence",
+      "filePath": "atlas/facts/claude-code.json"
+    },
+    {
+      "id": "claim:claude-code:claude-code.repo-instructions.claude-md",
+      "kind": "claim",
+      "title": "Claude Code uses CLAUDE.md as project memory (repository instructions).",
+      "platformId": "claude-code",
+      "claimId": "claude-code.repo-instructions.claude-md",
+      "filePath": "atlas/facts/claude-code.json"
+    },
+    {
+      "id": "claim:codex-cli:codex-cli.path-scoping.hierarchy",
+      "kind": "claim",
+      "title": "Codex CLI supports directory-scoped instructions via additional AGENTS.md files in subdirectories.",
+      "platformId": "codex-cli",
+      "claimId": "codex-cli.path-scoping.hierarchy",
+      "filePath": "atlas/facts/codex-cli.json"
+    },
+    {
+      "id": "claim:codex-cli:codex-cli.path-scoping.override-file",
+      "kind": "claim",
+      "title": "Codex CLI supports AGENTS.override.md to override AGENTS.md instructions.",
+      "platformId": "codex-cli",
+      "claimId": "codex-cli.path-scoping.override-file",
+      "filePath": "atlas/facts/codex-cli.json"
+    },
+    {
+      "id": "claim:codex-cli:codex-cli.repo-instructions.file",
+      "kind": "claim",
+      "title": "Codex CLI loads repository instructions from AGENTS.md.",
+      "platformId": "codex-cli",
+      "claimId": "codex-cli.repo-instructions.file",
+      "filePath": "atlas/facts/codex-cli.json"
+    },
+    {
+      "id": "claim:copilot-cli:copilot-cli.custom-agents.org-dir",
+      "kind": "claim",
+      "title": "GitHub Copilot CLI can load organization-level custom agent profiles from /agents in an organization .github-private repository.",
+      "platformId": "copilot-cli",
+      "claimId": "copilot-cli.custom-agents.org-dir",
+      "filePath": "atlas/facts/copilot-cli.json"
+    },
+    {
+      "id": "claim:copilot-cli:copilot-cli.custom-agents.precedence",
+      "kind": "claim",
+      "title": "When custom agent names conflict, Copilot CLI prefers higher-precedence agent scopes over lower-precedence ones.",
+      "platformId": "copilot-cli",
+      "claimId": "copilot-cli.custom-agents.precedence",
+      "filePath": "atlas/facts/copilot-cli.json"
+    },
+    {
+      "id": "claim:copilot-cli:copilot-cli.custom-agents.repo-dir",
+      "kind": "claim",
+      "title": "GitHub Copilot CLI can load repository-level custom agent profiles from .github/agents.",
+      "platformId": "copilot-cli",
+      "claimId": "copilot-cli.custom-agents.repo-dir",
+      "filePath": "atlas/facts/copilot-cli.json"
+    },
+    {
+      "id": "claim:copilot-cli:copilot-cli.custom-agents.user-dir",
+      "kind": "claim",
+      "title": "GitHub Copilot CLI can load user-level custom agent profiles from ~/.copilot/agents.",
+      "platformId": "copilot-cli",
+      "claimId": "copilot-cli.custom-agents.user-dir",
+      "filePath": "atlas/facts/copilot-cli.json"
+    },
+    {
+      "id": "claim:copilot-cli:copilot-cli.path-scoping.instructions-files",
+      "kind": "claim",
+      "title": "GitHub Copilot CLI supports path-scoped instructions via .github/copilot-instructions/**/*.instructions.md files.",
+      "platformId": "copilot-cli",
+      "claimId": "copilot-cli.path-scoping.instructions-files",
+      "filePath": "atlas/facts/copilot-cli.json"
+    },
+    {
+      "id": "claim:copilot-cli:copilot-cli.repo-instructions.agents-file",
+      "kind": "claim",
+      "title": "GitHub Copilot CLI supports agent files such as AGENTS.md.",
+      "platformId": "copilot-cli",
+      "claimId": "copilot-cli.repo-instructions.agents-file",
+      "filePath": "atlas/facts/copilot-cli.json"
+    },
+    {
+      "id": "claim:copilot-cli:copilot-cli.repo-instructions.file",
+      "kind": "claim",
+      "title": "GitHub Copilot CLI supports repository-wide instructions via .github/copilot-instructions.md.",
+      "platformId": "copilot-cli",
+      "claimId": "copilot-cli.repo-instructions.file",
+      "filePath": "atlas/facts/copilot-cli.json"
+    },
+    {
+      "id": "claim:cursor:cursor.path-scoping.alwaysapply",
+      "kind": "claim",
+      "title": "Cursor supports alwaysApply to apply a rule regardless of globs scope.",
+      "platformId": "cursor",
+      "claimId": "cursor.path-scoping.alwaysapply",
+      "filePath": "atlas/facts/cursor.json"
+    },
+    {
+      "id": "claim:cursor:cursor.path-scoping.globs",
+      "kind": "claim",
+      "title": "Cursor supports scoping rules to file globs using a globs field in rule frontmatter.",
+      "platformId": "cursor",
+      "claimId": "cursor.path-scoping.globs",
+      "filePath": "atlas/facts/cursor.json"
+    },
+    {
+      "id": "claim:cursor:cursor.path-scoping.precedence",
+      "kind": "claim",
+      "title": "When multiple Cursor rules match, more specific scoped rules take precedence.",
+      "platformId": "cursor",
+      "claimId": "cursor.path-scoping.precedence",
+      "filePath": "atlas/facts/cursor.json"
+    },
+    {
+      "id": "claim:cursor:cursor.repo-instructions.rules-files",
+      "kind": "claim",
+      "title": "Cursor supports repository instructions via .cursor/rules/*.mdc rule files.",
+      "platformId": "cursor",
+      "claimId": "cursor.repo-instructions.rules-files",
+      "filePath": "atlas/facts/cursor.json"
+    },
+    {
+      "id": "claim:gemini-cli:gemini-cli.ignore-file.geminiignore",
+      "kind": "claim",
+      "title": "Gemini CLI supports ignoring files via a .geminiignore file.",
+      "platformId": "gemini-cli",
+      "claimId": "gemini-cli.ignore-file.geminiignore",
+      "filePath": "atlas/facts/gemini-cli.json"
+    },
+    {
+      "id": "claim:gemini-cli:gemini-cli.repo-instructions.file",
+      "kind": "claim",
+      "title": "Gemini CLI loads repository instructions from GEMINI.md.",
+      "platformId": "gemini-cli",
+      "claimId": "gemini-cli.repo-instructions.file",
+      "filePath": "atlas/facts/gemini-cli.json"
+    },
+    {
+      "id": "claim:github-copilot:github-copilot.path-scoping.applyto",
+      "kind": "claim",
+      "title": "GitHub Copilot supports scoping instructions using applyTo frontmatter in instructions files.",
+      "platformId": "github-copilot",
+      "claimId": "github-copilot.path-scoping.applyto",
+      "filePath": "atlas/facts/github-copilot.json"
+    },
+    {
+      "id": "claim:github-copilot:github-copilot.path-scoping.precedence",
+      "kind": "claim",
+      "title": "More specific scoped Copilot instructions take precedence over more general instructions.",
+      "platformId": "github-copilot",
+      "claimId": "github-copilot.path-scoping.precedence",
+      "filePath": "atlas/facts/github-copilot.json"
+    },
+    {
+      "id": "claim:github-copilot:github-copilot.repo-instructions.file",
+      "kind": "claim",
+      "title": "GitHub Copilot loads repository instructions from .github/copilot-instructions.md.",
+      "platformId": "github-copilot",
+      "claimId": "github-copilot.repo-instructions.file",
+      "filePath": "atlas/facts/github-copilot.json"
+    },
+    {
+      "id": "claim:windsurf:windsurf.ignore-file.codeiumignore",
+      "kind": "claim",
+      "title": "Windsurf Indexing supports ignoring files via a .codeiumignore file.",
+      "platformId": "windsurf",
+      "claimId": "windsurf.ignore-file.codeiumignore",
+      "filePath": "atlas/facts/windsurf.json"
+    },
+    {
+      "id": "claim:windsurf:windsurf.path-scoping.hierarchy",
+      "kind": "claim",
+      "title": "Windsurf Cascade applies subdirectory AGENTS.md instructions to files within that directory and its subdirectories.",
+      "platformId": "windsurf",
+      "claimId": "windsurf.path-scoping.hierarchy",
+      "filePath": "atlas/facts/windsurf.json"
+    },
+    {
+      "id": "claim:windsurf:windsurf.repo-instructions.file",
+      "kind": "claim",
+      "title": "Windsurf Cascade supports directory-scoped instructions via AGENTS.md files.",
+      "platformId": "windsurf",
+      "claimId": "windsurf.repo-instructions.file",
+      "filePath": "atlas/facts/windsurf.json"
+    }
+  ]
+}

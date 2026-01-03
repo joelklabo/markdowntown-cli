@@ -1,0 +1,10 @@
+# Dependency Review configuration for actions/dependency-review-action.
+#
+# If a GHSA is confirmed as a false positive for this repo/workflow, add it to
+# allow-ghsas so new PRs aren't blocked.
+allow-ghsas: []
+
+# Block PRs that introduce new high/critical vulnerabilities in runtime deps.
+fail-on-severity: high
+fail-on-scopes: runtime
+

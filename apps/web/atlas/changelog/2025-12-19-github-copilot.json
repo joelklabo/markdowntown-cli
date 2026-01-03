@@ -1,0 +1,132 @@
+{
+  "id": "2025-12-19-github-copilot",
+  "date": "2025-12-19T08:36:56.308Z",
+  "summary": "github-copilot facts updated (~3)",
+  "diffs": [
+    {
+      "platformId": "github-copilot",
+      "before": {
+        "platformId": "github-copilot",
+        "name": "GitHub Copilot",
+        "artifacts": [],
+        "featureSupport": {
+          "imports": "no",
+          "path-scoping": "yes",
+          "repo-instructions": "yes"
+        },
+        "claims": {
+          "github-copilot.path-scoping.applyto": {
+            "statement": "GitHub Copilot supports scoping instructions using applyTo frontmatter in instructions files.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions",
+                "title": "GitHub Copilot documentation",
+                "excerpt": "applyTo"
+              }
+            ],
+            "features": [
+              "path-scoping"
+            ]
+          },
+          "github-copilot.path-scoping.precedence": {
+            "statement": "More specific scoped Copilot instructions take precedence over more general instructions.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions",
+                "title": "GitHub Copilot documentation",
+                "excerpt": "precedence"
+              }
+            ],
+            "features": [
+              "path-scoping"
+            ]
+          },
+          "github-copilot.repo-instructions.file": {
+            "statement": "GitHub Copilot loads repository instructions from .github/copilot-instructions.md.",
+            "confidence": "high",
+            "evidence": [
+              {
+                "url": "https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions",
+                "title": "GitHub Copilot documentation",
+                "excerpt": ".github/copilot-instructions.md"
+              }
+            ],
+            "features": [
+              "repo-instructions"
+            ]
+          }
+        }
+      },
+      "after": {
+        "platformId": "github-copilot",
+        "name": "GitHub Copilot",
+        "artifacts": [],
+        "featureSupport": {
+          "imports": "no",
+          "path-scoping": "yes",
+          "repo-instructions": "yes"
+        },
+        "claims": {
+          "github-copilot.path-scoping.applyto": {
+            "statement": "GitHub Copilot supports scoping instructions using applyTo frontmatter in instructions files.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://docs.github.com/api/article/body?pathname=/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions",
+                "title": "GitHub Copilot documentation",
+                "excerpt": "applyTo"
+              }
+            ],
+            "features": [
+              "path-scoping"
+            ]
+          },
+          "github-copilot.path-scoping.precedence": {
+            "statement": "More specific scoped Copilot instructions take precedence over more general instructions.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://docs.github.com/api/article/body?pathname=/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions",
+                "title": "GitHub Copilot documentation",
+                "excerpt": "precedence"
+              }
+            ],
+            "features": [
+              "path-scoping"
+            ]
+          },
+          "github-copilot.repo-instructions.file": {
+            "statement": "GitHub Copilot loads repository instructions from .github/copilot-instructions.md.",
+            "confidence": "high",
+            "evidence": [
+              {
+                "url": "https://docs.github.com/api/article/body?pathname=/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions",
+                "title": "GitHub Copilot documentation",
+                "excerpt": ".github/copilot-instructions.md"
+              }
+            ],
+            "features": [
+              "repo-instructions"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "impactedClaims": [
+    {
+      "platformId": "github-copilot",
+      "claimId": "github-copilot.path-scoping.applyto"
+    },
+    {
+      "platformId": "github-copilot",
+      "claimId": "github-copilot.path-scoping.precedence"
+    },
+    {
+      "platformId": "github-copilot",
+      "claimId": "github-copilot.repo-instructions.file"
+    }
+  ]
+}

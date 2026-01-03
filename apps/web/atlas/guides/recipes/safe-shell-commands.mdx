@@ -1,0 +1,17 @@
+# Safe shell commands
+
+<Callout title="Outcome" tone="success">
+Agents run commands safely with clear guardrails.
+</Callout>
+
+## Steps
+
+1. Prefer read-only commands first (`rg`, `ls`, `cat`).
+2. Require explicit approval for destructive actions (`rm`, `git reset`, migrations).
+3. Use timeouts for long-running processes.
+
+## Example
+
+```sh
+rg \"TODO\" src
+```

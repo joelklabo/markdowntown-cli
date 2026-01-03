@@ -1,0 +1,132 @@
+{
+  "id": "2025-12-19-codex-cli",
+  "date": "2025-12-19T07:46:23.840Z",
+  "summary": "codex-cli facts updated (~3)",
+  "diffs": [
+    {
+      "platformId": "codex-cli",
+      "before": {
+        "platformId": "codex-cli",
+        "name": "Codex CLI",
+        "artifacts": [],
+        "featureSupport": {
+          "imports": "no",
+          "path-scoping": "yes",
+          "repo-instructions": "yes"
+        },
+        "claims": {
+          "codex-cli.path-scoping.hierarchy": {
+            "statement": "Codex CLI supports directory-scoped instructions via additional AGENTS.md files in subdirectories.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://example.com/codex-cli/agents-md",
+                "title": "Codex CLI documentation",
+                "excerpt": "subdirectories"
+              }
+            ],
+            "features": [
+              "path-scoping"
+            ]
+          },
+          "codex-cli.path-scoping.override-file": {
+            "statement": "Codex CLI supports AGENTS.override.md to override AGENTS.md instructions.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://example.com/codex-cli/agents-md",
+                "title": "Codex CLI documentation",
+                "excerpt": "AGENTS.override.md"
+              }
+            ],
+            "features": [
+              "path-scoping"
+            ]
+          },
+          "codex-cli.repo-instructions.file": {
+            "statement": "Codex CLI loads repository instructions from AGENTS.md.",
+            "confidence": "high",
+            "evidence": [
+              {
+                "url": "https://example.com/codex-cli/agents-md",
+                "title": "Codex CLI documentation",
+                "excerpt": "AGENTS.md"
+              }
+            ],
+            "features": [
+              "repo-instructions"
+            ]
+          }
+        }
+      },
+      "after": {
+        "platformId": "codex-cli",
+        "name": "Codex CLI",
+        "artifacts": [],
+        "featureSupport": {
+          "imports": "no",
+          "path-scoping": "yes",
+          "repo-instructions": "yes"
+        },
+        "claims": {
+          "codex-cli.path-scoping.hierarchy": {
+            "statement": "Codex CLI supports directory-scoped instructions via additional AGENTS.md files in subdirectories.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://raw.githubusercontent.com/openai/codex/main/docs/agents_md.md",
+                "title": "Codex CLI documentation",
+                "excerpt": "subdirectories"
+              }
+            ],
+            "features": [
+              "path-scoping"
+            ]
+          },
+          "codex-cli.path-scoping.override-file": {
+            "statement": "Codex CLI supports AGENTS.override.md to override AGENTS.md instructions.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://raw.githubusercontent.com/openai/codex/main/docs/agents_md.md",
+                "title": "Codex CLI documentation",
+                "excerpt": "AGENTS.override.md"
+              }
+            ],
+            "features": [
+              "path-scoping"
+            ]
+          },
+          "codex-cli.repo-instructions.file": {
+            "statement": "Codex CLI loads repository instructions from AGENTS.md.",
+            "confidence": "high",
+            "evidence": [
+              {
+                "url": "https://raw.githubusercontent.com/openai/codex/main/docs/agents_md.md",
+                "title": "Codex CLI documentation",
+                "excerpt": "AGENTS.md"
+              }
+            ],
+            "features": [
+              "repo-instructions"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "impactedClaims": [
+    {
+      "platformId": "codex-cli",
+      "claimId": "codex-cli.path-scoping.hierarchy"
+    },
+    {
+      "platformId": "codex-cli",
+      "claimId": "codex-cli.path-scoping.override-file"
+    },
+    {
+      "platformId": "codex-cli",
+      "claimId": "codex-cli.repo-instructions.file"
+    }
+  ]
+}

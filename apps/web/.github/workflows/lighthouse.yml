@@ -1,0 +1,197 @@
+name: Lighthouse Perf Budget
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */12 * * *" # synthetic checks twice per day
+
+concurrency:
+  group: lighthouse-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lhci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        url:
+          - https://markdown.town/
+          - https://markdown.town/browse
+          - https://markdown.town/builder
+          - https://markdown.town/atlas/simulator
+          - https://markdown.town/translate
+          - https://markdown.town/docs
+        formFactor: [mobile, desktop]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.9
+          run_install: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - name: Validate OpenAPI
+        run: pnpm install --frozen-lockfile && pnpm docs:openapi
+      - name: Write Lighthouse config
+        run: |
+          cat > lighthouserc.json <<'EOF'
+          {
+            "ci": {
+              "collect": {
+                "url": ["${{ matrix.url }}"],
+                "numberOfRuns": 1,
+                "budgetPath": "./lighthouse-budget.json",
+                "settings": {
+                  "formFactor": "${{ matrix.formFactor }}",
+                  "screenEmulation": {
+                    "mobile": ${{ matrix.formFactor == 'mobile' }},
+                    "disabled": false
+                  },
+                  "extraHeaders": { "x-ci": "lighthouse" }
+                }
+              },
+              "upload": {
+                "target": "temporary-public-storage"
+              }
+            }
+          }
+          EOF
+      - name: Check availability
+        id: availability
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" "${{ matrix.url }}")
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          if [ "$status" -ge 400 ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Skipping Lighthouse for ${{ matrix.url }} (status $status)"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Compute slug
+        id: slug
+        run: |
+          slug="$(echo "${{ matrix.url }}" | sed 's|https\?://||; s|/|_|g; s|[^A-Za-z0-9_]|_|g')"
+          echo "slug=$slug" >> "$GITHUB_OUTPUT"
+      - name: Run Lighthouse against production
+        if: steps.availability.outputs.skip != 'true'
+        id: lhci
+        uses: treosh/lighthouse-ci-action@v10
+        continue-on-error: true
+        with:
+          configPath: ./lighthouserc.json
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          artifactName: lhci-${{ steps.slug.outputs.slug }}-${{ matrix.formFactor }}
+      - name: Compute metrics row
+        id: metrics
+        if: steps.lhci.outcome == 'success'
+        run: |
+          echo "slug=${{ steps.slug.outputs.slug }}" >> "$GITHUB_OUTPUT"
+          node <<'NODE'
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync('.lighthouseci/manifest.json', 'utf8'));
+          const entry = manifest[0];
+          if (!entry) throw new Error('No Lighthouse manifest entry found');
+          const sum = entry.summary || {};
+          const perf = Number(sum.performance || 0);
+          const lcp = Math.round(sum.largestContentfulPaint || sum.observedLargestContentfulPaint || 0);
+          const tti = Math.round(sum.interactive || sum.observedTimeToInteractive || 0);
+          const ttfb = Math.round(sum.serverResponseTime || sum.observedTimeToFirstByte || 0);
+          const cls = Number((sum.cumulativeLayoutShift || 0).toFixed(3));
+          const row = [
+            new Date().toISOString(),
+            "${{ matrix.url }}",
+            "${{ matrix.formFactor }}",
+            perf.toFixed(2),
+            lcp,
+            tti,
+            ttfb,
+            cls
+          ].join(',');
+          const header = "timestamp,url,form_factor,performance,lcp_ms,tti_ms,ttfb_ms,cls";
+          fs.writeFileSync('lh-metrics.csv', `${header}\n${row}\n`);
+          const body = [
+            `**Lighthouse (${entry.requestedUrl}, ${{ matrix.formFactor }})**`,
+            `- Perf score: ${(perf * 100).toFixed(0)}`,
+            `- LCP: ${lcp} ms`,
+            `- TTI: ${tti} ms`,
+            `- TTFB: ${ttfb} ms`,
+            `- CLS: ${cls}`
+          ].join('\n');
+          fs.writeFileSync('lh-summary.md', body);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `body<<EOF\n${body}\nEOF\n`);
+          NODE
+      - name: Upload metrics artifact
+        uses: actions/upload-artifact@v4
+        if: steps.lhci.outcome == 'success'
+        with:
+          name: lh-metrics-${{ steps.slug.outputs.slug }}-${{ matrix.formFactor }}
+          path: lh-metrics.csv
+          retention-days: 30
+      - name: Upload summary markdown
+        if: ${{ github.event_name == 'pull_request' && steps.lhci.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lh-summary-${{ steps.slug.outputs.slug }}-${{ matrix.formFactor }}
+          path: lh-summary.md
+          retention-days: 30
+
+  lh-summary:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: lhci
+    steps:
+      - name: Download metrics artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: lh-artifacts
+          if-no-artifact-found: ignore
+      - name: Build PR comment
+        id: comment
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const rows = [];
+          for (const dir of fs.readdirSync('lh-artifacts')) {
+            const metricsPath = path.join('lh-artifacts', dir, 'lh-metrics.csv');
+            if (!fs.existsSync(metricsPath)) continue;
+            const [, line] = fs.readFileSync(metricsPath, 'utf8').trim().split(/\r?\n/);
+            if (!line) continue;
+            const [ts, url, form, perf, lcp, tti, ttfb, cls] = line.split(',');
+            rows.push({ ts, url, form, perf, lcp, tti, ttfb, cls });
+          }
+          const header = "| URL | Form Factor | Perf | LCP (ms) | TTI (ms) | TTFB (ms) | CLS |";
+          const sep = "|---|---|---|---|---|---|---|";
+          const bodyRows = rows
+            .sort((a, b) => a.url.localeCompare(b.url))
+            .map((r) => `| ${r.url} | ${r.form} | ${(Number(r.perf) * 100).toFixed(0)} | ${r.lcp} | ${r.tti} | ${r.ttfb} | ${r.cls} |`);
+          const body = ["Lighthouse results (latest run)", header, sep, ...bodyRows].join("\n");
+          fs.writeFileSync('comment.md', body);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `body<<EOF\n${body}\nEOF\n`);
+          const csvHeader = "timestamp,url,form_factor,performance,lcp_ms,tti_ms,ttfb_ms,cls";
+          const csvLines = rows.map((r) => `${r.ts},${r.url},${r.form},${r.perf},${r.lcp},${r.tti},${r.ttfb},${r.cls}`);
+          fs.writeFileSync('combined-metrics.csv', `${csvHeader}\n${csvLines.join("\n")}\n`);
+          NODE
+      - name: Comment on PR with Lighthouse summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('comment.md', 'utf8');
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+      - name: Upload combined metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: lh-trends
+          path: combined-metrics.csv
+          retention-days: 30

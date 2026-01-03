@@ -1,0 +1,94 @@
+{
+  "id": "2025-12-19-gemini-cli",
+  "date": "2025-12-19T07:46:23.840Z",
+  "summary": "gemini-cli facts updated (~2)",
+  "diffs": [
+    {
+      "platformId": "gemini-cli",
+      "before": {
+        "platformId": "gemini-cli",
+        "name": "Gemini CLI",
+        "artifacts": [],
+        "featureSupport": {
+          "imports": "no",
+          "path-scoping": "no",
+          "repo-instructions": "yes"
+        },
+        "claims": {
+          "gemini-cli.ignore-file.geminiignore": {
+            "statement": "Gemini CLI supports ignoring files via a .geminiignore file.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://example.com/gemini-cli/gemini-md",
+                "title": "Gemini CLI documentation",
+                "excerpt": ".geminiignore"
+              }
+            ]
+          },
+          "gemini-cli.repo-instructions.file": {
+            "statement": "Gemini CLI loads repository instructions from GEMINI.md.",
+            "confidence": "high",
+            "evidence": [
+              {
+                "url": "https://example.com/gemini-cli/gemini-md",
+                "title": "Gemini CLI documentation",
+                "excerpt": "GEMINI.md"
+              }
+            ],
+            "features": [
+              "repo-instructions"
+            ]
+          }
+        }
+      },
+      "after": {
+        "platformId": "gemini-cli",
+        "name": "Gemini CLI",
+        "artifacts": [],
+        "featureSupport": {
+          "imports": "no",
+          "path-scoping": "no",
+          "repo-instructions": "yes"
+        },
+        "claims": {
+          "gemini-cli.ignore-file.geminiignore": {
+            "statement": "Gemini CLI supports ignoring files via a .geminiignore file.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/cli/gemini-md.md",
+                "title": "Gemini CLI documentation",
+                "excerpt": ".geminiignore"
+              }
+            ]
+          },
+          "gemini-cli.repo-instructions.file": {
+            "statement": "Gemini CLI loads repository instructions from GEMINI.md.",
+            "confidence": "high",
+            "evidence": [
+              {
+                "url": "https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/cli/gemini-md.md",
+                "title": "Gemini CLI documentation",
+                "excerpt": "GEMINI.md"
+              }
+            ],
+            "features": [
+              "repo-instructions"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "impactedClaims": [
+    {
+      "platformId": "gemini-cli",
+      "claimId": "gemini-cli.ignore-file.geminiignore"
+    },
+    {
+      "platformId": "gemini-cli",
+      "claimId": "gemini-cli.repo-instructions.file"
+    }
+  ]
+}

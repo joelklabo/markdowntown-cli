@@ -1,0 +1,129 @@
+-- Rename Section -> Snippet and add public fields
+ALTER TABLE "Section" RENAME TO "Snippet";
+
+CREATE TYPE "Visibility" AS ENUM ('PUBLIC', 'UNLISTED', 'PRIVATE');
+CREATE TYPE "SnippetKind" AS ENUM ('SYSTEM', 'STYLE', 'TOOLS', 'FREEFORM');
+
+ALTER TABLE "Snippet"
+  ADD COLUMN "slug" TEXT,
+  ADD COLUMN "visibility" "Visibility" NOT NULL DEFAULT 'PRIVATE',
+  ADD COLUMN "tags" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  ADD COLUMN "kind" "SnippetKind" NOT NULL DEFAULT 'FREEFORM',
+  ADD COLUMN "views" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "copies" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "downloads" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "votesUp" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "votesDown" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "favoritesCount" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "commentsCount" INTEGER NOT NULL DEFAULT 0;
+
+CREATE UNIQUE INDEX "Snippet_slug_key" ON "Snippet"("slug");
+CREATE INDEX "Snippet_visibility_idx" ON "Snippet"("visibility");
+CREATE INDEX "Snippet_createdAt_idx" ON "Snippet"("createdAt");
+CREATE INDEX "Snippet_updatedAt_idx" ON "Snippet"("updatedAt");
+CREATE INDEX "Snippet_tags_gin" ON "Snippet" USING gin ("tags");
+
+-- Templates
+CREATE TABLE "Template" (
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
+  "slug" TEXT UNIQUE NOT NULL,
+  "title" TEXT NOT NULL,
+  "description" TEXT,
+  "body" TEXT NOT NULL,
+  "fields" JSONB NOT NULL DEFAULT '[]'::jsonb,
+  "visibility" "Visibility" NOT NULL DEFAULT 'PRIVATE',
+  "tags" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  "views" INTEGER NOT NULL DEFAULT 0,
+  "copies" INTEGER NOT NULL DEFAULT 0,
+  "downloads" INTEGER NOT NULL DEFAULT 0,
+  "uses" INTEGER NOT NULL DEFAULT 0,
+  "userId" TEXT,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT "Template_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL
+);
+CREATE INDEX "Template_visibility_idx" ON "Template"("visibility");
+CREATE INDEX "Template_tags_gin" ON "Template" USING gin("tags");
+
+-- Documents (agents.md files)
+CREATE TABLE "Document" (
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
+  "slug" TEXT UNIQUE NOT NULL,
+  "title" TEXT NOT NULL,
+  "description" TEXT,
+  "renderedContent" TEXT,
+  "visibility" "Visibility" NOT NULL DEFAULT 'PRIVATE',
+  "tags" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  "views" INTEGER NOT NULL DEFAULT 0,
+  "copies" INTEGER NOT NULL DEFAULT 0,
+  "downloads" INTEGER NOT NULL DEFAULT 0,
+  "userId" TEXT,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT "Document_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL
+);
+CREATE INDEX "Document_visibility_idx" ON "Document"("visibility");
+CREATE INDEX "Document_tags_gin" ON "Document" USING gin("tags");
+
+-- Ordered join: DocumentSnippet
+CREATE TABLE "DocumentSnippet" (
+  "documentId" TEXT NOT NULL,
+  "snippetId" TEXT NOT NULL,
+  "position" INTEGER NOT NULL,
+  "overrides" JSONB,
+  CONSTRAINT "DocumentSnippet_pkey" PRIMARY KEY ("documentId", "position"),
+  CONSTRAINT "DocumentSnippet_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "Document"("id") ON DELETE CASCADE,
+  CONSTRAINT "DocumentSnippet_snippetId_fkey" FOREIGN KEY ("snippetId") REFERENCES "Snippet"("id") ON DELETE CASCADE
+);
+CREATE INDEX "DocumentSnippet_snippetId_idx" ON "DocumentSnippet"("snippetId");
+
+-- Engagement tables
+CREATE TABLE "Vote" (
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
+  "userId" TEXT NOT NULL,
+  "targetType" TEXT NOT NULL,
+  "targetId" TEXT NOT NULL,
+  "value" INTEGER NOT NULL,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT "Vote_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE
+);
+CREATE INDEX "Vote_target_idx" ON "Vote"("targetType", "targetId");
+
+CREATE TABLE "Favorite" (
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
+  "userId" TEXT NOT NULL,
+  "targetType" TEXT NOT NULL,
+  "targetId" TEXT NOT NULL,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT "Favorite_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE
+);
+CREATE INDEX "Favorite_target_idx" ON "Favorite"("targetType", "targetId");
+
+CREATE TABLE "Comment" (
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
+  "userId" TEXT NOT NULL,
+  "targetType" TEXT NOT NULL,
+  "targetId" TEXT NOT NULL,
+  "body" TEXT NOT NULL,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT "Comment_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE
+);
+CREATE INDEX "Comment_target_idx" ON "Comment"("targetType", "targetId");
+
+CREATE TABLE "Event" (
+  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
+  "userId" TEXT,
+  "targetType" TEXT NOT NULL,
+  "targetId" TEXT NOT NULL,
+  "kind" TEXT NOT NULL,
+  "metadata" JSONB,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX "Event_target_idx" ON "Event"("targetType", "targetId");
+CREATE INDEX "Event_kind_created_idx" ON "Event"("kind", "createdAt");
+
+-- Backfill helpers (pseudo)
+-- UPDATE "Snippet" SET "slug" = lower(regexp_replace(title, '[^a-z0-9]+', '-', 'g')) || '-' || substr(id, 1, 6) WHERE slug IS NULL;
+-- Existing rows remain PRIVATE; seed/public rows (userId IS NULL) may be toggled to PUBLIC after review.
+

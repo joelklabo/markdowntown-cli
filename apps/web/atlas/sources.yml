@@ -1,0 +1,82 @@
+# Atlas sources registry (schemaVersion: 1)
+#
+# Notes:
+# - URLs must be stable and non-redirecting (safeFetch blocks 3xx redirects).
+# - expectedPhrases are cheap assertions to detect major doc changes.
+
+schemaVersion: 1
+
+sources:
+  - id: github-copilot-repo-instructions
+    platformId: github-copilot
+    kind: docs
+    url: https://docs.github.com/api/article/body?pathname=/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions
+    cadence: monthly
+    expectedPhrases:
+      - .github/copilot-instructions.md
+      - .github/instructions
+      - applyTo
+    trust: official
+
+  - id: claude-code-claude-md
+    platformId: claude-code
+    kind: docs
+    url: https://code.claude.com/docs/en/memory
+    cadence: monthly
+    expectedPhrases:
+      - CLAUDE.md
+      - project memory
+    trust: official
+
+  - id: gemini-cli-gemini-md
+    platformId: gemini-cli
+    kind: docs
+    url: https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/cli/gemini-md.md
+    cadence: monthly
+    expectedPhrases:
+      - GEMINI.md
+      - .geminiignore
+    trust: official
+
+  - id: cursor-cursorrules
+    platformId: cursor
+    kind: docs
+    url: https://cursor.com/docs/context/rules.md
+    cadence: monthly
+    expectedPhrases:
+      - .cursor/rules
+      - globs
+      - alwaysApply
+    trust: official
+
+  - id: windsurf-windsurfrules
+    platformId: windsurf
+    kind: docs
+    url: https://docs.windsurf.com/windsurf/cascade/agents-md.md
+    cadence: monthly
+    expectedPhrases:
+      - AGENTS.md
+      - directory-scoped
+      - Subdirectories
+    trust: official
+
+  - id: codex-cli-agents-md
+    platformId: codex-cli
+    kind: docs
+    url: https://raw.githubusercontent.com/openai/codex/main/docs/agents_md.md
+    cadence: monthly
+    expectedPhrases:
+      - AGENTS.md
+      - AGENTS.override.md
+    trust: official
+
+  - id: copilot-cli-agents-md
+    platformId: copilot-cli
+    kind: docs
+    url: https://docs.github.com/api/article/body?pathname=/en/copilot/how-tos/use-copilot-agents/use-copilot-cli
+    cadence: monthly
+    expectedPhrases:
+      - .github/copilot-instructions.md
+      - .github/copilot-instructions/**/*.instructions.md
+      - ~/.copilot/agents
+    trust: official

@@ -1,0 +1,25 @@
+# Precedence
+
+<Callout title="Goal" tone="info">
+Define a predictable order for multiple instruction sources.
+</Callout>
+
+## Overview
+
+When multiple files contribute instructions, you need a clear rule for which ones win when they conflict and how they compose.
+
+## Practical defaults
+
+- Prefer the most specific scope over broader scope.
+- Prefer nearer files (closer to the working directory) over distant ones when specificity is equal.
+- Prefer explicit tool configuration over inferred behavior.
+
+## Example
+
+```md
+# Global instructions
+Always format code.
+
+# More specific instructions
+In src/**, use 2-space indentation.
+```

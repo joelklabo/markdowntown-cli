@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="240" viewBox="0 0 960 240" role="img" aria-labelledby="title desc">
+  <title id="title">Scan to Workbench flow</title>
+  <desc id="desc">Three step flow: Scan a folder, Review next steps, Open Workbench with tool and cwd prefilled.</desc>
+  <style>
+    text { font-family: ui-sans-serif, system-ui, -apple-system, Arial, sans-serif; fill: currentColor; }
+    .label { font-size: 18px; font-weight: 600; }
+    .sub { font-size: 13px; }
+    .box { fill: none; stroke: currentColor; stroke-width: 2; rx: 14; }
+    .arrow { fill: none; stroke: currentColor; stroke-width: 2; }
+  </style>
+  <rect class="box" x="40" y="60" width="240" height="120" />
+  <text class="label" x="80" y="112">Scan a folder</text>
+  <text class="sub" x="80" y="138">Quick upload or picker</text>
+
+  <rect class="box" x="360" y="60" width="240" height="120" />
+  <text class="label" x="388" y="112">Review next steps</text>
+  <text class="sub" x="388" y="138">Summary, health, warnings</text>
+
+  <rect class="box" x="680" y="60" width="240" height="120" />
+  <text class="label" x="710" y="112">Open Workbench</text>
+  <text class="sub" x="710" y="138">Tool + cwd prefilled</text>
+
+  <line class="arrow" x1="280" y1="120" x2="360" y2="120" />
+  <polygon points="360,120 350,114 350,126" fill="currentColor" />
+
+  <line class="arrow" x1="600" y1="120" x2="680" y2="120" />
+  <polygon points="680,120 670,114 670,126" fill="currentColor" />
+</svg>

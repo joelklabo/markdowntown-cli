@@ -1,0 +1,22 @@
+# Imports
+
+<Callout title="Goal" tone="info">
+Compose instruction sets without duplicating content.
+</Callout>
+
+## Overview
+
+Imports let a repository reuse shared guidance across directories or projects. Keep imported files stable and versioned where possible.
+
+## Guidelines
+
+- Keep imported files small and focused.
+- Avoid circular imports.
+- Prefer explicit paths to magic discovery.
+
+## Example
+
+```md
+# In a project-local instructions file
+@import ../shared/coding-standards.md
+```

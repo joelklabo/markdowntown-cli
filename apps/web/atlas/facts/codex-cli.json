@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "platformId": "codex-cli",
+  "name": "Codex CLI",
+  "retrievedAt": "2025-12-17T00:00:00Z",
+  "lastVerified": "2025-12-19T08:36:55.372Z",
+  "artifacts": [],
+  "claims": [
+    {
+      "id": "codex-cli.path-scoping.hierarchy",
+      "statement": "Codex CLI supports directory-scoped instructions via additional AGENTS.md files in subdirectories.",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "url": "https://raw.githubusercontent.com/openai/codex/main/docs/agents_md.md",
+          "title": "Codex CLI documentation",
+          "excerpt": "subdirectories"
+        }
+      ],
+      "features": [
+        "path-scoping"
+      ]
+    },
+    {
+      "id": "codex-cli.path-scoping.override-file",
+      "statement": "Codex CLI supports AGENTS.override.md to override AGENTS.md instructions.",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "url": "https://raw.githubusercontent.com/openai/codex/main/docs/agents_md.md",
+          "title": "Codex CLI documentation",
+          "excerpt": "AGENTS.override.md"
+        }
+      ],
+      "features": [
+        "path-scoping"
+      ]
+    },
+    {
+      "id": "codex-cli.repo-instructions.file",
+      "statement": "Codex CLI loads repository instructions from AGENTS.md.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "url": "https://raw.githubusercontent.com/openai/codex/main/docs/agents_md.md",
+          "title": "Codex CLI documentation",
+          "excerpt": "AGENTS.md"
+        }
+      ],
+      "features": [
+        "repo-instructions"
+      ]
+    }
+  ],
+  "featureSupport": {
+    "repo-instructions": "yes",
+    "path-scoping": "yes",
+    "imports": "no"
+  },
+  "docHome": "https://github.com/openai/codex/blob/main/docs/agents_md.md"
+}

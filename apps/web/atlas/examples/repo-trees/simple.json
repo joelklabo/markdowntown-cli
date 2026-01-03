@@ -1,0 +1,43 @@
+{
+  "id": "simple",
+  "label": "Simple repo",
+  "defaultCwd": ".",
+  "files": [
+    {
+      "path": "README.md",
+      "content": "# Example repo\n\nUsed by the Atlas simulator fixtures.\n"
+    },
+    {
+      "path": "AGENTS.md",
+      "content": "# AGENTS.md\n\n- Prefer small diffs.\n- Run `pnpm test`.\n"
+    },
+    {
+      "path": "CLAUDE.md",
+      "content": "# CLAUDE.md\n\n- Keep changes minimal.\n- Add tests for new behavior.\n"
+    },
+    {
+      "path": "GEMINI.md",
+      "content": "# GEMINI.md\n\n- Be concise.\n- Prefer `rg` for searching.\n"
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "content": "# Copilot instructions\n\n- Use `pnpm`.\n- Update tests when behavior changes.\n"
+    },
+    {
+      "path": ".cursorrules",
+      "content": "# Cursor rules\n\n- Follow existing patterns.\n"
+    },
+    {
+      "path": ".windsurfrules",
+      "content": "# Windsurf rules\n\n- Avoid unnecessary refactors.\n"
+    },
+    {
+      "path": "src/index.ts",
+      "content": "export const hello = () => \"world\";\n"
+    },
+    {
+      "path": "src/lib/util.ts",
+      "content": "export function add(a: number, b: number) {\n  return a + b;\n}\n"
+    }
+  ]
+}

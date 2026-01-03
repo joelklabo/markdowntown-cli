@@ -1,0 +1,169 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "mark downtown API",
+    "version": "0.1.0",
+    "description": "Sections CRUD and auth endpoints"
+  },
+  "servers": [{ "url": "https://markdown.town" }],
+  "paths": {
+    "/api/sections": {
+      "get": {
+        "summary": "List sections",
+        "responses": {
+          "200": {
+            "description": "List of sections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Section" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create section",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SectionInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Section created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Section" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sections/{id}": {
+      "put": {
+        "summary": "Update section",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/SectionInput" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated section",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Section" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete section",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "204": { "description": "Deleted" }
+        }
+      }
+    },
+    "/api/auth/signin": {
+      "get": {
+        "summary": "Start GitHub OAuth",
+        "responses": {
+          "302": { "description": "Redirect to provider" }
+        }
+      }
+    },
+    "/api/public/items": {
+      "get": {
+        "summary": "List public items",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 30 } },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["recent", "views", "copies"] } },
+          { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["snippet", "template", "file", "all"], "default": "all" } },
+          { "name": "q", "in": "query", "schema": { "type": "string" } },
+          { "name": "tags", "in": "query", "schema": { "type": "string", "description": "Comma-separated list of tags" } },
+          { "name": "tag", "in": "query", "schema": { "type": "string" }, "description": "Repeatable tag param" }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of public items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "slug": { "type": "string" },
+                      "title": { "type": "string" },
+                      "description": { "type": "string" },
+                      "tags": {
+                        "type": "array",
+                        "items": { "type": "string", "maxLength": 32 },
+                        "maxItems": 8
+                      },
+                      "stats": {
+                        "type": "object",
+                        "properties": {
+                          "views": { "type": "integer" },
+                          "copies": { "type": "integer" },
+                          "votes": { "type": "integer" }
+                        }
+                      },
+                      "type": { "type": "string", "enum": ["snippet", "template", "file"] }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Section": {
+        "type": "object",
+        "required": ["id", "title", "content", "order", "userId"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "content": { "type": "string" },
+          "order": { "type": "integer" },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 32 },
+            "maxItems": 8
+          },
+          "userId": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SectionInput": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "content": { "type": "string" },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 32 },
+            "maxItems": 8
+          }
+        }
+      }
+    }
+  }
+}

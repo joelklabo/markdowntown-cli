@@ -1,0 +1,22 @@
+# Scoping
+
+<Callout title="Goal" tone="info">
+Limit instructions to the files and contexts where they apply.
+</Callout>
+
+## Overview
+
+Scoping prevents unrelated instructions from leaking into prompts. Good scopes are narrow, stable, and easy to reason about.
+
+## Patterns
+
+- **Path globs**: apply to file paths (e.g. `src/**/*.ts`).
+- **Language scopes**: apply by extension or language group.
+- **Task scopes**: apply by command/intent (compile, test, review).
+
+## Example
+
+```md
+# Scope: src/**/*.ts
+Use explicit return types for exported functions.
+```

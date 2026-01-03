@@ -1,0 +1,132 @@
+{
+  "id": "2025-12-19-claude-code",
+  "date": "2025-12-19T07:46:23.840Z",
+  "summary": "claude-code facts updated (~3)",
+  "diffs": [
+    {
+      "platformId": "claude-code",
+      "before": {
+        "platformId": "claude-code",
+        "name": "Claude Code",
+        "artifacts": [],
+        "featureSupport": {
+          "imports": "no",
+          "path-scoping": "yes",
+          "repo-instructions": "yes"
+        },
+        "claims": {
+          "claude-code.path-scoping.directory-memory": {
+            "statement": "Claude Code supports directory-scoped memory via additional CLAUDE.md files in subdirectories.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://example.com/claude-code/claude-md",
+                "title": "Claude Code documentation",
+                "excerpt": "directory memory"
+              }
+            ],
+            "features": [
+              "path-scoping"
+            ]
+          },
+          "claude-code.path-scoping.precedence": {
+            "statement": "More specific Claude Code memory can take precedence over more general project memory.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://example.com/claude-code/claude-md",
+                "title": "Claude Code documentation",
+                "excerpt": "precedence"
+              }
+            ],
+            "features": [
+              "path-scoping"
+            ]
+          },
+          "claude-code.repo-instructions.claude-md": {
+            "statement": "Claude Code uses CLAUDE.md as project memory (repository instructions).",
+            "confidence": "high",
+            "evidence": [
+              {
+                "url": "https://example.com/claude-code/claude-md",
+                "title": "Claude Code documentation",
+                "excerpt": "CLAUDE.md"
+              }
+            ],
+            "features": [
+              "repo-instructions"
+            ]
+          }
+        }
+      },
+      "after": {
+        "platformId": "claude-code",
+        "name": "Claude Code",
+        "artifacts": [],
+        "featureSupport": {
+          "imports": "no",
+          "path-scoping": "yes",
+          "repo-instructions": "yes"
+        },
+        "claims": {
+          "claude-code.path-scoping.directory-memory": {
+            "statement": "Claude Code supports directory-scoped memory via additional CLAUDE.md files in subdirectories.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://code.claude.com/docs/en/memory",
+                "title": "Claude Code documentation",
+                "excerpt": "directory memory"
+              }
+            ],
+            "features": [
+              "path-scoping"
+            ]
+          },
+          "claude-code.path-scoping.precedence": {
+            "statement": "More specific Claude Code memory can take precedence over more general project memory.",
+            "confidence": "medium",
+            "evidence": [
+              {
+                "url": "https://code.claude.com/docs/en/memory",
+                "title": "Claude Code documentation",
+                "excerpt": "precedence"
+              }
+            ],
+            "features": [
+              "path-scoping"
+            ]
+          },
+          "claude-code.repo-instructions.claude-md": {
+            "statement": "Claude Code uses CLAUDE.md as project memory (repository instructions).",
+            "confidence": "high",
+            "evidence": [
+              {
+                "url": "https://code.claude.com/docs/en/memory",
+                "title": "Claude Code documentation",
+                "excerpt": "CLAUDE.md"
+              }
+            ],
+            "features": [
+              "repo-instructions"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "impactedClaims": [
+    {
+      "platformId": "claude-code",
+      "claimId": "claude-code.path-scoping.directory-memory"
+    },
+    {
+      "platformId": "claude-code",
+      "claimId": "claude-code.path-scoping.precedence"
+    },
+    {
+      "platformId": "claude-code",
+      "claimId": "claude-code.repo-instructions.claude-md"
+    }
+  ]
+}

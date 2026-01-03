@@ -1,0 +1,9 @@
+# Example: ignore patterns for an AI assistant
+
+node_modules/
+.next/
+dist/
+coverage/
+test-results/
+*.log
+*.tmp

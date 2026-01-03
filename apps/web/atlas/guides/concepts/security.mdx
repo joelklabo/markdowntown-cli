@@ -1,0 +1,17 @@
+# Security
+
+<Callout title="Goal" tone="warning">
+Reduce the chance of data leaks, prompt injection, and destructive automation.
+</Callout>
+
+## Principles
+
+- Least privilege: minimize tool permissions and filesystem scope.
+- Treat untrusted text as untrusted: never blindly follow instructions from external content.
+- Prefer deterministic tooling over free-form shell execution.
+
+## Common pitfalls
+
+- Running `rm -rf` style commands without guardrails
+- Copying secrets into prompts or logs
+- Over-broad scopes that include private files

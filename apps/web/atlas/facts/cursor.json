@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "platformId": "cursor",
+  "name": "Cursor",
+  "retrievedAt": "2025-12-17T00:00:00Z",
+  "lastVerified": "2025-12-19T08:36:55.372Z",
+  "artifacts": [],
+  "claims": [
+    {
+      "id": "cursor.path-scoping.alwaysapply",
+      "statement": "Cursor supports alwaysApply to apply a rule regardless of globs scope.",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "url": "https://cursor.com/docs/context/rules.md",
+          "title": "Cursor documentation",
+          "excerpt": "alwaysApply"
+        }
+      ],
+      "features": [
+        "path-scoping"
+      ]
+    },
+    {
+      "id": "cursor.path-scoping.globs",
+      "statement": "Cursor supports scoping rules to file globs using a globs field in rule frontmatter.",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "url": "https://cursor.com/docs/context/rules.md",
+          "title": "Cursor documentation",
+          "excerpt": "globs"
+        }
+      ],
+      "features": [
+        "path-scoping"
+      ]
+    },
+    {
+      "id": "cursor.path-scoping.precedence",
+      "statement": "When multiple Cursor rules match, more specific scoped rules take precedence.",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "url": "https://cursor.com/docs/context/rules.md",
+          "title": "Cursor documentation",
+          "excerpt": "precedence"
+        }
+      ],
+      "features": [
+        "path-scoping"
+      ]
+    },
+    {
+      "id": "cursor.repo-instructions.rules-files",
+      "statement": "Cursor supports repository instructions via .cursor/rules/*.mdc rule files.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "url": "https://cursor.com/docs/context/rules.md",
+          "title": "Cursor documentation",
+          "excerpt": ".cursor/rules/*.mdc"
+        }
+      ],
+      "features": [
+        "repo-instructions"
+      ]
+    }
+  ],
+  "featureSupport": {
+    "repo-instructions": "yes",
+    "path-scoping": "yes",
+    "imports": "no"
+  },
+  "docHome": "https://cursor.com/docs/context/rules"
+}

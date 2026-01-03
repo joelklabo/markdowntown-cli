@@ -1,0 +1,9 @@
+# Trivy ignores must be time-bounded and documented.
+#
+# Format:
+#   <VULN_ID> # until YYYY-MM-DD <reason>
+#
+# Examples:
+#   CVE-2024-0000 # until 2026-01-15 false positive in alpine base image; tracked in issue XYZ
+#   GHSA-abcd-1234-5678 # until 2026-02-01 upstream fix pending; tracked in issue XYZ
+

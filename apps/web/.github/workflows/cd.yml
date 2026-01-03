@@ -1,0 +1,221 @@
+name: Deploy to Azure (CD)
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AZURE_RESOURCE_GROUP: satoshis-stg-west-rg
+  AZURE_CONTAINERAPP_ENV: satoshis-env-stg-west
+  AZURE_CONTAINERAPP_NAME: markdowntown-app
+  ACR_LOGIN_SERVER: satoshiswestacr.azurecr.io
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.repository == 'joelklabo/markdowntown'
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: "file:./dev.db"
+        run: pnpm prisma generate
+
+      - name: Build
+        env:
+          NEXTAUTH_SECRET: dummy
+          NEXTAUTH_URL: https://markdown.town
+          DATABASE_URL: postgres://user:pass@host/db
+        run: pnpm build
+
+      - name: Azure login
+        id: azure_login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Compute image tag
+        run: |
+          IMAGE_TAG=${GITHUB_SHA::7}
+          IMAGE=$ACR_LOGIN_SERVER/markdowntown:$IMAGE_TAG
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+          echo "Deploying image: $IMAGE"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Azure CLI - login to ACR
+        run: az acr login -n satoshiswestacr
+
+      - name: Build & push image (BuildKit cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}
+          cache-from: type=registry,ref=${{ env.ACR_LOGIN_SERVER }}/markdowntown:buildcache
+          cache-to: type=registry,ref=${{ env.ACR_LOGIN_SERVER }}/markdowntown:buildcache,mode=max
+
+      - name: Validate Trivy ignore list
+        run: node scripts/validate-trivy-ignore.mjs
+
+      - name: Trivy scan image (table, CRITICAL)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE }}
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+          trivyignores: .trivyignore
+
+      - name: Trivy scan image (SARIF)
+        if: always()
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: image
+          image-ref: ${{ env.IMAGE }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: 0
+          trivyignores: .trivyignore
+
+      - name: Upload Trivy SARIF
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+      - name: Upload Trivy artifacts
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: cd-trivy
+          path: trivy-results.sarif
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Deploy to Container Apps
+        run: |
+          az containerapp update \
+            -n $AZURE_CONTAINERAPP_NAME \
+            -g $AZURE_RESOURCE_GROUP \
+            --image $IMAGE \
+            --set-env-vars SKIP_DB=1
+
+      - name: Resolve Container Apps ingress URL
+        run: |
+          FQDN="$(az containerapp show -n $AZURE_CONTAINERAPP_NAME -g $AZURE_RESOURCE_GROUP --query properties.configuration.ingress.fqdn -o tsv)"
+          echo "Container Apps FQDN: $FQDN"
+          echo "CONTAINERAPP_FQDN=$FQDN" >> $GITHUB_ENV
+
+      - name: Smoke test deployed revision (Container Apps FQDN)
+        id: smoke_test_containerapp
+        run: |
+          set -euo pipefail
+          BASE="https://$CONTAINERAPP_FQDN"
+          echo "Smoke testing $BASE"
+
+          curl_json() {
+            local url="$1"
+            curl -sS --fail --show-error \
+              --connect-timeout 5 \
+              --max-time 20 \
+              --retry 3 \
+              --retry-delay 2 \
+              --retry-max-time 60 \
+              -H "Accept: application/json" \
+              "$url"
+          }
+
+          echo "Waiting for /api/health (with timeouts/retries)..."
+          for i in {1..30}; do
+            if curl_json "$BASE/api/health" | jq -e '.status == "ok"' > /dev/null; then
+              echo "Healthy"
+              break
+            fi
+            echo "Not ready yet ($i/30)"
+            sleep 5
+          done
+
+          curl_json "$BASE/api/health" | jq -e '.status == "ok"' > /dev/null
+          curl_json "$BASE/api/public/items?limit=1" | jq -e 'type == "array"' > /dev/null
+
+      - name: Smoke test prod domain (Cloudflare may challenge)
+        run: |
+          set -euo pipefail
+          for url in "https://markdown.town" "https://markdown.town/api/public/items"; do
+            status="$(curl -s -o /dev/null -w "%{http_code}" -I "$url" || true)"
+            echo "$url -> $status"
+            if [ "$status" -ge 500 ] || [ "$status" -eq 000 ]; then
+              echo "Unexpected status from $url: $status"
+              exit 1
+            fi
+          done
+
+      - name: Diagnostics (on failure)
+        if: failure() && steps.azure_login.outcome == 'success'
+        run: |
+          set -euo pipefail
+          echo "=== CD diagnostics ==="
+          echo "Image: $IMAGE"
+          echo "Container App: $AZURE_CONTAINERAPP_NAME (RG: $AZURE_RESOURCE_GROUP)"
+          echo "Container Apps FQDN: ${CONTAINERAPP_FQDN:-<not resolved>}"
+
+          REVISION="$(az containerapp show -n $AZURE_CONTAINERAPP_NAME -g $AZURE_RESOURCE_GROUP --query properties.latestRevisionName -o tsv)"
+          echo "Latest revision: $REVISION"
+
+          echo "--- Container App status ---"
+          az containerapp show -n $AZURE_CONTAINERAPP_NAME -g $AZURE_RESOURCE_GROUP \
+            --query "{provisioningState:properties.provisioningState,runningStatus:properties.runningStatus,latestRevisionName:properties.latestRevisionName}" \
+            -o jsonc || true
+
+          echo "--- Revisions (all) ---"
+          az containerapp revision list -n $AZURE_CONTAINERAPP_NAME -g $AZURE_RESOURCE_GROUP --all \
+            --query "[].{name:name,active:properties.active,traffic:properties.trafficWeight,health:properties.healthState,created:properties.createdTime}" \
+            -o table || true
+
+          echo "--- Recent console logs (tail 80) ---"
+          az containerapp logs show -n $AZURE_CONTAINERAPP_NAME -g $AZURE_RESOURCE_GROUP --revision "$REVISION" \
+            --tail 80 --format text || true
+
+          echo "--- Recent system logs (tail 80) ---"
+          az containerapp logs show -n $AZURE_CONTAINERAPP_NAME -g $AZURE_RESOURCE_GROUP --revision "$REVISION" \
+            --tail 80 --type system --format text || true
+
+      - name: Kick migrate job (optional)
+        if: false  # enable when ready
+        run: |
+          az containerapp job start -n markdowntown-migrate -g $AZURE_RESOURCE_GROUP
+
+    # Secrets required:
+    # AZURE_CREDENTIALS: Service principal JSON with access to RG and ACR

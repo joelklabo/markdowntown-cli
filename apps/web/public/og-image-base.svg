@@ -1,0 +1,27 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#EAF2FF" />
+      <stop offset="100%" stop-color="#FFFFFF" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <rect x="80" y="80" width="1040" height="470" rx="32" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="3" />
+  <g transform="translate(140 140)">
+    <rect x="0" y="0" width="80" height="80" rx="20" fill="#0057D9" opacity="0.1" />
+    <text x="100" y="32" fill="#0F172A" font-family="'Inter', 'Segoe UI', sans-serif" font-size="44" font-weight="700">mark downtown</text>
+    <text x="100" y="76" fill="#6B7280" font-family="'Inter', 'Segoe UI', sans-serif" font-size="28" font-weight="500">Compose, remix, and preview markdown sections.</text>
+  </g>
+  <g transform="translate(140 240)">
+    <rect x="0" y="0" width="360" height="230" rx="20" fill="#F9FAFB" stroke="#E5E7EB" />
+    <rect x="24" y="32" width="90" height="12" rx="6" fill="#FFCC00" />
+    <rect x="24" y="60" width="220" height="12" rx="6" fill="rgba(0,87,217,0.15)" />
+    <rect x="24" y="88" width="180" height="12" rx="6" fill="rgba(0,87,217,0.08)" />
+  </g>
+  <g transform="translate(540 240)">
+    <rect x="0" y="0" width="520" height="230" rx="20" fill="#FFFFFF" stroke="#E5E7EB" />
+    <text x="28" y="54" fill="#0F172A" font-family="'Inter', 'Segoe UI', sans-serif" font-size="32" font-weight="700">Build your agent town</text>
+    <text x="28" y="98" fill="#6B7280" font-family="'Inter', 'Segoe UI', sans-serif" font-size="22">Collect, remix, and reuse markdown sections with live preview.</text>
+    <text x="28" y="138" fill="#6B7280" font-family="'Inter', 'Segoe UI', sans-serif" font-size="22">Secure GitHub login • Private by default • Live preview</text>
+  </g>
+</svg>

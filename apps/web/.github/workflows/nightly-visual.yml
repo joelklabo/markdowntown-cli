@@ -1,0 +1,97 @@
+name: Nightly Visual & Bundle Checks
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # daily 07:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.57.0-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: "file:./dev.db"
+        run: pnpm prisma generate
+
+      - name: Build (sample data)
+        env:
+          SKIP_DB: "1"
+          NEXT_PUBLIC_WORDMARK_ANIM_V1: "false"
+          NEXTAUTH_SECRET: "nightly-secret"
+          NEXTAUTH_URL: "http://localhost:3000"
+          GITHUB_CLIENT_ID: "nightly-placeholder"
+          GITHUB_CLIENT_SECRET: "nightly-placeholder"
+        run: pnpm build
+
+      - name: Bundle size budget
+        env:
+          SKIP_DB: "1"
+          BUNDLE_BUDGET_BYTES: 1400000
+        run: pnpm bundle:check
+
+      - name: Start app
+        env:
+          SKIP_DB: "1"
+          LABS_CITY_LOGO: "1"
+          NEXTAUTH_SECRET: "nightly-secret"
+          NEXTAUTH_URL: "http://localhost:3000"
+          GITHUB_CLIENT_ID: "nightly-placeholder"
+          GITHUB_CLIENT_SECRET: "nightly-placeholder"
+        run: |
+          pnpm start --hostname 0.0.0.0 --port 3000 &
+          echo $! > /tmp/next.pid
+          sleep 10
+
+      - name: Run visual tests
+        env:
+          BASE_URL: "http://localhost:3000"
+          NEXT_PUBLIC_WORDMARK_ANIM_V1: "false"
+        run: pnpm test:visual
+
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f /tmp/next.pid ]; then kill $(cat /tmp/next.pid) || true; fi
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-visual-report
+          path: playwright-report/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload Playwright traces & screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-visual-artifacts
+          path: test-results/playwright-visual/
+          if-no-files-found: warn
+          retention-days: 7

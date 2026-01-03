@@ -1,0 +1,14 @@
+{
+  "name": "markdowntown-tools",
+  "private": true,
+  "scripts": {
+    "lint": "pnpm -C .. lint",
+    "type-check": "pnpm -C .. type-check",
+    "unit": "pnpm -C .. test",
+    "coverage": "pnpm -C .. test:coverage",
+    "e2e": "pnpm -C .. test:e2e",
+    "lighthouse": "pnpm -C .. pnpm exec bash scripts/lighthouse-baseline.sh",
+    "bundle": "pnpm -C .. bundle:check",
+    "analyze": "pnpm -C .. analyze"
+  }
+}

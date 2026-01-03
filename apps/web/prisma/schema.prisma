@@ -1,0 +1,234 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String     @id @default(cuid())
+  githubId       String?    @unique
+  username       String?
+  name           String?
+  email          String?    @unique
+  emailVerified  DateTime?
+  image          String?
+  avatarUrl      String?
+  accounts       Account[]
+  sessions       Session[]
+  sections       Snippet[]
+  templates      Template[]
+  documents      Document[]
+  artifacts      Artifact[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+enum Visibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+enum ArtifactType {
+  TEMPLATE
+  MODULE
+  ARTIFACT
+  SKILL
+}
+
+model Artifact {
+  id          String       @id @default(cuid())
+  slug        String?      @unique
+  type        ArtifactType
+  title       String
+  description String?
+  visibility  Visibility   @default(PRIVATE)
+  tags        String[]     @default([])
+  targets     String[]     @default([])
+  hasScopes   Boolean      @default(false)
+  lintGrade   String?
+  views       Int          @default(0)
+  copies      Int          @default(0)
+  downloads   Int          @default(0)
+  votesUp     Int          @default(0)
+  votesDown   Int          @default(0)
+  favorites   Int          @default(0)
+  
+  userId      String?
+  user        User?        @relation(fields: [userId], references: [id])
+
+  forkedFromId String?
+  forkedFrom   Artifact?   @relation("ArtifactFork", fields: [forkedFromId], references: [id])
+  forks        Artifact[]  @relation("ArtifactFork")
+  
+  versions    ArtifactVersion[]
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([visibility])
+  @@index([type])
+  @@index([tags], type: Gin)
+  @@index([targets], type: Gin)
+  @@index([forkedFromId])
+}
+
+model ArtifactVersion {
+  id          String   @id @default(cuid())
+  artifactId  String
+  artifact    Artifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  version     String   @default("draft")
+  uam         Json
+  compiled    Json?
+  lint        Json?
+  message     String?
+  createdAt   DateTime @default(now())
+
+  @@index([artifactId])
+}
+
+enum SnippetKind {
+  SYSTEM
+  STYLE
+  TOOLS
+  FREEFORM
+}
+
+model Snippet {
+  id              String       @id @default(cuid())
+  slug            String?      @unique
+  title           String
+  content         String       @default("")
+  order           Int          @default(0)
+  visibility      Visibility   @default(PRIVATE)
+  tags            String[]     @default([])
+  kind            SnippetKind  @default(FREEFORM)
+  views           Int          @default(0)
+  copies          Int          @default(0)
+  downloads       Int          @default(0)
+  votesUp         Int          @default(0)
+  votesDown       Int          @default(0)
+  favoritesCount  Int          @default(0)
+  commentsCount   Int          @default(0)
+  userId          String?
+  user            User?        @relation(fields: [userId], references: [id])
+  agentId         String?
+  agent           Agent?       @relation(fields: [agentId], references: [id])
+  documents       DocumentSnippet[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([agentId])
+  @@index([visibility])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model Template {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  title       String
+  description String?
+  body        String
+  fields      Json         @default("[]")
+  visibility  Visibility   @default(PRIVATE)
+  tags        String[]     @default([])
+  views       Int          @default(0)
+  copies      Int          @default(0)
+  downloads   Int          @default(0)
+  uses        Int          @default(0)
+  userId      String?
+  user        User?        @relation(fields: [userId], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([visibility])
+}
+
+model Document {
+  id              String             @id @default(cuid())
+  slug            String             @unique
+  title           String
+  description     String?
+  renderedContent String?
+  visibility      Visibility         @default(PRIVATE)
+  tags            String[]           @default([])
+  views           Int                @default(0)
+  copies          Int                @default(0)
+  downloads       Int                @default(0)
+  userId          String?
+  user            User?              @relation(fields: [userId], references: [id])
+  snippets        DocumentSnippet[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([visibility])
+}
+
+model DocumentSnippet {
+  documentId String
+  snippetId  String
+  position   Int
+  overrides  Json?
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  snippet    Snippet  @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, position])
+  @@index([snippetId])
+}
+
+model Agent {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  config      String?
+  sections    Snippet[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}

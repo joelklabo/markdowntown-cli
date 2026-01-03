@@ -1,0 +1,40 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .mdt-red { fill: #FF3333; }
+      .mdt-yellow { fill: #FFCC00; }
+      .mdt-blue { fill: #0057D9; }
+    </style>
+  </defs>
+  <path
+    class="mdt-red"
+    d="M40 124 L128 44 L216 124 V212
+       Q216 224 204 224 H52
+       Q40 224 40 212 Z" />
+  <path
+    fill="#FFFFFF"
+    d="M104 212 V156
+       Q104 136 128 136
+       Q152 136 152 156
+       V212 Z" />
+  <path
+    class="mdt-yellow"
+    d="M132 44 H216
+       Q228 44 228 56
+       V192
+       Q228 204 216 204
+       H132
+       Q120 204 120 192
+       V56
+       Q120 44 132 44
+       Z
+       M216 44 L228 64 V56
+       Q228 44 216 44 Z" />
+  <g class="mdt-blue">
+    <rect x="144" y="92" width="64" height="8" rx="4" />
+    <rect x="144" y="116" width="64" height="8" rx="4" />
+    <rect x="158" y="82" width="8" height="52" rx="4" />
+    <rect x="182" y="82" width="8" height="52" rx="4" />
+    <rect x="148" y="144" width="56" height="8" rx="4" />
+  </g>
+</svg>

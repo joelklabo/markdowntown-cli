@@ -1,0 +1,32 @@
+# Dependencies (host installs)
+node_modules
+.pnpm-store
+.pnp
+.pnp.*
+.yarn
+
+# Next.js build output
+.next
+out
+build
+
+# Tests / reports
+coverage
+playwright-report
+test-results
+
+# Local tooling / state
+.beads
+.vercel
+.git
+.DS_Store
+*.log
+
+# Env files / secrets
+.env*
+
+# Local generated artifacts
+markdowntown-*/
+.gemini-clipboard/
+lighthouse-*.json
+

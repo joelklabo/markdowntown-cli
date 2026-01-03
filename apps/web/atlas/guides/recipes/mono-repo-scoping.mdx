@@ -1,0 +1,18 @@
+# Mono-repo scoping
+
+<Callout title="Outcome" tone="success">
+Agents follow the right standards per package without leaking rules across the repo.
+</Callout>
+
+## Steps
+
+1. Create a top-level baseline file for repo-wide rules.
+2. Add package-local instruction files for language/tooling differences.
+3. Use narrow path globs to target each package.
+
+## Example
+
+```md
+# packages/web/**
+Use React server components where applicable.
+```

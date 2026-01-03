@@ -1,0 +1,75 @@
+{
+  "id": "monorepo",
+  "label": "Monorepo with frontend/backend scopes",
+  "defaultCwd": "apps/web",
+  "files": [
+    {
+      "path": "README.md",
+      "content": "# Monorepo\n\napps/web and apps/api are separate scopes.\n"
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "content": "---\napplyTo: \"apps/**\"\n---\n\n# Copilot instructions\n\n- Prefer changes inside the current app.\n- Keep shared packages stable.\n"
+    },
+    {
+      "path": ".github/instructions/apps-web.instructions.md",
+      "content": "---\napplyTo: \"apps/web/**\"\n---\n\n# Web instructions\n\n- Prefer changes in apps/web.\n- Keep components small and reusable.\n"
+    },
+    {
+      "path": ".github/copilot-instructions/apps-web.instructions.md",
+      "content": "---\napplyTo: \"apps/web/**\"\n---\n\n# Copilot CLI scoped instructions\n\n- Prefer changes in apps/web.\n"
+    },
+    {
+      "path": ".github/agents/release.agent.md",
+      "content": "# Release Helper\n\n- Draft release notes.\n- Group changes by impact.\n"
+    },
+    {
+      "path": "AGENTS.md",
+      "content": "# AGENTS.md (root)\n\n## Scopes\n- apps/web/**: frontend conventions\n- apps/api/**: backend conventions\n"
+    },
+    {
+      "path": "CLAUDE.md",
+      "content": "# CLAUDE.md\n\n- Treat apps as independent.\n- Avoid cross-app coupling.\n"
+    },
+    {
+      "path": "GEMINI.md",
+      "content": "# GEMINI.md\n\n- Prefer focused changes.\n- Don’t scan unrelated packages.\n"
+    },
+    {
+      "path": ".cursor/rules/frontend.mdc",
+      "content": "# Frontend rules\n\n- Prefer server components.\n"
+    },
+    {
+      "path": ".cursor/rules/backend.mdc",
+      "content": "# Backend rules\n\n- Validate inputs.\n"
+    },
+    {
+      "path": "apps/web/AGENTS.md",
+      "content": "# Web agent scope\n\n- Use React.\n- Prefer `src/` changes.\n"
+    },
+    {
+      "path": "apps/web/package.json",
+      "content": "{ \"name\": \"web\" }\n"
+    },
+    {
+      "path": "apps/web/src/app/page.tsx",
+      "content": "export default function Page() { return <div>web</div>; }\n"
+    },
+    {
+      "path": "apps/api/AGENTS.md",
+      "content": "# API agent scope\n\n- Prefer small handlers.\n- Add tests.\n"
+    },
+    {
+      "path": "apps/api/package.json",
+      "content": "{ \"name\": \"api\" }\n"
+    },
+    {
+      "path": "apps/api/src/index.ts",
+      "content": "export const handler = () => ({ ok: true });\n"
+    },
+    {
+      "path": "packages/shared/src/index.ts",
+      "content": "export const shared = true;\n"
+    }
+  ]
+}

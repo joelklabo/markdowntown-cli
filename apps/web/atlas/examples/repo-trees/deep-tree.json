@@ -1,0 +1,40 @@
+{
+  "id": "deep-tree",
+  "label": "Deep tree (scan-risk)",
+  "defaultCwd": "apps/web/src/components",
+  "files": [
+    { "path": "README.md", "content": "# Deep tree fixture\n\nUsed to test scan-risk warnings.\n" },
+    { "path": "AGENTS.md", "content": "# Root AGENTS.md\n\n- Prefer targeted globs.\n- Avoid downward scans.\n" },
+    { "path": "CLAUDE.md", "content": "# CLAUDE.md\n\n- Keep context tight.\n" },
+    { "path": "GEMINI.md", "content": "# GEMINI.md\n\n- Don’t traverse huge directories.\n" },
+    {
+      "path": ".github/copilot-instructions.md",
+      "content": "# Copilot instructions\n\n- Limit the blast radius.\n"
+    },
+    { "path": ".cursorrules", "content": "# Cursor rules\n\n- Prefer .cursor/rules/.\n" },
+    { "path": ".windsurfrules", "content": "# Windsurf rules\n\n- Keep edits local.\n" },
+    { "path": ".cursor/rules/00-base.mdc", "content": "# Base rules\n" },
+    { "path": ".cursor/rules/01-format.mdc", "content": "# Format rules\n" },
+    { "path": ".cursor/rules/02-testing.mdc", "content": "# Testing rules\n" },
+    { "path": ".cursor/rules/03-security.mdc", "content": "# Security rules\n" },
+    { "path": ".cursor/rules/04-perf.mdc", "content": "# Perf rules\n" },
+    { "path": ".cursor/rules/05-docs.mdc", "content": "# Docs rules\n" },
+    { "path": ".cursor/rules/06-ui.mdc", "content": "# UI rules\n" },
+    { "path": ".cursor/rules/07-api.mdc", "content": "# API rules\n" },
+    { "path": ".cursor/rules/08-db.mdc", "content": "# DB rules\n" },
+    { "path": ".cursor/rules/09-ops.mdc", "content": "# Ops rules\n" },
+    { "path": ".cursor/rules/10-edge.mdc", "content": "# Edge rules\n" },
+    { "path": ".cursor/rules/11-extra.mdc", "content": "# Extra rules\n" },
+    { "path": "apps/web/src/components/a/b/c/d/e/Foo.tsx", "content": "export function Foo() { return null; }\n" },
+    { "path": "apps/web/src/components/a/b/c/d/e/Bar.tsx", "content": "export function Bar() { return null; }\n" },
+    { "path": "apps/web/src/components/a/b/c/d/e/Baz.tsx", "content": "export function Baz() { return null; }\n" },
+    { "path": "apps/web/src/components/a/b/c/d/e/qux/Qux.tsx", "content": "export function Qux() { return null; }\n" },
+    { "path": "apps/web/src/components/a/b/c/d/e/qux/quux/Quux.tsx", "content": "export function Quux() { return null; }\n" },
+    { "path": "apps/api/src/routes/v1/users/get.ts", "content": "export const getUser = () => null;\n" },
+    { "path": "apps/api/src/routes/v1/users/post.ts", "content": "export const createUser = () => null;\n" },
+    { "path": "apps/api/src/routes/v1/users/delete.ts", "content": "export const deleteUser = () => null;\n" },
+    { "path": "packages/pkg-a/src/deep/nested/module.ts", "content": "export const a = 1;\n" },
+    { "path": "packages/pkg-b/src/deep/nested/module.ts", "content": "export const b = 2;\n" },
+    { "path": "packages/pkg-c/src/deep/nested/module.ts", "content": "export const c = 3;\n" }
+  ]
+}

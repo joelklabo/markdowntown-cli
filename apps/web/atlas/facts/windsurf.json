@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "platformId": "windsurf",
+  "name": "Windsurf",
+  "retrievedAt": "2025-12-17T00:00:00Z",
+  "lastVerified": "2025-12-19T08:36:55.372Z",
+  "artifacts": [],
+  "claims": [
+    {
+      "id": "windsurf.ignore-file.codeiumignore",
+      "statement": "Windsurf Indexing supports ignoring files via a .codeiumignore file.",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "url": "https://docs.windsurf.com/context-awareness/windsurf-ignore",
+          "excerpt": ".codeiumignore",
+          "title": "Windsurf documentation"
+        }
+      ]
+    },
+    {
+      "id": "windsurf.path-scoping.hierarchy",
+      "statement": "Windsurf Cascade applies subdirectory AGENTS.md instructions to files within that directory and its subdirectories.",
+      "confidence": "medium",
+      "evidence": [
+        {
+          "url": "https://docs.windsurf.com/windsurf/cascade/agents-md.md",
+          "title": "Windsurf documentation",
+          "excerpt": "directory-scoped"
+        }
+      ],
+      "features": [
+        "path-scoping"
+      ]
+    },
+    {
+      "id": "windsurf.repo-instructions.file",
+      "statement": "Windsurf Cascade supports directory-scoped instructions via AGENTS.md files.",
+      "confidence": "high",
+      "evidence": [
+        {
+          "url": "https://docs.windsurf.com/windsurf/cascade/agents-md.md",
+          "title": "Windsurf documentation",
+          "excerpt": "AGENTS.md"
+        }
+      ],
+      "features": [
+        "repo-instructions"
+      ]
+    }
+  ],
+  "featureSupport": {
+    "repo-instructions": "yes",
+    "path-scoping": "yes",
+    "imports": "no"
+  },
+  "docHome": "https://docs.windsurf.com/windsurf/cascade/agents-md.md"
+}

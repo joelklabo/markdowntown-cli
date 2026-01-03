@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "crosswalk": {
+    "repo-instructions": {
+      "github-copilot": [".github/copilot-instructions.md"],
+      "copilot-cli": [".github/copilot-instructions.md", ".github/agents/*"],
+      "claude-code": ["CLAUDE.md"],
+      "gemini-cli": ["GEMINI.md"],
+      "codex-cli": ["AGENTS.md", "AGENTS.override.md"],
+      "cursor": [".cursor/rules/*.mdc"],
+      "windsurf": ["AGENTS.md", ".codeiumignore"]
+    },
+    "path-scoping": {
+      "github-copilot": [".github/instructions/*.instructions.md"],
+      "copilot-cli": [".github/copilot-instructions/**/*.instructions.md"],
+      "claude-code": ["**/CLAUDE.md"],
+      "codex-cli": ["**/AGENTS.md", "**/AGENTS.override.md"],
+      "cursor": [".cursor/rules/*.mdc"],
+      "windsurf": ["**/AGENTS.md"]
+    },
+    "imports": {
+      "github-copilot": [".github/copilot-instructions.md"],
+      "copilot-cli": [".github/copilot-instructions.md"],
+      "claude-code": ["CLAUDE.md"],
+      "gemini-cli": ["GEMINI.md"],
+      "codex-cli": ["AGENTS.md", "AGENTS.override.md"],
+      "cursor": [".cursor/rules/*.mdc"],
+      "windsurf": ["AGENTS.md"]
+    }
+  }
+}

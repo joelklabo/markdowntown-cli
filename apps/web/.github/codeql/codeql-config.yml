@@ -1,0 +1,12 @@
+name: "CodeQL config"
+
+paths-ignore:
+  - ".next"
+  - "coverage"
+  - "test-results"
+  - "playwright-report"
+  - "dist"
+  - "out"
+  - "node_modules"
+  - "**/*.min.js"
+

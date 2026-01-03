@@ -1,0 +1,14 @@
+HTTP/2 200 
+date: Mon, 01 Dec 2025 23:17:34 GMT
+content-type: text/html; charset=utf-8
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding
+link: </_next/static/media/e4af272ccee01ff0-s.p.woff2>; rel=preload; as="font"; crossorigin=""; type="font/woff2", </markdown-town-icon.svg>; rel=preload; as="image", </_next/static/css/50d511bf427aa763.css>; rel=preload; as="style"
+x-powered-by: Next.js
+cache-control: private, no-cache, no-store, max-age=0, must-revalidate
+cf-cache-status: DYNAMIC
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=YNzGfuG4YyY25Q%2B7NrGVRgls3vP4%2F300%2Fy0dG%2Fk3ZG0eTs0jITl1IMoXzKFtiKg5xJX0etrlw%2Fy4k1FQ28%2BlxJIocacT4zsHM62kIQA%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+server: cloudflare
+cf-ray: 9a764c6288541ed2-SJC
+alt-svc: h3=":443"; ma=86400
+
