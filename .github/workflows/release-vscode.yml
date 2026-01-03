@@ -91,10 +91,11 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: markdowntown-${{ matrix.target }}
+          path: dist
       - name: Stage CLI binary
         run: |
           mkdir -p vscode-extension/bin
-          cp dist/${{ matrix.target }}/markdowntown${{ matrix.ext }} vscode-extension/bin/markdowntown${{ matrix.ext }}
+          cp dist/markdowntown-${{ matrix.target }}/markdowntown${{ matrix.ext }} vscode-extension/bin/markdowntown${{ matrix.ext }}
           if [ "${{ matrix.ext }}" = "" ]; then chmod +x vscode-extension/bin/markdowntown; fi
       - name: Package VSIX
         run: cd vscode-extension && npx vsce package --target ${{ matrix.target }} --out ../dist/markdowntown-${{ matrix.target }}.vsix --skip-license
