@@ -59,7 +59,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: markdowntown-${{ matrix.target }}
-          path: dist/${{ matrix.target }}/markdowntown${{ matrix.ext }}
+          path: dist/${{ matrix.target }}
 
   package-publish:
     name: package-publish (${{ matrix.target }})
