@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -14,22 +15,9 @@ import (
 	scanhash "markdowntown-cli/internal/hash"
 
 	"github.com/spf13/afero"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
-
-// Options configures the discovery scan.
-type Options struct {
-	RepoRoot       string
-	RepoOnly       bool
-	IncludeGlobal  bool
-	IncludeContent bool
-	Progress       func(string)
-	UserRoots      []string
-	GlobalRoots    []string
-	StdinPaths     []string
-	Registry       Registry
-	Patterns       []CompiledPattern
-	Fs             afero.Fs
-}
 
 // Result collects discovered entries and warnings.
 type Result struct {
@@ -65,7 +53,7 @@ func scanRepoRoots(fs afero.Fs, repoRoots []string, patterns []CompiledPattern, 
 			result.Warnings = append(result.Warnings, warningForError(root, repoErr))
 		}
 		if repoExists {
-			walkState := newWalkState(fs, root, opts.IncludeContent, opts.Progress)
+			walkState := newWalkState(fs, root, opts.Progress)
 			scanDir(root, root, root, ScopeRepo, repoInfo, patterns, entries, result, walkState, false, false)
 		}
 	}
@@ -103,7 +91,7 @@ func scanUserRoots(fs afero.Fs, repoRoot string, patterns []CompiledPattern, ent
 		if !exists {
 			continue
 		}
-		walkState := newWalkState(fs, absRoot, opts.IncludeContent, opts.Progress)
+		walkState := newWalkState(fs, absRoot, opts.Progress)
 		scanDir(absRoot, absRoot, absRoot, ScopeUser, info, patterns, entries, result, walkState, false, false)
 	}
 	return userRootsAbs
@@ -147,7 +135,7 @@ func scanGlobalRoots(fs afero.Fs, patterns []CompiledPattern, entries map[string
 		if !exists {
 			continue
 		}
-		walkState := newWalkState(fs, absRoot, opts.IncludeContent, opts.Progress)
+		walkState := newWalkState(fs, absRoot, opts.Progress)
 		scanDir(absRoot, absRoot, absRoot, ScopeGlobal, info, patterns, entries, result, walkState, false, false)
 	}
 
@@ -172,7 +160,7 @@ func scanStdinPaths(fs afero.Fs, paths []string, repoRootsAbs []string, userRoot
 			continue
 		}
 		scope, root := resolveScopeAndRoot(absPath, repoRootsAbs, userRootsAbs, globalRootsAbs, info)
-		walkState := newWalkState(fs, root, opts.IncludeContent, opts.Progress)
+		walkState := newWalkState(fs, root, opts.Progress)
 		scanPath(absPath, absPath, root, scope, patterns, entries, result, walkState, true)
 	}
 }
@@ -218,11 +206,60 @@ func Scan(opts Options) (Result, error) {
 	globalRootsAbs := scanGlobalRoots(fs, patterns, entries, &result, opts)
 	scanStdinPaths(fs, opts.StdinPaths, repoRootsAbs, userRootsAbs, globalRootsAbs, patterns, entries, &result, opts)
 
+	populateEntriesContent(fs, entries, opts.IncludeContent, opts.ScanWorkers)
+
 	for _, entry := range entries {
 		result.Entries = append(result.Entries, *entry)
 	}
 
 	return result, nil
+}
+
+func populateEntriesContent(fs afero.Fs, entries map[string]*ConfigEntry, includeContent bool, workers int) {
+	if len(entries) == 0 {
+		return
+	}
+	if workers <= 0 {
+		workers = defaultScanWorkers()
+	}
+	if workers < 1 {
+		workers = 1
+	}
+	if workers == 1 {
+		for _, entry := range entries {
+			if entry == nil {
+				continue
+			}
+			resolved := entry.Resolved
+			if resolved == "" {
+				resolved = entry.Path
+			}
+			populateEntryContent(fs, entry, resolved, includeContent)
+		}
+		return
+	}
+
+	sem := semaphore.NewWeighted(int64(workers))
+	group, ctx := errgroup.WithContext(context.Background())
+	for _, entry := range entries {
+		entry := entry
+		if entry == nil {
+			continue
+		}
+		if err := sem.Acquire(ctx, 1); err != nil {
+			break
+		}
+		group.Go(func() error {
+			defer sem.Release(1)
+			resolved := entry.Resolved
+			if resolved == "" {
+				resolved = entry.Path
+			}
+			populateEntryContent(fs, entry, resolved, includeContent)
+			return nil
+		})
+	}
+	_ = group.Wait()
 }
 
 func loadPatterns(fs afero.Fs, opts Options) ([]CompiledPattern, []Warning, error) {
@@ -281,6 +318,16 @@ func DefaultGlobalRoots() []string {
 	return []string{"/etc"}
 }
 
+func defaultScanWorkers() int {
+	if runtime.GOOS == "js" {
+		return 1
+	}
+	if workers := runtime.NumCPU(); workers > 0 {
+		return workers
+	}
+	return 1
+}
+
 var globalSkipPrefixes = []string{
 	"shadow",
 	"shadow-",
@@ -326,22 +373,20 @@ func isSpecialFile(info os.FileInfo) bool {
 }
 
 type walkState struct {
-	fs             afero.Fs
-	root           string
-	includeContent bool
-	progress       func(string)
-	visited        map[string]struct{}
-	active         map[string]struct{}
+	fs       afero.Fs
+	root     string
+	progress func(string)
+	visited  map[string]struct{}
+	active   map[string]struct{}
 }
 
-func newWalkState(fs afero.Fs, root string, includeContent bool, progress func(string)) *walkState {
+func newWalkState(fs afero.Fs, root string, progress func(string)) *walkState {
 	return &walkState{
-		fs:             fs,
-		root:           root,
-		includeContent: includeContent,
-		progress:       progress,
-		visited:        make(map[string]struct{}),
-		active:         make(map[string]struct{}),
+		fs:       fs,
+		root:     root,
+		progress: progress,
+		visited:  make(map[string]struct{}),
+		active:   make(map[string]struct{}),
 	}
 }
 
@@ -399,7 +444,7 @@ func scanPath(logicalPath string, actualPath string, root string, scope string, 
 		return
 	}
 
-	scanFile(logicalPath, actualPath, root, scope, patterns, entries, result, state, info, fromStdin)
+	scanFile(logicalPath, actualPath, root, scope, patterns, entries, result, info, fromStdin)
 }
 
 func resolveAndScanSymlink(logicalPath string, actualPath string, root string, scope string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, state *walkState, fromStdin bool) {
@@ -424,10 +469,10 @@ func resolveAndScanSymlink(logicalPath string, actualPath string, root string, s
 		return
 	}
 
-	scanFile(logicalPath, resolved, root, scope, patterns, entries, result, state, resolvedInfo, fromStdin)
+	scanFile(logicalPath, resolved, root, scope, patterns, entries, result, resolvedInfo, fromStdin)
 }
 
-func scanFile(logicalPath string, resolvedPath string, root string, scope string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, state *walkState, info os.FileInfo, fromStdin bool) {
+func scanFile(logicalPath string, resolvedPath string, root string, scope string, patterns []CompiledPattern, entries map[string]*ConfigEntry, result *Result, info os.FileInfo, fromStdin bool) {
 	if scope == ScopeGlobal && shouldSkipGlobalPath(root, resolvedPath, info) {
 		return
 	}
@@ -472,7 +517,6 @@ func scanFile(logicalPath string, resolvedPath string, root string, scope string
 			Gitignored: false,
 		}
 		entries[resolvedAbs] = entry
-		populateEntryContent(state.fs, entry, resolvedAbs, state.includeContent)
 	} else if fromStdin {
 		entry.FromStdin = true
 	}

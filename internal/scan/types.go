@@ -1,6 +1,8 @@
 // Package scan provides registry loading and file matching helpers.
 package scan
 
+import "github.com/spf13/afero"
+
 const (
 	// ScopeRepo indicates repository-scoped configuration.
 	ScopeRepo = "repo"
@@ -9,6 +11,22 @@ const (
 	// ScopeGlobal indicates system-wide configuration.
 	ScopeGlobal = "global"
 )
+
+// Options configures the discovery scan.
+type Options struct {
+	RepoRoot       string
+	RepoOnly       bool
+	IncludeGlobal  bool
+	IncludeContent bool
+	Progress       func(string)
+	UserRoots      []string
+	GlobalRoots    []string
+	StdinPaths     []string
+	Registry       Registry
+	Patterns       []CompiledPattern
+	ScanWorkers    int
+	Fs             afero.Fs
+}
 
 // Registry describes the on-disk registry JSON structure.
 type Registry struct {

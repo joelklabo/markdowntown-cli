@@ -11,6 +11,7 @@ require (
 	github.com/spf13/afero v1.15.0
 	github.com/tliron/commonlog v0.2.21
 	github.com/tliron/glsp v0.2.2
+	golang.org/x/sync v0.19.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
