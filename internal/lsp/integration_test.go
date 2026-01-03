@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/goleak"
+
 	"github.com/sourcegraph/jsonrpc2"
 	"github.com/tliron/glsp"
 	protocol "github.com/tliron/glsp/protocol_3_16"
@@ -87,6 +89,54 @@ func TestDiagnosticsOverPipe(t *testing.T) {
 		requireDiagnosticSuggestion(t, diag)
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out waiting for diagnostics")
+	}
+}
+
+func TestLeakShutdown(t *testing.T) {
+	defer goleak.VerifyNone(t, goleakOptions()...)
+
+	s := NewServer("0.1.0")
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	defer func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	}()
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	defer func() {
+		_ = serverRPC.Close()
+	}()
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 1)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	defer func() {
+		_ = clientRPC.Close()
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	var shutdownResult any
+	if err := clientRPC.Call(ctx, protocol.MethodShutdown, nil, &shutdownResult); err != nil {
+		t.Fatalf("shutdown failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodExit, nil); err != nil {
+		t.Fatalf("exit notify failed: %v", err)
 	}
 }
 
@@ -1479,20 +1529,6 @@ func TestServeCanary(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatalf("timed out waiting for serve process to exit (stderr: %s)", stderr.String())
 	}
-}
-
-func waitForDiagnostics(t *testing.T, diagnostics <-chan protocol.PublishDiagnosticsParams, uri string) protocol.PublishDiagnosticsParams {
-	t.Helper()
-	select {
-	case params := <-diagnostics:
-		if params.URI != uri {
-			t.Fatalf("expected diagnostics for %s, got %s", uri, params.URI)
-		}
-		return params
-	case <-time.After(10 * time.Second):
-		t.Fatal("timed out waiting for diagnostics")
-	}
-	return protocol.PublishDiagnosticsParams{}
 }
 
 func requireDiagnostic(t *testing.T, diags []protocol.Diagnostic, ruleID string) protocol.Diagnostic {

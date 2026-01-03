@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"markdowntown-cli/internal/audit"
 	"markdowntown-cli/internal/scan"
@@ -42,6 +43,27 @@ func TestTriggerDiagnostics(t *testing.T) {
 		t.Fatalf("expected timer to be scheduled")
 	}
 	timer.Stop()
+}
+
+func TestTriggerDiagnosticsCancelsPreviousTimer(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = time.Minute
+	context := &glsp.Context{Notify: func(string, any) {}}
+	uri := "file:///tmp/test.md"
+
+	s.triggerDiagnostics(context, uri)
+	first := waitForDiagnosticsTimer(t, s, uri)
+
+	s.triggerDiagnostics(context, uri)
+	second := waitForDiagnosticsTimer(t, s, uri)
+
+	if first == second {
+		t.Fatalf("expected a new timer to replace the prior one")
+	}
+	if first.Stop() {
+		t.Fatalf("expected previous timer to be stopped")
+	}
+	second.Stop()
 }
 
 func TestDidChangeConfigurationTriggersDiagnostics(t *testing.T) {
@@ -256,6 +278,25 @@ func TestIssueMatchesPathNormalized(t *testing.T) {
 	}
 }
 
+func waitForDiagnosticsTimer(t *testing.T, s *Server, uri string) *time.Timer {
+	t.Helper()
+	deadline := time.After(2 * time.Second)
+	for {
+		s.diagnosticsMu.Lock()
+		timer := s.diagnosticTimers[uri]
+		s.diagnosticsMu.Unlock()
+		if timer != nil {
+			return timer
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("timed out waiting for diagnostics timer for %s", uri)
+		default:
+			time.Sleep(1 * time.Millisecond)
+		}
+	}
+}
+
 func TestClampToUint32(t *testing.T) {
 	if got := clampToUint32(-5); got != 0 {
 		t.Fatalf("expected 0, got %d", got)
@@ -436,6 +477,20 @@ func TestBuildRelatedInfoIncludesConfigs(t *testing.T) {
 	if !foundOther {
 		t.Fatalf("expected related info entry for other config")
 	}
+}
+
+func waitForDiagnostics(t *testing.T, diagnostics <-chan protocol.PublishDiagnosticsParams, uri string) protocol.PublishDiagnosticsParams {
+	t.Helper()
+	select {
+	case params := <-diagnostics:
+		if params.URI != uri {
+			t.Fatalf("expected diagnostics for %s, got %s", uri, params.URI)
+		}
+		return params
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for diagnostics")
+	}
+	return protocol.PublishDiagnosticsParams{}
 }
 
 func TestRelatedConfigsLimit(t *testing.T) {
