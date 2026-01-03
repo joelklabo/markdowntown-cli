@@ -79,7 +79,7 @@ func TestPopulateEntryContentMissingFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	missingPath := "/missing.txt"
 
-	populateEntryContent(fs, entry, missingPath, true)
+	populateEntryContent(fs, entry, missingPath, "", true)
 
 	if entry.Error == nil || *entry.Error != "ENOENT" {
 		t.Fatalf("expected ENOENT error, got %#v", entry.Error)
@@ -97,7 +97,7 @@ func TestPopulateEntryContentEmptyFile(t *testing.T) {
 	}
 
 	entry := &ConfigEntry{}
-	populateEntryContent(fs, entry, path, false)
+	populateEntryContent(fs, entry, path, "", false)
 
 	if entry.Warning == nil || *entry.Warning != "empty" {
 		t.Fatalf("expected empty warning, got %#v", entry.Warning)
@@ -113,7 +113,7 @@ func TestPopulateEntryContentFrontmatterError(t *testing.T) {
 	}
 
 	entry := &ConfigEntry{}
-	populateEntryContent(fs, entry, path, false)
+	populateEntryContent(fs, entry, path, "", false)
 
 	if entry.FrontmatterError == nil {
 		t.Fatalf("expected frontmatter error for missing delimiter")
@@ -715,8 +715,94 @@ func TestSafeReadFileRejectsSymlinkSwap(t *testing.T) {
 		t.Fatalf("symlink: %v", err)
 	}
 
-	if _, err := safeReadFile(afero.NewOsFs(), target); err == nil {
+	if _, err := safeReadFile(afero.NewOsFs(), root, target); err == nil {
 		t.Fatalf("expected safe read to fail on symlink replacement")
+	}
+}
+
+func TestSafeReadFileRejectsIntermediateSymlinkSwap(t *testing.T) {
+	if !safeOpenSupported {
+		t.Skip("safe open not supported on this platform")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink permissions vary on Windows")
+	}
+
+	root := t.TempDir()
+	mid := filepath.Join(root, "mid")
+	if err := os.Mkdir(mid, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	insidePath := filepath.Join(mid, "target.md")
+	writeTestFile(t, insidePath, "inside")
+
+	outsideDir := t.TempDir()
+	outsidePath := filepath.Join(outsideDir, "target.md")
+	writeTestFile(t, outsidePath, "outside")
+
+	linkCheck := filepath.Join(root, "link-check")
+	if err := os.Symlink(outsideDir, linkCheck); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			t.Skip("symlinks not permitted")
+		}
+		t.Fatalf("symlink check: %v", err)
+	}
+	if err := os.Remove(linkCheck); err != nil {
+		t.Fatalf("remove check link: %v", err)
+	}
+
+	midReal := filepath.Join(root, "mid-real")
+	swapToSymlink := func() error {
+		if err := os.Rename(mid, midReal); err != nil {
+			return err
+		}
+		return os.Symlink(outsideDir, mid)
+	}
+	swapToDir := func() error {
+		if err := os.Remove(mid); err != nil {
+			return err
+		}
+		return os.Rename(midReal, mid)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		swapped := false
+		for i := 0; i < 200; i++ {
+			var err error
+			if swapped {
+				err = swapToDir()
+			} else {
+				err = swapToSymlink()
+			}
+			if err != nil {
+				done <- err
+				return
+			}
+			swapped = !swapped
+		}
+		done <- nil
+	}()
+
+	target := filepath.Join(root, "mid", "target.md")
+	sawOutside := false
+	// Best-effort swap: errors are expected while toggling; only assert we never read outside content.
+	for i := 0; i < 200; i++ {
+		data, err := safeReadFile(afero.NewOsFs(), root, target)
+		if err != nil {
+			continue
+		}
+		if string(data) == "outside" {
+			sawOutside = true
+			break
+		}
+	}
+
+	if err := <-done; err != nil {
+		t.Fatalf("swap loop: %v", err)
+	}
+	if sawOutside {
+		t.Fatalf("read outside content during swap")
 	}
 }
 

@@ -227,7 +227,7 @@ func Scan(opts Options) (Result, error) {
 	globalRootsAbs := scanGlobalRoots(fs, patterns, entries, &result, opts)
 	scanStdinPaths(fs, opts.StdinPaths, repoRootsAbs, userRootsAbs, globalRootsAbs, patterns, entries, &result, opts)
 
-	populateEntriesContent(fs, entries, opts.IncludeContent, opts.ScanWorkers)
+	populateEntriesContent(fs, entries, opts.IncludeContent, opts.ScanWorkers, globalRootsAbs)
 
 	for _, entry := range entries {
 		result.Entries = append(result.Entries, *entry)
@@ -236,7 +236,7 @@ func Scan(opts Options) (Result, error) {
 	return result, nil
 }
 
-func populateEntriesContent(fs afero.Fs, entries map[string]*ConfigEntry, includeContent bool, workers int) {
+func populateEntriesContent(fs afero.Fs, entries map[string]*ConfigEntry, includeContent bool, workers int, globalRoots []string) {
 	if len(entries) == 0 {
 		return
 	}
@@ -255,7 +255,11 @@ func populateEntriesContent(fs afero.Fs, entries map[string]*ConfigEntry, includ
 			if resolved == "" {
 				resolved = entry.Path
 			}
-			populateEntryContent(fs, entry, resolved, includeContent)
+			root := ""
+			if entry.Scope == ScopeGlobal {
+				root = globalRootFor(resolved, globalRoots)
+			}
+			populateEntryContent(fs, entry, resolved, root, includeContent)
 		}
 		return
 	}
@@ -276,7 +280,11 @@ func populateEntriesContent(fs afero.Fs, entries map[string]*ConfigEntry, includ
 			if resolved == "" {
 				resolved = entry.Path
 			}
-			populateEntryContent(fs, entry, resolved, includeContent)
+			root := ""
+			if entry.Scope == ScopeGlobal {
+				root = globalRootFor(resolved, globalRoots)
+			}
+			populateEntryContent(fs, entry, resolved, root, includeContent)
 			return nil
 		})
 	}
@@ -730,12 +738,12 @@ func scanFile(logicalPath string, resolvedPath string, root string, scope string
 	}
 }
 
-func populateEntryContent(fs afero.Fs, entry *ConfigEntry, resolvedPath string, includeContent bool) {
+func populateEntryContent(fs afero.Fs, entry *ConfigEntry, resolvedPath string, root string, includeContent bool) {
 	// #nosec G304 -- resolvedPath comes from scan roots or stdin.
 	var data []byte
 	var err error
 	if entry != nil && entry.Scope == ScopeGlobal {
-		data, err = safeReadFile(fs, resolvedPath)
+		data, err = safeReadFile(fs, root, resolvedPath)
 	} else {
 		data, err = afero.ReadFile(fs, resolvedPath)
 	}
@@ -865,6 +873,25 @@ func outsideRoot(root string, path string) bool {
 		return true
 	}
 	return false
+}
+
+func globalRootFor(path string, roots []string) string {
+	if path == "" || len(roots) == 0 {
+		return ""
+	}
+	best := ""
+	for _, root := range roots {
+		if root == "" {
+			continue
+		}
+		if outsideRoot(root, path) {
+			continue
+		}
+		if len(root) > len(best) {
+			best = root
+		}
+	}
+	return best
 }
 
 func warningForError(path string, err error) Warning {
@@ -1034,14 +1061,17 @@ func safeStat(fs afero.Fs, path string) (os.FileInfo, error) {
 	return info, err
 }
 
-func safeReadFile(fs afero.Fs, path string) ([]byte, error) {
+func safeReadFile(filesystem afero.Fs, root string, path string) ([]byte, error) {
 	if safeOpenSupported {
-		if _, ok := fs.(*afero.OsFs); ok {
-			data, err := safeReadFilePath(path)
+		if _, ok := filesystem.(*afero.OsFs); ok {
+			if root == "" {
+				return nil, fs.ErrInvalid
+			}
+			data, err := safeReadFilePath(root, path)
 			return data, err
 		}
 	}
-	data, err := afero.ReadFile(fs, path)
+	data, err := afero.ReadFile(filesystem, path)
 	return data, err
 }
 

@@ -10,6 +10,6 @@ func safeStatPath(path string) (os.FileInfo, error) {
 	return os.Stat(path)
 }
 
-func safeReadFilePath(path string) ([]byte, error) {
+func safeReadFilePath(root string, path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
