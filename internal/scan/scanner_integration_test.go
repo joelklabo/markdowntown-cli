@@ -175,6 +175,72 @@ func TestScanIntegrationGlobalSymlinkEscape(t *testing.T) {
 	}
 }
 
+func TestScanIntegrationGlobalSymlinkMultiHopEscape(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink permissions vary on Windows")
+	}
+
+	repoRoot := t.TempDir()
+	globalRoot := copyFixture(t, "global-scope")
+	externalDir := t.TempDir()
+	externalPath := filepath.Join(externalDir, "escape.md")
+	writeTestFile(t, externalPath, "escape")
+
+	linkTwo := filepath.Join(globalRoot, "escape-link-two")
+	if err := os.Symlink(externalPath, linkTwo); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			t.Skip("symlinks not permitted")
+		}
+		t.Fatalf("symlink: %v", err)
+	}
+	linkOne := filepath.Join(globalRoot, "escape-link-one")
+	if err := os.Symlink(linkTwo, linkOne); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			t.Skip("symlinks not permitted")
+		}
+		t.Fatalf("symlink: %v", err)
+	}
+
+	registry := Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "global-escape",
+				ToolID:       "global-tool",
+				ToolName:     "Global Tool",
+				Kind:         "config",
+				Scope:        ScopeGlobal,
+				Paths:        []string{"escape-link-one"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+
+	result, err := Scan(Options{
+		RepoRoot:      repoRoot,
+		IncludeGlobal: true,
+		GlobalRoots:   []string{globalRoot},
+		Registry:      registry,
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	output := BuildOutput(result, OutputOptions{
+		SchemaVersion:   "test",
+		RegistryVersion: "1",
+		ToolVersion:     "test",
+		RepoRoot:        repoRoot,
+	})
+
+	if !hasWarning(output.Warnings, linkOne, "SYMLINK_ESCAPE") {
+		t.Fatalf("expected SYMLINK_ESCAPE warning for %s", linkOne)
+	}
+}
+
 func TestScanIntegrationGlobalGuardrails(t *testing.T) {
 	repoRoot := t.TempDir()
 	globalRoot := t.TempDir()

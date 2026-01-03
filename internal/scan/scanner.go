@@ -444,6 +444,7 @@ type guardState struct {
 	warnedFiles  bool
 	warnedBytes  bool
 	warnedXDev   bool
+	warnedSafe   bool
 	rootDev      uint64
 	hasRootDev   bool
 	xdev         bool
@@ -627,7 +628,16 @@ func resolveAndScanSymlink(logicalPath string, actualPath string, root string, s
 		return
 	}
 
-	resolvedInfo, err := state.fs.Stat(resolved)
+	if scope == ScopeGlobal && !safeOpenSupported && !state.guard.warnedSafe {
+		state.guard.warnedSafe = true
+		result.Warnings = append(result.Warnings, Warning{
+			Path:    logicalPath,
+			Code:    "SAFE_OPEN_UNSUPPORTED",
+			Message: "Safe symlink open not supported on this platform",
+		})
+	}
+
+	resolvedInfo, err := safeStat(state.fs, resolved)
 	if err != nil {
 		result.Warnings = append(result.Warnings, warningForError(logicalPath, err))
 		return
@@ -722,7 +732,13 @@ func scanFile(logicalPath string, resolvedPath string, root string, scope string
 
 func populateEntryContent(fs afero.Fs, entry *ConfigEntry, resolvedPath string, includeContent bool) {
 	// #nosec G304 -- resolvedPath comes from scan roots or stdin.
-	data, err := afero.ReadFile(fs, resolvedPath)
+	var data []byte
+	var err error
+	if entry != nil && entry.Scope == ScopeGlobal {
+		data, err = safeReadFile(fs, resolvedPath)
+	} else {
+		data, err = afero.ReadFile(fs, resolvedPath)
+	}
 	if err != nil {
 		code := errorCodeFor(err)
 		entry.Error = &code
@@ -1005,6 +1021,28 @@ func (state *walkState) leaveDir(key string, actualPath string) {
 	if actualPath != "" {
 		delete(state.activePaths, filepath.Clean(actualPath))
 	}
+}
+
+func safeStat(fs afero.Fs, path string) (os.FileInfo, error) {
+	if safeOpenSupported {
+		if _, ok := fs.(*afero.OsFs); ok {
+			info, err := safeStatPath(path)
+			return info, err
+		}
+	}
+	info, err := fs.Stat(path)
+	return info, err
+}
+
+func safeReadFile(fs afero.Fs, path string) ([]byte, error) {
+	if safeOpenSupported {
+		if _, ok := fs.(*afero.OsFs); ok {
+			data, err := safeReadFilePath(path)
+			return data, err
+		}
+	}
+	data, err := afero.ReadFile(fs, path)
+	return data, err
 }
 
 func lstat(fs afero.Fs, path string) (os.FileInfo, error) {

@@ -521,6 +521,65 @@ func TestScanGlobalScopeSymlinkEscape(t *testing.T) {
 	}
 }
 
+func TestScanGlobalScopeSymlinkMultiHopEscape(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink permissions vary on Windows")
+	}
+
+	repoRoot := t.TempDir()
+	globalRoot := copyFixture(t, "global-scope")
+	externalDir := t.TempDir()
+	externalPath := filepath.Join(externalDir, "escape.md")
+	writeTestFile(t, externalPath, "escape")
+
+	linkTwo := filepath.Join(globalRoot, "escape-link-two")
+	if err := os.Symlink(externalPath, linkTwo); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			t.Skip("symlinks not permitted")
+		}
+		t.Fatalf("symlink: %v", err)
+	}
+	linkOne := filepath.Join(globalRoot, "escape-link-one")
+	if err := os.Symlink(linkTwo, linkOne); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			t.Skip("symlinks not permitted")
+		}
+		t.Fatalf("symlink: %v", err)
+	}
+
+	registry := Registry{
+		Version: "1",
+		Patterns: []Pattern{
+			{
+				ID:           "global-escape",
+				ToolID:       "global-tool",
+				ToolName:     "Global Tool",
+				Kind:         "config",
+				Scope:        ScopeGlobal,
+				Paths:        []string{"escape-link-one"},
+				Type:         "glob",
+				LoadBehavior: "single",
+				Application:  "automatic",
+				Docs:         []string{"https://example.com"},
+			},
+		},
+	}
+
+	result, err := Scan(Options{
+		RepoRoot:      repoRoot,
+		IncludeGlobal: true,
+		GlobalRoots:   []string{globalRoot},
+		Registry:      registry,
+	})
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+
+	if !hasWarning(result.Warnings, linkOne, "SYMLINK_ESCAPE") {
+		t.Fatalf("expected SYMLINK_ESCAPE warning for %s", linkOne)
+	}
+}
+
 func TestScanGlobalScopeWarnsOnCircularSymlink(t *testing.T) {
 	globalRoot := copyFixture(t, "global-scope")
 	loopDir := filepath.Join(globalRoot, "loop")
@@ -627,6 +686,37 @@ func TestScanGlobalScopeWarnsOnSymlinkEscape(t *testing.T) {
 
 	if !hasWarning(result.Warnings, linkPath, "SYMLINK_ESCAPE") {
 		t.Fatalf("expected SYMLINK_ESCAPE warning for %s", linkPath)
+	}
+}
+
+func TestSafeReadFileRejectsSymlinkSwap(t *testing.T) {
+	if !safeOpenSupported {
+		t.Skip("safe open not supported on this platform")
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink permissions vary on Windows")
+	}
+
+	root := t.TempDir()
+	target := filepath.Join(root, "target.md")
+	writeTestFile(t, target, "target")
+
+	outsideDir := t.TempDir()
+	outsidePath := filepath.Join(outsideDir, "outside.md")
+	writeTestFile(t, outsidePath, "outside")
+
+	if err := os.Remove(target); err != nil {
+		t.Fatalf("remove target: %v", err)
+	}
+	if err := os.Symlink(outsidePath, target); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			t.Skip("symlinks not permitted")
+		}
+		t.Fatalf("symlink: %v", err)
+	}
+
+	if _, err := safeReadFile(afero.NewOsFs(), target); err == nil {
+		t.Fatalf("expected safe read to fail on symlink replacement")
 	}
 }
 
