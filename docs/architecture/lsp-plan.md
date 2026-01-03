@@ -58,25 +58,26 @@ The LSP uses `os.Stdout` for JSON-RPC messages. Any accidental `fmt.Println` or 
 
 ## Implementation Roadmap
 
-1.  **Foundation**:
+1. **Foundation**:
     - Add `github.com/tliron/glsp` and `github.com/spf13/afero`.
     - Setup `forbidigo` linter.
-2.  **Parser Update**: Implement `yaml.Node` based frontmatter parsing.
-3.  **Core Refactor**: Inject `Fs` abstraction into `Scanner` and `AuditEngine`.
-4.  **LSP Scaffold**: Implement `markdowntown serve`.
-5.  **Diagnostic Loop**: Wire up file changes to real-time audit diagnostics.
-6.  **Navigation**: Implement Hover and Definition providers.
+2. **Parser Update**: Implement `yaml.Node` based frontmatter parsing.
+3. **Core Refactor**: Inject `Fs` abstraction into `Scanner` and `AuditEngine`.
+4. **LSP Scaffold**: Implement `markdowntown serve`.
+5. **Diagnostic Loop**: Wire up file changes to real-time audit diagnostics.
+6. **Navigation**: Implement Hover and Definition providers.
 
 ## VS Code Integration Strategy
 
 To enable immediate testing and usage in VS Code, we will create a lightweight "Generic LSP Client" extension.
 
 ### 1. Extension Architecture
-*   **Type**: External Language Server.
-*   **Role**: Spawns the `markdowntown serve` binary and pipes stdin/stdout.
-*   **Languages**: Activates on `markdown` and `json` files.
+- **Type**: External Language Server.
+- **Role**: Spawns the `markdowntown serve` binary and pipes stdin/stdout.
+- **Languages**: Activates on `markdown` and `json` files.
 
 ### 2. Configuration (`package.json`)
+
 ```json
 {
   "name": "markdowntown-vscode",
@@ -151,7 +152,7 @@ export function deactivate(): Thenable<void> | undefined {
 ```
 
 ### 4. Debugging Strategy
-1.  **Build Binary**: `go build -o markdowntown ./cmd/markdowntown` (with race detector enabled).
-2.  **Config**: Set `"markdowntown.serverPath": "${workspaceFolder}/markdowntown"` in VS Code settings.
-3.  **Launch**: Press `F5` in the extension project to open a new "Extension Development Host" window.
-4.  **Output**: View "Markdowntown LSP" channel in the Output tab to see JSON-RPC logs (if trace is enabled).
+1. **Build Binary**: `go build -o markdowntown ./cmd/markdowntown` (with race detector enabled).
+2. **Config**: Set `"markdowntown.serverPath": "${workspaceFolder}/markdowntown"` in VS Code settings.
+3. **Launch**: Press `F5` in the extension project to open a new "Extension Development Host" window.
+4. **Output**: View "Markdowntown LSP" channel in the Output tab to see JSON-RPC logs (if trace is enabled).

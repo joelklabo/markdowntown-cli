@@ -21,8 +21,8 @@ func TestCompletion(t *testing.T) {
 	tests := []struct {
 		name     string
 		content  string
-		line     int
-		char     int
+		line     uint32
+		char     uint32
 		wantKind protocol.CompletionItemKind
 		want     []string
 	}{
@@ -85,7 +85,7 @@ key: val
 			res, err := s.completion(&glsp.Context{}, &protocol.CompletionParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: uint32(tt.line), Character: uint32(tt.char)},
+					Position:     protocol.Position{Line: tt.line, Character: tt.char},
 				},
 			})
 			if err != nil {

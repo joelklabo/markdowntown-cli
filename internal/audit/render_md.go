@@ -30,7 +30,7 @@ func writeSection(builder *strings.Builder, title string, severity Severity, iss
 	}
 
 	builder.WriteString("\n")
-	builder.WriteString("## " + title + "\n")
+	builder.WriteString("## " + title + "\n\n")
 	for _, issue := range sectionIssues {
 		line := fmt.Sprintf("- [%s] %s", issue.RuleID, issueTitle(issue))
 		if label := issuePathLabel(issue); label != "" {

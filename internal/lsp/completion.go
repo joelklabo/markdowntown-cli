@@ -38,13 +38,13 @@ func (s *Server) completion(_ *glsp.Context, params *protocol.CompletionParams) 
 	// Check if cursor is in a key (or prefix of a key)
 	for _, rng := range parsed.Locations {
 		if isInside(line, col, rng) {
-			return suggestKeys()
+			return suggestKeys(), nil
 		}
 	}
 
 	// If not inside an existing key/value, but in the block, suggest keys
 	// This covers typing a new key on a blank line
-	return suggestKeys()
+	return suggestKeys(), nil
 }
 
 func isInside(line, col int, rng scan.Range) bool {
@@ -60,7 +60,7 @@ func isInside(line, col int, rng scan.Range) bool {
 	return true
 }
 
-func suggestKeys() ([]protocol.CompletionItem, error) {
+func suggestKeys() []protocol.CompletionItem {
 	keys := []string{"toolId", "scope", "strategy", "applyTo", "excludeAgents"}
 	var items []protocol.CompletionItem
 	for _, k := range keys {
@@ -70,7 +70,7 @@ func suggestKeys() ([]protocol.CompletionItem, error) {
 			Kind:  ptr(protocol.CompletionItemKindProperty),
 		})
 	}
-	return items, nil
+	return items
 }
 
 func suggestValues(key string) ([]protocol.CompletionItem, error) {
@@ -90,9 +90,9 @@ func suggestValues(key string) ([]protocol.CompletionItem, error) {
 		for _, p := range registry.Patterns {
 			p := p
 			items = append(items, protocol.CompletionItem{
-				Label:      p.ToolID,
-				Kind:       ptr(protocol.CompletionItemKindEnumMember),
-				Detail:     ptr(p.ToolName),
+				Label:         p.ToolID,
+				Kind:          ptr(protocol.CompletionItemKindEnumMember),
+				Detail:        ptr(p.ToolName),
 				Documentation: ptr(fmt.Sprintf("%s\n\nDocs: %s", p.Notes, strings.Join(p.Docs, ", "))),
 			})
 		}
