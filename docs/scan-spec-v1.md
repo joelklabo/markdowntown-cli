@@ -70,6 +70,7 @@ Progress shows current path being scanned (full path, left-truncated to fit term
 ### Git Requirement
 
 Git is a **hard prerequisite**. The tool requires git to be installed for:
+
 - Repo root detection
 - Gitignore checking via `git check-ignore`
 - Future git-related features
@@ -397,6 +398,7 @@ Tools array is **sorted alphabetically by toolId** for determinism.
 ### stdin Paths
 
 Paths provided via `--stdin` that don't match any registered pattern:
+
 - Included in output with an **empty** `tools` array
 - Add warning `UNRECOGNIZED_STDIN` at the file path
 - Directories are recursively scanned
@@ -456,6 +458,7 @@ File contents are included in the `content` field by default. Use `--no-content`
 ### Frontmatter Parsing
 
 **Always parse frontmatter** regardless of `--no-content` flag:
+
 - Extract YAML frontmatter between `---` delimiters
 - Include entire frontmatter as `frontmatter` object
 - If no frontmatter: `frontmatter: null`
@@ -547,13 +550,13 @@ JSON structured output:
 
 ## tools list Command
 
-### Usage
+### Usage (tools list)
 
 ```bash
 markdowntown tools list
 ```
 
-### Output
+### Output (tools list)
 
 JSON array of tools:
 
@@ -602,6 +605,7 @@ No filtering options - consumers filter the JSON.
 | user | `~/.copilot/agents/*.md` | agent | directory-glob | User-scoped agents. |
 
 Notes:
+
 - Instruction ordering is undefined when multiple instruction file types exist; treat conflicts as ambiguous.
 - `chat.instructionsFilesLocations` custom instruction locations are auto-discovered from `settings.json` and appended to scan roots.
 - XDG config overrides: when `$XDG_CONFIG_HOME` is set, use it for Copilot CLI config paths.
@@ -615,7 +619,7 @@ Notes:
 | `.github/instructions/*.instructions.md` | instructions | directory-glob | pattern-matched |
 | `.github/prompts/*.prompt.md` | prompts | directory-glob | selected |
 
-Docs: https://docs.github.com/en/copilot/customizing-copilot/adding-repository-custom-instructions-for-github-copilot
+Docs: <https://docs.github.com/en/copilot/customizing-copilot/adding-repository-custom-instructions-for-github-copilot>
 
 ### Repo-Scoped: Root Instruction Files
 
@@ -640,11 +644,13 @@ Docs: https://docs.github.com/en/copilot/customizing-copilot/adding-repository-c
 | user | `~/.codex/skills/**/SKILL.md` | skills | directory-glob | invoked |
 
 Docs:
-- https://developers.openai.com/codex/guides/agents-md
-- https://developers.openai.com/codex/cli/slash-commands
-- https://developers.openai.com/codex/skills
+
+- <https://developers.openai.com/codex/guides/agents-md>
+- <https://developers.openai.com/codex/cli/slash-commands>
+- <https://developers.openai.com/codex/skills>
 
 Notes:
+
 - `AGENTS.override.md` supersedes `AGENTS.md` in the same directory.
 - Codex prompts are invoked by name (e.g., `/prompts:foo`) and only top-level `*.md` files are recognized.
 - Codex skills are invoked by name (e.g., `/skills` or `$skill-name`) and use `SKILL.md` metadata.
@@ -658,7 +664,7 @@ Notes:
 | user | `~/.gemini/settings.json` | config | single |
 | repo | `.geminiignore` | config | single |
 
-Docs: https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md
+Docs: <https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md>
 
 ### Cursor
 
@@ -667,7 +673,7 @@ Docs: https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md
 | repo | `.cursor/rules/**/*` | rules | directory-glob |
 | repo | `.cursorrules` | rules | single |
 
-Docs: https://docs.cursor.com/context/rules
+Docs: <https://docs.cursor.com/context/rules>
 
 ### Cline
 
@@ -677,7 +683,7 @@ Docs: https://docs.cursor.com/context/rules
 | repo | `.clinerules` (file) | rules | single |
 | user | `~/Documents/Cline/Rules/**/*` | rules | directory-glob |
 
-Docs: https://docs.cline.bot/prompting/clinerules
+Docs: <https://docs.cline.bot/prompting/clinerules>
 
 ### Aider
 
@@ -687,7 +693,7 @@ Docs: https://docs.cline.bot/prompting/clinerules
 | repo | `.aider.conf` | config | single |
 | repo | `.aider.conf.toml` | config | single |
 
-Docs: https://aider.chat/docs/config.html
+Docs: <https://aider.chat/docs/config.html>
 
 ### Continue
 
@@ -697,7 +703,7 @@ Docs: https://aider.chat/docs/config.html
 | user | `~/.continue/config.json` | config | single |
 | user | `~/.continue/config.ts` | config | single |
 
-Docs: https://docs.continue.dev/configuration/configuration-file
+Docs: <https://docs.continue.dev/configuration/configuration-file>
 
 ### Claude Code
 
@@ -709,7 +715,7 @@ Docs: https://docs.continue.dev/configuration/configuration-file
 | user | `~/.claude/CLAUDE.md` | instructions | single | automatic |
 | user | `~/.claude/settings.json` | config | single | automatic |
 
-Docs: https://docs.anthropic.com/en/docs/claude-code/settings
+Docs: <https://docs.anthropic.com/en/docs/claude-code/settings>
 
 ### Codex CLI Workflow Notes (non-scanning)
 
@@ -781,6 +787,7 @@ markdowntown/
 ### Pre-commit Hooks
 
 Managed by **lefthook** (Go-native, fast):
+
 - Runs **formatting + lint + unit tests** on commit
 - Install via `lefthook install`
 - Optional for contributors; CI remains authoritative
@@ -788,6 +795,7 @@ Managed by **lefthook** (Go-native, fast):
 ### Linting
 
 **golangci-lint** with strict configuration:
+
 - errcheck, gosec, gocritic, staticcheck, etc.
 - Config in `.golangci.yml`
 
@@ -815,6 +823,7 @@ All jobs run in parallel with shared dependency cache.
 ### Releases
 
 **goreleaser** handles:
+
 - Cross-compilation for all platforms
 - Checksums and signatures
 - GitHub release creation
@@ -829,6 +838,7 @@ Triggered on version tags.
 ### Fixtures
 
 **Sanitized real repos** from open-source projects:
+
 - Committed to `testdata/repos/`
 - Include minimal `.git` directories (committed, not recreated)
 - Add new fixtures when bugs are discovered

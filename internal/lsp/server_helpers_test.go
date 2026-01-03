@@ -308,3 +308,80 @@ func TestDiagnosticMetadata(t *testing.T) {
 		t.Fatalf("expected code description %s, got %s", expected, desc.HRef)
 	}
 }
+
+func TestDiagnosticDataIncludesRuleMetadata(t *testing.T) {
+	issue := audit.Issue{
+		RuleID:      "MD002",
+		Severity:    audit.SeverityWarning,
+		Fingerprint: "sha256:abc123",
+		Data: audit.RuleData{
+			Category:   "scope",
+			DocURL:     "docs/audit-spec-v1.md",
+			QuickFixes: []string{"allow-gitignore"},
+		},
+	}
+	data := buildDiagnosticData(issue, true, audit.RedactNever)
+	if data["category"] != "scope" {
+		t.Fatalf("expected category scope, got %v", data["category"])
+	}
+	if data["docUrl"] != "docs/audit-spec-v1.md" {
+		t.Fatalf("expected docUrl, got %v", data["docUrl"])
+	}
+	if data["severity"] != audit.SeverityWarning {
+		t.Fatalf("expected severity warning, got %v", data["severity"])
+	}
+	if data["fingerprint"] != "sha256:abc123" {
+		t.Fatalf("expected fingerprint, got %v", data["fingerprint"])
+	}
+}
+
+func TestDiagnosticDataUsesLspRuleMetadata(t *testing.T) {
+	issue := audit.Issue{RuleID: "MD015"}
+	data := buildDiagnosticData(issue, false, audit.RedactNever)
+	if data["category"] != "validity" {
+		t.Fatalf("expected validity category, got %v", data["category"])
+	}
+	if data["docUrl"] != lspDocURL {
+		t.Fatalf("expected lsp doc url, got %v", data["docUrl"])
+	}
+	fixes, ok := data["quickFixes"].([]string)
+	if !ok || len(fixes) == 0 {
+		t.Fatalf("expected quick fixes for MD015, got %v", data["quickFixes"])
+	}
+}
+
+func TestDiagnosticMessageIncludesDetails(t *testing.T) {
+	tests := []struct {
+		name     string
+		issue    audit.Issue
+		expected string
+	}{
+		{
+			name: "md006",
+			issue: audit.Issue{
+				RuleID:   "MD006",
+				Title:    "Config unreadable",
+				Message:  "Config file could not be read.",
+				Evidence: map[string]any{"error": "EACCES"},
+			},
+			expected: "EACCES",
+		},
+		{
+			name: "md003",
+			issue: audit.Issue{
+				RuleID:   "MD003",
+				Title:    "Invalid YAML frontmatter",
+				Message:  "Invalid YAML frontmatter.",
+				Evidence: map[string]any{"frontmatterError": "yaml: line 2: mapping values are not allowed"},
+			},
+			expected: "yaml: line 2",
+		},
+	}
+
+	for _, tt := range tests {
+		message := diagnosticMessage(tt.issue)
+		if !strings.Contains(message, tt.expected) {
+			t.Fatalf("%s: expected message to include %q, got %q", tt.name, tt.expected, message)
+		}
+	}
+}

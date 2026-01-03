@@ -20,15 +20,19 @@ const (
 	relatedInfoLimit = 8
 	// docsBaseURL is used to turn relative doc URLs into HTTPS links.
 	docsBaseURL = "https://github.com/joelklabo/markdowntown-cli/blob/main/"
+	// lspDocURL points to the LSP-focused diagnostic catalog.
+	lspDocURL = "docs/architecture/diagnostic-catalog.md"
 )
+
+var lspRuleMetadata = map[string]audit.RuleData{
+	"MD000": {Category: "registry", DocURL: lspDocURL},
+	"MD015": {Category: "validity", DocURL: lspDocURL, QuickFixes: []string{quickFixReplaceToolID}},
+}
 
 func diagnosticForIssue(issue audit.Issue, uri string, path string, repoRoot string, includeRelatedInfo bool, includeEvidence bool, includeTags bool, includeCodeDescription bool, redactMode audit.RedactMode) protocol.Diagnostic {
 	code := protocol.IntegerOrString{Value: issue.RuleID}
 	source := serverName
-	message := issue.Message
-	if issue.Title != "" && !strings.HasPrefix(issue.Message, issue.Title) {
-		message = fmt.Sprintf("%s: %s", issue.Title, issue.Message)
-	}
+	message := diagnosticMessage(issue)
 
 	diag := protocol.Diagnostic{
 		Range:    issueToProtocolRange(issue.Range),
@@ -58,6 +62,53 @@ func diagnosticForIssue(issue audit.Issue, uri string, path string, repoRoot str
 		}
 	}
 	return diag
+}
+
+func diagnosticMessage(issue audit.Issue) string {
+	message := issue.Message
+	if issue.Title != "" && !strings.HasPrefix(issue.Message, issue.Title) {
+		message = fmt.Sprintf("%s: %s", issue.Title, issue.Message)
+	}
+	detail := diagnosticDetail(issue)
+	if detail == "" || strings.Contains(message, detail) {
+		return message
+	}
+	message = strings.TrimSpace(message)
+	message = strings.TrimSuffix(message, ".")
+	return fmt.Sprintf("%s (%s)", message, detail)
+}
+
+func diagnosticDetail(issue audit.Issue) string {
+	switch issue.RuleID {
+	case "MD003":
+		return issueEvidenceString(issue, "frontmatterError")
+	case "MD006":
+		return issueEvidenceString(issue, "error")
+	case "MD008", "MD009", "MD010":
+		return issueEvidenceString(issue, "warningCode")
+	case "MD011":
+		return issueEvidenceString(issue, "contentSkipped")
+	default:
+		return ""
+	}
+}
+
+func issueEvidenceString(issue audit.Issue, key string) string {
+	if issue.Evidence == nil {
+		return ""
+	}
+	value, ok := issue.Evidence[key]
+	if !ok {
+		return ""
+	}
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	case fmt.Stringer:
+		return strings.TrimSpace(typed.String())
+	default:
+		return strings.TrimSpace(fmt.Sprintf("%v", value))
+	}
 }
 
 func buildRelatedInfo(issue audit.Issue, uri string, path string, repoRoot string, rng protocol.Range, includeEvidence bool, redactMode audit.RedactMode) []protocol.DiagnosticRelatedInformation {
@@ -176,8 +227,22 @@ func buildDiagnosticData(issue audit.Issue, includeEvidence bool, redactMode aud
 		"paths":      paths,
 		"tools":      issue.Tools,
 	}
+	if issue.Severity != "" {
+		data["severity"] = issue.Severity
+	}
+	if issue.Fingerprint != "" {
+		data["fingerprint"] = issue.Fingerprint
+	}
 	if meta := issueRuleData(issue); meta != nil && len(meta.QuickFixes) > 0 {
 		data["quickFixes"] = append([]string(nil), meta.QuickFixes...)
+	}
+	if meta := issueRuleData(issue); meta != nil {
+		if meta.Category != "" {
+			data["category"] = meta.Category
+		}
+		if meta.DocURL != "" {
+			data["docUrl"] = meta.DocURL
+		}
 	}
 	if includeEvidence {
 		data["evidence"] = sanitizeEvidence(issue.Evidence, redactMode)
@@ -264,6 +329,9 @@ func issueRuleData(issue audit.Issue) *audit.RuleData {
 	case *audit.RuleData:
 		return typed
 	default:
+		if meta, ok := lspRuleMetadata[issue.RuleID]; ok {
+			return &meta
+		}
 		return nil
 	}
 }

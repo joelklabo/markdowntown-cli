@@ -72,7 +72,8 @@ Use for supporting details, not the primary message. Suggested entries (limit to
 
 Include structured data for code actions and tests:
 
-- `ruleId`, `title`, `suggestion`
+- `ruleId`, `title`, `suggestion`, `severity`, `fingerprint`
+- `category`, `docUrl`
 - `paths`, `tools`
 - `evidence`
 - `quickFixes` (optional list of action titles)
@@ -110,6 +111,11 @@ Include structured data for code actions and tests:
 | MD005 | No repo config: No repo-scoped config for cursor (rules); only user/global configs detected. | Add a repo-scoped config for consistent behavior across teammates and CI. | none |
 | MD006 | Config unreadable: Config file could not be read. | Check the file permissions and ensure the path exists. | none |
 | MD007 | Duplicate frontmatter value: Multiple skills configs share name="alpha" in repo scope. | Ensure frontmatter identifiers are unique or consolidate duplicates. | none |
+| MD008 | Circular symlink: Circular symlink detected during scan. | Break the symlink loop or remove the entry. | none |
+| MD010 | Scan warning: Scan warning encountered during discovery. | Verify permissions and registry paths, then re-run the scan. | none |
+| MD011 | Binary config content: Binary config content was skipped. | Replace the file with text instructions or remove it. | Unnecessary |
+| MD012 | Missing frontmatter identifier: Missing required frontmatter identifier for codex (skills). | Add one of: name, title, id. | none |
+| MD015 | Unknown toolId: Unknown toolId: codx-cli | Replace with codex-cli. | none |
 
 ## Ordering and Noise Control
 

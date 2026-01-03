@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -126,7 +127,7 @@ func renderResolveMarkdown(report ResolveReport) string {
 
 func appendAuditSections(builder *strings.Builder, report Report) {
 	if len(report.Conflicts) > 0 {
-		builder.WriteString("\n## Conflicts\n")
+		builder.WriteString("\n## Conflicts\n\n")
 		for _, conflict := range report.Conflicts {
 			fmt.Fprintf(builder, "- %s\n", conflict.Reason)
 			for _, claimID := range conflict.ClaimIDs {
@@ -136,16 +137,29 @@ func appendAuditSections(builder *strings.Builder, report Report) {
 	}
 
 	if len(report.Omissions) > 0 {
-		builder.WriteString("\n## Omissions\n")
+		builder.WriteString("\n## Omissions\n\n")
 		for _, omission := range report.Omissions {
 			fmt.Fprintf(builder, "- %s: %s\n", omission.ClaimID, omission.Reason)
 		}
 	}
 
 	if len(report.Warnings) > 0 {
-		builder.WriteString("\n## Warnings\n")
+		builder.WriteString("\n## Warnings\n\n")
 		for _, warning := range report.Warnings {
-			fmt.Fprintf(builder, "- %s\n", warning)
+			fmt.Fprintf(builder, "- %s\n", formatMarkdownURLs(warning))
 		}
 	}
+}
+
+var urlPattern = regexp.MustCompile(`https?://[^\s)]+`)
+
+func formatMarkdownURLs(text string) string {
+	return urlPattern.ReplaceAllStringFunc(text, func(raw string) string {
+		trimmed := strings.TrimRight(raw, ".,);")
+		suffix := raw[len(trimmed):]
+		if strings.HasPrefix(trimmed, "<") && strings.HasSuffix(trimmed, ">") {
+			return raw
+		}
+		return "<" + trimmed + ">" + suffix
+	})
 }

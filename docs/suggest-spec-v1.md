@@ -3,6 +3,7 @@
 ## Overview
 
 **Commands**:
+
 - `markdowntown suggest`
 - `markdowntown resolve`
 - `markdowntown audit`
@@ -14,6 +15,7 @@ This spec defines a correctness-first, evidence-only workflow that distills auth
 A developer or platform engineer runs `markdowntown suggest` from a repo and receives **deterministic, source-backed** guidance on improving agent instruction files for a target client (Codex first, extensible to Copilot/VS Code/Claude/Gemini). Suggestions are omitted when evidence is ambiguous, missing, or conflicting.
 
 ## Non-goals (v1)
+
 - No MCP server or background daemon.
 - No inference beyond explicit documentation statements.
 - No telemetry or analytics collection.
@@ -72,6 +74,7 @@ markdowntown audit [flags]     # Report conflicts/omissions and source coverage
 3. Suggestions include **source links**; proof metadata is only present in JSON when `--explain` is set.
 
 ### Proof Object (internal, JSON output only)
+
 - `sources[]`: URLs
 - `snapshotIds[]`: immutable snapshot IDs
 - `spans[]`: internal anchors to extracted text (not displayed)
@@ -83,6 +86,7 @@ markdowntown audit [flags]     # Report conflicts/omissions and source coverage
 ## Config Precedence & Locations
 
 ### Precedence
+
 1. CLI flags
 2. Environment variables
 3. Project config
@@ -90,11 +94,13 @@ markdowntown audit [flags]     # Report conflicts/omissions and source coverage
 5. System config
 
 ### Locations (XDG)
+
 - Config: `$XDG_CONFIG_HOME/markdowntown/config.toml` (fallback `~/.config/markdowntown/config.toml`)
 - Cache: `$XDG_CACHE_HOME/markdowntown/` (fallback `~/.cache/markdowntown/`)
 - Data: `$XDG_DATA_HOME/markdowntown/` (fallback `~/.local/share/markdowntown/`)
 
 **Registry overrides**:
+
 - `MARKDOWNTOWN_SOURCES` may point to an alternate source registry file.
 
 ---
@@ -143,6 +149,7 @@ markdowntown audit [flags]     # Report conflicts/omissions and source coverage
 ```
 
 ### Markdown Output
+
 - Human-readable suggestions only.
 - Includes source links.
 - No proof metadata or extraction spans.

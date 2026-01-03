@@ -1,11 +1,13 @@
 # Scan Architecture (v1)
 
 ## Goals
+
 - Deterministic JSON output for audits and CI.
 - Single-pass file processing where possible (discover -> read -> hash).
 - Accurate gitignore reporting and robust error handling.
 
 ## Package Map
+
 | Package | Responsibility |
 | --- | --- |
 | cmd/markdowntown | CLI entrypoint, flag parsing, exit codes, progress output |
@@ -15,10 +17,12 @@
 | internal/version | Tool + schema version constants |
 
 ## Data Flow
+
 1. Parse CLI flags into scan.Options.
 2. Resolve scan roots:
    - Repo root from git or `--repo`.
    - User roots from known locations (XDG + tool defaults).
+   - Optional global/system roots when enabled (see Global Scope).
    - Optional stdin paths (files/dirs).
 3. Discovery pass:
    - Walk roots, using Lstat to detect symlinks.
@@ -44,21 +48,49 @@
    - Emit JSON with trailing newline.
 
 ## Determinism Rules
+
 - Configs sorted by: scope (repo < user < global) -> depth -> path.
 - Tools array sorted by toolId; warnings are not deduped.
 - Output paths are OS-native; no Unicode normalization.
 
+## Global Scope (System Roots)
+
+- **Opt-in only** via a dedicated flag (proposed: `--global-scope`).
+- **Default roots**:
+  - Unix-like: `/etc`
+  - Windows: *deferred* until a clear system-equivalent root is defined.
+- **Safe defaults**:
+  - Skip special files (device nodes, FIFOs, sockets).
+  - Honor existing symlink cycle detection; emit warnings and skip loops.
+  - Treat permission errors as warnings (never fatal).
+  - Allowlist-style scanning within the global root (no implicit expansion to `/`).
+- **Reporting**:
+  - Global roots appear in `scans[]` with `scope: "global"`.
+  - Config entries under global scope are sorted after repo and user scopes.
+
 ## Concurrency
+
 - Use errgroup with a bounded semaphore for I/O.
+- Default worker limit should be bounded (e.g., `runtime.NumCPU()` or a small multiple), and configurable via a flag (proposed: `--scan-workers`).
 - Discovery and content hashing can overlap, but output ordering is applied after collection.
-- Errors are aggregated into warnings where recoverable.
+- Errors are aggregated into warnings where recoverable; fatal errors remain deterministic.
 
 ## Error and Warning Handling
+
 - Unreadable files generate a config entry with null size/hash and an error code.
 - Circular symlinks and permission errors produce warnings and skip traversal.
 - Config conflicts are inferred by tool+scope+kind with explicit override exceptions, excluding multi-file `loadBehavior` patterns.
 
+## Test Plan
+
+- **Global scope safety**: fixtures under a global-root test directory; ensure scope ordering and `scans[]` entries.
+- **Permissions**: unreadable files/dirs emit warnings, no fatal error.
+- **Symlink loops**: cycles under global scope are detected and skipped.
+- **Concurrency determinism**: parallel scan ordering matches serial ordering across runs.
+- **Worker limits**: verify `--scan-workers=1` (serial) and higher counts behave correctly.
+
 ## CLI UX
+
 - Progress updates stream to stderr when stdout is a TTY and `--quiet` is false.
 - Exit codes: 0 for success (even with warnings), 1 for fatal errors.
 - `--version` prints tool and schema versions without requiring registry or git.

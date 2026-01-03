@@ -81,7 +81,7 @@ func TestDiagnosticsOverPipe(t *testing.T) {
 			t.Fatal("expected diagnostics, got none")
 		}
 		diag := requireDiagnostic(t, params.Diagnostics, "MD003")
-		if diag.Message != "Invalid YAML frontmatter." {
+		if !strings.HasPrefix(diag.Message, "Invalid YAML frontmatter") {
 			t.Fatalf("expected frontmatter diagnostic, got %#v", params.Diagnostics)
 		}
 		requireDiagnosticSuggestion(t, diag)
@@ -223,7 +223,7 @@ func TestDiagnosticsDebounceLastChange(t *testing.T) {
 
 	final := waitForDiagnostics(t, diagnostics, uri)
 	for _, diag := range final.Diagnostics {
-		if diag.Message == "Invalid YAML frontmatter." {
+		if strings.Contains(diag.Message, "Invalid YAML frontmatter") {
 			t.Fatalf("expected final diagnostics to reflect last change, got %q", diag.Message)
 		}
 	}

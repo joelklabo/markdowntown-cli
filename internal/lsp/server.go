@@ -621,6 +621,22 @@ func (s *Server) unknownToolIDDiagnostic(uri string, path string, registry scan.
 			"quickFixes":  []string{quickFixReplaceToolID},
 		},
 	}
+	if meta := issueRuleData(audit.Issue{RuleID: "MD015"}); meta != nil {
+		if meta.Category != "" {
+			diag.Data.(map[string]any)["category"] = meta.Category
+		}
+		if meta.DocURL != "" {
+			diag.Data.(map[string]any)["docUrl"] = meta.DocURL
+		}
+		if len(meta.QuickFixes) > 0 {
+			diag.Data.(map[string]any)["quickFixes"] = append([]string(nil), meta.QuickFixes...)
+		}
+		if caps.CodeDescription {
+			if desc := diagnosticCodeDescription(meta.DocURL); desc != nil {
+				diag.CodeDescription = desc
+			}
+		}
+	}
 	if suggestion != "" && settings.Diagnostics.IncludeRelatedInfo && caps.RelatedInformation && settings.Diagnostics.RedactPaths == audit.RedactNever {
 		diag.RelatedInformation = []protocol.DiagnosticRelatedInformation{
 			{
@@ -707,6 +723,19 @@ func (s *Server) publishDiagnosticsError(context *glsp.Context, uri string, mess
 			"title":      "LSP error",
 			"suggestion": suggestion,
 		},
+	}
+	if meta := issueRuleData(audit.Issue{RuleID: "MD000"}); meta != nil {
+		if meta.Category != "" {
+			diag.Data.(map[string]any)["category"] = meta.Category
+		}
+		if meta.DocURL != "" {
+			diag.Data.(map[string]any)["docUrl"] = meta.DocURL
+		}
+		if caps.CodeDescription {
+			if desc := diagnosticCodeDescription(meta.DocURL); desc != nil {
+				diag.CodeDescription = desc
+			}
+		}
 	}
 	if suggestion != "" && settings.Diagnostics.IncludeRelatedInfo && caps.RelatedInformation && settings.Diagnostics.RedactPaths == audit.RedactNever {
 		diag.RelatedInformation = []protocol.DiagnosticRelatedInformation{

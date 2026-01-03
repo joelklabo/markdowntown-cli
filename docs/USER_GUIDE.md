@@ -90,7 +90,7 @@ markdowntown scan-remote https://github.com/example/repo
 markdowntown scan-remote https://github.com/example/repo --ref v1.0.0
 ```
 
-### `markdowntown audit`
+### `markdowntown audit` (suggest pipeline)
 
 ```bash
 markdowntown audit [flags]

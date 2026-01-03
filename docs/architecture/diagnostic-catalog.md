@@ -33,9 +33,9 @@ Scope:
 - **Diagnostic.codeDescription**: link to rule doc (audit spec or catalog anchor).
 - **Diagnostic.tags**: use `Unnecessary` for shadowed/ignored configs and `Deprecated` for obsolete file names.
 - **Diagnostic.relatedInformation**: include suggestion, tools, and a short list of related config paths.
-- **Diagnostic.data**: include stable fields (`ruleId`, `title`, `suggestion`, `evidence`, `paths`, `tools`, `quickFixes`).
+- **Diagnostic.data**: include stable fields (`ruleId`, `title`, `suggestion`, `severity`, `fingerprint`, `category`, `docUrl`, `evidence`, `paths`, `tools`, `quickFixes`).
 
-## Current Diagnostics (MD000..MD007)
+## Current Diagnostics (MD000..MD012, MD015)
 
 | ID | Severity | Category | Trigger | Message summary | Suggestion | Evidence keys | Quick Fix | Tags |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -47,52 +47,42 @@ Scope:
 | MD005 | info | Scope/Precedence | User/global config exists without repo config | No repo-scoped config | Add repo config | `detectedScopes`, `candidatePaths` | yes (create repo config) | none |
 | MD006 | error/warn | Validity | Config unreadable (EACCES/ENOENT/ERROR) | Config file could not be read | Fix permissions/path | `error` | no | none |
 | MD007 | warning | Conflict | Duplicate frontmatter identifiers in multi-file kinds | Duplicate frontmatter value | Make identifiers unique | `scope`, `tool`, `kind`, `field`, `value`, `count` | yes (remove duplicate frontmatter) | none |
+| MD008 | warning | Discovery | scan warning `CIRCULAR_SYMLINK` | Circular symlink detected | Break the symlink loop | `warningCode`, `warningMessage` | no | none |
+| MD009 | info | Discovery | scan warning `UNRECOGNIZED_STDIN` | Stdin path not recognized | Add to registry or remove stdin path | `warningCode`, `warningMessage` | no | none |
+| MD010 | warning | Discovery | scan warning `EACCES`/`ERROR`/`ENOENT` | Scan warning encountered | Fix permissions or registry path | `warningCode`, `warningMessage` | no | none |
+| MD011 | warning | Content | `contentSkipped == "binary"` | Binary config skipped | Replace with text config or remove | `contentSkipped`, `sizeBytes` | no | Unnecessary |
+| MD012 | warning | Validity | Missing required frontmatter key for multi-file kinds (skills/prompts) | Missing frontmatter identifier | Add required identifier | `requiredKeys`, `toolId`, `kind` | yes (insert frontmatter stub) | none |
+| MD015 | warning | Validity | Unknown toolId in frontmatter | Unknown toolId | Replace with closest match | `toolId`, `replacement` | yes (replace toolId) | none |
 
 Notes:
 
-- MD000 is LSP-only today (not a scan/audit rule).
+- MD000 and MD015 are LSP-only today (not scan/audit rules).
 - MD001 already skips multi-file kinds and known override pairs.
-- MD002 and MD004 could be tagged `Unnecessary` when the config is effectively ignored.
+- MD002, MD004, and MD011 are tagged `Unnecessary` when the config is effectively ignored.
 
-## Scan Warnings and Entry States (Not Yet Mapped)
+## Remaining Gaps
 
-Source: `docs/scan-spec-v1.md` and `internal/scan`.
+- `CONFIG_CONFLICT` scan warnings are not surfaced directly; MD001 covers conflicts but drops the scan warning message and path context.
+- No rule exists for configs shadowed by higher-precedence files (e.g., a user config that is always overridden by repo config).
+- Deprecated file names and legacy paths are not surfaced as `Deprecated` diagnostics.
+- Frontmatter schema validation (unknown keys, invalid enum values, invalid glob syntax) is not yet covered.
 
-Warnings (scan output):
-
-- `CONFIG_CONFLICT`: conflict detected at scan time.
-- `UNRECOGNIZED_STDIN`: stdin path did not match any registry pattern.
-- `CIRCULAR_SYMLINK`: circular symlink detected during traversal.
-- `EACCES` / `ERROR`: permission or unexpected scan failures (root, pattern load, file access).
-
-Entry states (per config entry):
-
-- `warning: "empty"` (already mapped to MD004).
-- `error: EACCES/ENOENT/ERROR` (mapped to MD006 for entries, but scan warnings are not surfaced).
-- `contentSkipped: "binary"` (not mapped).
-- `frontmatterError` (mapped to MD003).
-
-## Proposed Rule Expansion (MD008+)
+## Proposed Rule Expansion (MD013+)
 
 These rules can be implemented using scan metadata without reading file content, unless noted.
 
 | ID | Severity | Category | Trigger | Message summary | Suggestion | Evidence keys | Quick Fix | Tags |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| MD008 | warning | Discovery | scan warning `CIRCULAR_SYMLINK` | Circular symlink detected | Break the symlink loop | `warningCode`, `warningMessage` | no | none |
-| MD009 | info | Discovery | scan warning `UNRECOGNIZED_STDIN` | Stdin path not recognized | Add to registry or remove stdin path | `warningCode`, `path` | no | none |
-| MD010 | warning | Discovery | scan warning `EACCES`/`ERROR` on root/pattern load | Scan warning encountered | Fix permissions or registry path | `warningCode`, `warningMessage` | no | none |
-| MD011 | warning | Content | `contentSkipped == "binary"` | Binary config skipped | Replace with text config or remove | `contentSkipped`, `sizeBytes` | no | Unnecessary |
-| MD012 | warning | Validity | Missing required frontmatter key for multi-file kinds (skills/prompts) | Missing frontmatter identifier | Add required identifier | `field`, `kind`, `toolId` | yes (insert frontmatter stub) | none |
 | MD013 | info | Scope/Precedence | Config is shadowed by higher-precedence file | Config is shadowed | Remove or move config | `shadowedBy`, `loadBehavior` | no | Unnecessary |
-| MD014 | info | Registry | Registry missing or multiple registries | Registry not found/ambiguous | Set registry path setting | `registryPath`, `error` | no | none |
+| MD014 | info | Validity | Deprecated filename or legacy path detected | Deprecated config path | Rename to supported filename/path | `deprecatedPath`, `replacement` | yes (rename) | Deprecated |
+| MD016 | warning | Validity | Frontmatter contains unknown keys or invalid enum values | Invalid frontmatter value | Remove or correct invalid keys/values | `field`, `value`, `allowed` | no | none |
+| MD017 | warning | Validity | Invalid `applyTo` glob syntax | Invalid applyTo glob | Fix glob syntax | `applyTo`, `error` | no | none |
 
 ## Copy Gaps and Improvements
 
-- MD003 currently hides the YAML error detail; include `frontmatterError` in related info.
-- MD006 should surface the error code in the message or related info for clarity.
 - MD005 should surface candidate repo paths in related info to make the suggestion actionable.
-- MD002/MD004 are effectively ignored by runtime; tag as `Unnecessary` in VS Code.
 - Shadowed configs (proposed MD013) should use `Unnecessary` tag and a hint severity.
+- Consider a "Disable rule" quick fix for noisy diagnostics to streamline triage.
 
 ## Follow-on Tasks
 
