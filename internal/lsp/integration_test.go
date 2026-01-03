@@ -415,7 +415,6 @@ func TestDiagnosticsUnreadable(t *testing.T) {
 }
 
 func TestCodeActionRemoveInvalidFrontmatter(t *testing.T) {
-	t.Skip("TODO: implement code actions")
 	s := NewServer("0.1.0")
 	s.Debounce = 50 * time.Millisecond
 	repoRoot := t.TempDir()
@@ -502,7 +501,6 @@ func TestCodeActionRemoveInvalidFrontmatter(t *testing.T) {
 }
 
 func TestCodeActionInsertPlaceholder(t *testing.T) {
-	t.Skip("TODO: implement code actions")
 	s := NewServer("0.1.0")
 	s.Debounce = 50 * time.Millisecond
 	repoRoot := t.TempDir()
@@ -568,7 +566,6 @@ func TestCodeActionInsertPlaceholder(t *testing.T) {
 }
 
 func TestCodeActionAllowGitignore(t *testing.T) {
-	t.Skip("TODO: implement code actions")
 	s := NewServer("0.1.0")
 	s.Debounce = 50 * time.Millisecond
 	repoRoot := t.TempDir()
@@ -639,7 +636,6 @@ func TestCodeActionAllowGitignore(t *testing.T) {
 }
 
 func TestCodeActionCreateRepoConfig(t *testing.T) {
-	t.Skip("TODO: implement code actions")
 	s := NewServer("0.1.0")
 	s.Debounce = 50 * time.Millisecond
 	repoRoot := t.TempDir()
@@ -729,6 +725,246 @@ func TestCodeActionCreateRepoConfig(t *testing.T) {
 	if !found {
 		t.Fatalf("expected repo config quick fix, got %#v", actions)
 	}
+}
+
+func TestCodeActionRemoveDuplicateFrontmatter(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	paths := []string{
+		filepath.Join(repoRoot, ".codex", "skills", "one", "SKILL.md"),
+		filepath.Join(repoRoot, ".codex", "skills", "two", "SKILL.md"),
+	}
+	for _, path := range paths {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatalf("mkdir skill dir: %v", err)
+		}
+		content := "---\nname: shared\n---\n# Skill\n"
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatalf("write skill file: %v", err)
+		}
+	}
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(paths[0])
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: "---\nname: shared\n---\n# Skill\n",
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	if len(params.Diagnostics) == 0 {
+		t.Fatal("expected diagnostics for duplicate frontmatter")
+	}
+
+	var actions []protocol.CodeAction
+	if err := clientRPC.Call(ctx, protocol.MethodTextDocumentCodeAction, protocol.CodeActionParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Range:        protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+		Context:      protocol.CodeActionContext{Diagnostics: params.Diagnostics},
+	}, &actions); err != nil {
+		t.Fatalf("codeAction request failed: %v", err)
+	}
+
+	found := false
+	for _, action := range actions {
+		if !strings.HasPrefix(action.Title, actionTitleRemoveDuplicateFrontmatterPrefix) {
+			continue
+		}
+		found = true
+		if action.Edit == nil {
+			t.Fatalf("expected edit for duplicate frontmatter action")
+		}
+		edits := action.Edit.Changes[uri]
+		if len(edits) == 0 {
+			t.Fatalf("expected text edits for uri %s", uri)
+		}
+		if edits[0].NewText != "" {
+			t.Fatalf("expected quick fix to remove text, got %q", edits[0].NewText)
+		}
+		if edits[0].Range.Start.Line != 1 || edits[0].Range.End.Line != 2 {
+			t.Fatalf("unexpected delete range: %#v", edits[0].Range)
+		}
+		break
+	}
+	if !found {
+		t.Fatalf("expected duplicate frontmatter quick fix, got %#v", actions)
+	}
+}
+
+func TestCodeActionInsertFrontmatter(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	path := filepath.Join(repoRoot, ".codex", "skills", "alpha", "SKILL.md")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatalf("mkdir skills dir: %v", err)
+	}
+	content := "# Skill\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write skill file: %v", err)
+	}
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(path)
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	diag := requireDiagnostic(t, params.Diagnostics, "MD012")
+	requireDiagnosticSuggestion(t, diag)
+
+	var actions []protocol.CodeAction
+	if err := clientRPC.Call(ctx, protocol.MethodTextDocumentCodeAction, protocol.CodeActionParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Range:        protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+		Context:      protocol.CodeActionContext{Diagnostics: params.Diagnostics},
+	}, &actions); err != nil {
+		t.Fatalf("codeAction request failed: %v", err)
+	}
+
+	assertActionContainsText(t, actions, actionTitleInsertFrontmatterPrefix+"name", "name: alpha")
+}
+
+func TestCodeActionReplaceToolID(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
+	content := "---\ntoolId: gemini-clu\n---\n# Hello\n"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	params := waitForDiagnostics(t, diagnostics, uri)
+	diag := requireDiagnostic(t, params.Diagnostics, "MD015")
+	requireDiagnosticSuggestion(t, diag)
+
+	var actions []protocol.CodeAction
+	if err := clientRPC.Call(ctx, protocol.MethodTextDocumentCodeAction, protocol.CodeActionParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		Range:        protocol.Range{Start: protocol.Position{Line: 1, Character: 0}, End: protocol.Position{Line: 1, Character: 0}},
+		Context:      protocol.CodeActionContext{Diagnostics: params.Diagnostics},
+	}, &actions); err != nil {
+		t.Fatalf("codeAction request failed: %v", err)
+	}
+
+	assertActionContainsText(t, actions, actionTitleReplaceToolIDPrefix+"gemini-cli", "gemini-cli")
 }
 
 func TestServeCanary(t *testing.T) {

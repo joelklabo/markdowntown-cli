@@ -2,14 +2,18 @@
 package lsp
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 	"unicode/utf16"
+	"unicode/utf8"
 
 	"markdowntown-cli/internal/audit"
 	"markdowntown-cli/internal/scan"
@@ -26,10 +30,13 @@ const (
 	serverName      = "markdowntown"
 	debounceTimeout = 500 * time.Millisecond
 
-	actionTitleRemoveFrontmatter   = "Remove invalid frontmatter block"
-	actionTitleInsertPlaceholder   = "Insert placeholder instructions"
-	actionTitleAllowGitignoreEntry = "Allow this config in .gitignore"
-	actionTitleCreateRepoPrefix    = "Create repo config at "
+	actionTitleRemoveFrontmatter                = "Remove invalid frontmatter block"
+	actionTitleInsertPlaceholder                = "Insert placeholder instructions"
+	actionTitleAllowGitignoreEntry              = "Allow this config in .gitignore"
+	actionTitleCreateRepoPrefix                 = "Create repo config at "
+	actionTitleRemoveDuplicateFrontmatterPrefix = "Remove duplicate frontmatter "
+	actionTitleInsertFrontmatterPrefix          = "Insert frontmatter "
+	actionTitleReplaceToolIDPrefix              = "Replace toolId with "
 )
 
 // Server holds LSP state and handlers.
@@ -77,6 +84,7 @@ func NewServer(version string) *Server {
 		TextDocumentHover:      s.hover,
 		TextDocumentDefinition: s.definition,
 		TextDocumentCompletion: s.completion,
+		TextDocumentCodeAction: s.codeAction,
 	}
 
 	s.server = server.NewServer(s.handler, serverName, false)
@@ -105,6 +113,7 @@ func (s *Server) initialize(_ *glsp.Context, params *protocol.InitializeParams) 
 		CompletionProvider: &protocol.CompletionOptions{
 			TriggerCharacters: []string{":", " "},
 		},
+		CodeActionProvider: true,
 	}
 
 	return protocol.InitializeResult{
@@ -156,20 +165,33 @@ func (s *Server) didChange(context *glsp.Context, params *protocol.DidChangeText
 		return err
 	}
 
-	// Handle full content sync first as per task notes
-	var lastContent string
+	currentContent := ""
+	if data, err := afero.ReadFile(s.fs, path); err == nil {
+		currentContent = string(data)
+	}
+
+	updated := false
 	for _, change := range params.ContentChanges {
-		if c, ok := change.(protocol.TextDocumentContentChangeEvent); ok {
-			lastContent = c.Text
-			err = afero.WriteFile(s.overlay, path, []byte(c.Text), 0644)
-			if err != nil {
-				return err
-			}
+		event, ok := decodeContentChange(change)
+		if !ok {
+			continue
+		}
+		next, ok := applyContentChange(currentContent, event)
+		if !ok {
+			continue
+		}
+		currentContent = next
+		updated = true
+	}
+
+	if updated {
+		if err := afero.WriteFile(s.overlay, path, []byte(currentContent), 0644); err != nil {
+			return err
 		}
 	}
 
-	if lastContent != "" {
-		parsed, _, _ := scan.ParseFrontmatter([]byte(lastContent))
+	if updated {
+		parsed, _, _ := scan.ParseFrontmatter([]byte(currentContent))
 		s.cacheMu.Lock()
 		s.frontmatterCache[params.TextDocument.URI] = parsed
 		s.cacheMu.Unlock()
@@ -318,9 +340,21 @@ func (s *Server) runDiagnostics(context *glsp.Context, uri string) {
 	if repoRoot == "" {
 		repoRoot = filepath.Dir(path)
 	}
+	repoRoot = filepath.Clean(repoRoot)
+
+	repoOnly := true
+	var userRoots []string
+	if userRoot, ok := userRootForPath(path); ok {
+		repoOnly = false
+		userRoots = []string{userRoot}
+	} else if _, ok := relativeRepoPath(repoRoot, path); !ok {
+		repoOnly = false
+		userRoots = []string{filepath.Dir(path)}
+	}
 
 	registry, _, err := scan.LoadRegistry()
 	if err != nil {
+		s.publishDiagnosticsError(context, uri, registryErrorMessage(err), err, registryErrorSuggestion(err))
 		return
 	}
 
@@ -333,12 +367,15 @@ func (s *Server) runDiagnostics(context *glsp.Context, uri string) {
 
 	result, err := scan.Scan(scan.Options{
 		RepoRoot:       repoRoot,
+		RepoOnly:       repoOnly,
 		IncludeContent: true,
 		StdinPaths:     stdinPaths,
+		UserRoots:      userRoots,
 		Registry:       registry,
 		Fs:             s.fs,
 	})
 	if err != nil {
+		s.publishDiagnosticsError(context, uri, "Scan failed", err, "Verify the registry path and config permissions, then retry.")
 		return
 	}
 	if updated, err := scan.ApplyGitignore(result, repoRoot); err == nil {
@@ -385,27 +422,228 @@ func (s *Server) runDiagnostics(context *glsp.Context, uri string) {
 					"title":      issue.Title,
 					"suggestion": issue.Suggestion,
 					"evidence":   issue.Evidence,
+					"paths":      issue.Paths,
+					"tools":      issue.Tools,
 				},
 			}
-			if issue.Suggestion != "" {
-				diag.RelatedInformation = []protocol.DiagnosticRelatedInformation{
-					{
-						Location: protocol.Location{
-							URI:   uri,
-							Range: diag.Range,
-						},
-						Message: "Suggestion: " + issue.Suggestion,
-					},
+			var related []protocol.DiagnosticRelatedInformation
+			addRelated := func(message string) {
+				if message == "" {
+					return
 				}
+				related = append(related, protocol.DiagnosticRelatedInformation{
+					Location: protocol.Location{
+						URI:   uri,
+						Range: diag.Range,
+					},
+					Message: message,
+				})
+			}
+			if issue.Suggestion != "" {
+				addRelated("Suggestion: " + issue.Suggestion)
+			}
+			if tools := formatTools(issue.Tools); tools != "" {
+				addRelated("Tools: " + tools)
+			}
+			if relatedPaths := formatPaths(issue.Paths, 3); relatedPaths != "" && len(issue.Paths) > 1 {
+				addRelated("Related configs: " + relatedPaths)
+			}
+			if evidence := formatEvidence(issue.Evidence); evidence != "" {
+				addRelated("Evidence: " + evidence)
+			}
+			if len(related) > 0 {
+				diag.RelatedInformation = related
 			}
 			diagnostics = append(diagnostics, diag)
 		}
+	}
+	if diag := s.unknownToolIDDiagnostic(uri, path, registry); diag != nil {
+		diagnostics = append(diagnostics, *diag)
 	}
 
 	context.Notify(protocol.ServerTextDocumentPublishDiagnostics, protocol.PublishDiagnosticsParams{
 		URI:         uri,
 		Diagnostics: diagnostics,
 	})
+}
+
+func (s *Server) unknownToolIDDiagnostic(uri string, path string, registry scan.Registry) *protocol.Diagnostic {
+	parsed := s.frontmatterForURI(uri, path)
+	if parsed == nil {
+		return nil
+	}
+	raw, ok := getValue(parsed.Data, "toolId")
+	if !ok {
+		return nil
+	}
+	toolID, ok := raw.(string)
+	if !ok {
+		return nil
+	}
+	toolID = strings.TrimSpace(toolID)
+	if toolID == "" {
+		return nil
+	}
+
+	toolIDs := registryToolIDs(registry)
+	for _, id := range toolIDs {
+		if strings.EqualFold(id, toolID) {
+			return nil
+		}
+	}
+
+	replacement := closestToolID(toolID, toolIDs)
+	if replacement == "" {
+		return nil
+	}
+
+	message := fmt.Sprintf("Unknown toolId: %s", toolID)
+	suggestion := fmt.Sprintf("Replace with %s.", replacement)
+	code := protocol.IntegerOrString{Value: "MD015"}
+	source := serverName
+	severity := protocol.DiagnosticSeverityWarning
+	diag := protocol.Diagnostic{
+		Range:    frontmatterValueRange(parsed, "toolId"),
+		Severity: &severity,
+		Code:     &code,
+		Source:   &source,
+		Message:  message,
+		Data: map[string]any{
+			"ruleId":      "MD015",
+			"title":       "Unknown toolId",
+			"suggestion":  suggestion,
+			"toolId":      toolID,
+			"replacement": replacement,
+		},
+	}
+	if suggestion != "" {
+		diag.RelatedInformation = []protocol.DiagnosticRelatedInformation{
+			{
+				Location: protocol.Location{
+					URI:   uri,
+					Range: diag.Range,
+				},
+				Message: "Suggestion: " + suggestion,
+			},
+		}
+	}
+	return &diag
+}
+
+func (s *Server) frontmatterForURI(uri string, path string) *scan.ParsedFrontmatter {
+	s.cacheMu.Lock()
+	parsed := s.frontmatterCache[uri]
+	s.cacheMu.Unlock()
+	if parsed != nil {
+		return parsed
+	}
+	if path == "" {
+		return nil
+	}
+	data, err := afero.ReadFile(s.fs, path)
+	if err != nil {
+		return nil
+	}
+	parsed, _, err = scan.ParseFrontmatter(data)
+	if err != nil {
+		return nil
+	}
+	return parsed
+}
+
+func registryToolIDs(registry scan.Registry) []string {
+	seen := make(map[string]struct{})
+	for _, pattern := range registry.Patterns {
+		if pattern.ToolID == "" {
+			continue
+		}
+		seen[pattern.ToolID] = struct{}{}
+	}
+	ids := make([]string, 0, len(seen))
+	for id := range seen {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func frontmatterValueRange(parsed *scan.ParsedFrontmatter, key string) protocol.Range {
+	if parsed == nil {
+		return protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}}
+	}
+	if rng, ok := parsed.Values[key]; ok {
+		return issueToProtocolRange(&rng)
+	}
+	if rng, ok := parsed.Locations[key]; ok {
+		return issueToProtocolRange(&rng)
+	}
+	return protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}}
+}
+
+func (s *Server) publishDiagnosticsError(context *glsp.Context, uri string, message string, err error, suggestion string) {
+	if context == nil {
+		return
+	}
+	fullMessage := message
+	if err != nil {
+		fullMessage = fmt.Sprintf("%s: %v", message, err)
+	}
+	code := protocol.IntegerOrString{Value: "MD000"}
+	source := serverName
+	severity := protocol.DiagnosticSeverityError
+	diag := protocol.Diagnostic{
+		Range:    protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+		Severity: &severity,
+		Code:     &code,
+		Source:   &source,
+		Message:  fullMessage,
+		Data: map[string]any{
+			"ruleId":     "MD000",
+			"title":      "LSP error",
+			"suggestion": suggestion,
+		},
+	}
+	if suggestion != "" {
+		diag.RelatedInformation = []protocol.DiagnosticRelatedInformation{
+			{
+				Location: protocol.Location{
+					URI:   uri,
+					Range: diag.Range,
+				},
+				Message: "Suggestion: " + suggestion,
+			},
+		}
+	}
+	context.Notify(protocol.ServerTextDocumentPublishDiagnostics, protocol.PublishDiagnosticsParams{
+		URI:         uri,
+		Diagnostics: []protocol.Diagnostic{diag},
+	})
+}
+
+func registryErrorMessage(err error) string {
+	switch {
+	case errors.Is(err, scan.ErrRegistryNotFound):
+		return "Registry not found"
+	case errors.Is(err, scan.ErrRegistryPathMissing):
+		return "Registry path does not exist"
+	case errors.Is(err, scan.ErrMultipleRegistries):
+		return "Multiple registries found"
+	default:
+		return "Registry error"
+	}
+}
+
+func registryErrorSuggestion(err error) string {
+	switch {
+	case errors.Is(err, scan.ErrRegistryNotFound):
+		return "Set markdowntown.registryPath (VS Code) or MARKDOWNTOWN_REGISTRY to a valid ai-config-patterns.json."
+	case errors.Is(err, scan.ErrRegistryPathMissing):
+		return "Update markdowntown.registryPath (VS Code) or MARKDOWNTOWN_REGISTRY to a valid path."
+	case errors.Is(err, scan.ErrMultipleRegistries):
+		return "Set markdowntown.registryPath (VS Code) or MARKDOWNTOWN_REGISTRY to choose one registry."
+	default:
+		return "Check MARKDOWNTOWN_REGISTRY or your global registry install."
+	}
 }
 
 func getValue(data map[string]any, keyPath string) (any, bool) {
@@ -557,114 +795,33 @@ func (s *Server) codeAction(_ *glsp.Context, params *protocol.CodeActionParams) 
 		ruleID := diagnosticRuleID(diag)
 		switch ruleID {
 		case "MD003":
-			if fmRange := frontmatterBlockRange(content); fmRange != nil {
-				kind := protocol.CodeActionKindQuickFix
-				preferred := true
-				action := protocol.CodeAction{
-					Title:       actionTitleRemoveFrontmatter,
-					Kind:        &kind,
-					Diagnostics: []protocol.Diagnostic{diag},
-					IsPreferred: &preferred,
-					Edit: &protocol.WorkspaceEdit{
-						Changes: map[string][]protocol.TextEdit{
-							params.TextDocument.URI: {
-								{
-									Range:   *fmRange,
-									NewText: "",
-								},
-							},
-						},
-					},
-				}
-				actions = append(actions, action)
+			if action := codeActionRemoveFrontmatter(diag, params.TextDocument.URI, content); action != nil {
+				actions = append(actions, *action)
 			}
 		case "MD004":
-			if strings.TrimSpace(content) == "" {
-				if stub := stubContentForPath(path); stub != "" {
-					kind := protocol.CodeActionKindQuickFix
-					preferred := true
-					action := protocol.CodeAction{
-						Title:       actionTitleInsertPlaceholder,
-						Kind:        &kind,
-						Diagnostics: []protocol.Diagnostic{diag},
-						IsPreferred: &preferred,
-						Edit: &protocol.WorkspaceEdit{
-							Changes: map[string][]protocol.TextEdit{
-								params.TextDocument.URI: {
-									{
-										Range:   protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
-										NewText: stub,
-									},
-								},
-							},
-						},
-					}
-					actions = append(actions, action)
-				}
+			if action := codeActionInsertPlaceholder(diag, params.TextDocument.URI, path, content); action != nil {
+				actions = append(actions, *action)
 			}
 		case "MD002":
-			if repoRoot := repoRootForPath(s.rootPath, path); repoRoot != "" {
-				if rel, ok := relativeRepoPath(repoRoot, path); ok {
-					entry := "!" + rel
-					gitignorePath := filepath.Join(repoRoot, ".gitignore")
-					action := quickFixGitignore(s.fs, entry, gitignorePath, diag)
-					if action != nil {
-						actions = append(actions, *action)
-					}
-				}
+			if action := s.codeActionAllowGitignore(diag, path); action != nil {
+				actions = append(actions, *action)
 			}
 		case "MD005":
-			candidate := candidateRepoPathFromDiagnostic(diag)
-			if candidate == "" {
-				continue
+			if action := s.codeActionCreateRepoConfig(diag, path); action != nil {
+				actions = append(actions, *action)
 			}
-			repoRoot := repoRootForPath(s.rootPath, path)
-			if repoRoot == "" {
-				continue
+		case "MD007":
+			if action := codeActionRemoveDuplicateFrontmatter(diag, params.TextDocument.URI, content); action != nil {
+				actions = append(actions, *action)
 			}
-			if isGlobPath(candidate) {
-				continue
+		case "MD012":
+			if action := codeActionInsertFrontmatter(diag, params.TextDocument.URI, path, content); action != nil {
+				actions = append(actions, *action)
 			}
-			absPath := filepath.Join(repoRoot, filepath.FromSlash(candidate))
-			if _, err := s.fs.Stat(absPath); err == nil {
-				continue
+		case "MD015":
+			if action := codeActionReplaceToolID(diag, params.TextDocument.URI); action != nil {
+				actions = append(actions, *action)
 			}
-			parent := filepath.Dir(absPath)
-			if info, err := s.fs.Stat(parent); err != nil || !info.IsDir() {
-				continue
-			}
-			stub := stubContentForPath(absPath)
-			if stub == "" {
-				continue
-			}
-			uri := pathToURI(absPath)
-			kind := protocol.CodeActionKindQuickFix
-			action := protocol.CodeAction{
-				Title:       actionTitleCreateRepoPrefix + candidate,
-				Kind:        &kind,
-				Diagnostics: []protocol.Diagnostic{diag},
-				Edit: &protocol.WorkspaceEdit{
-					DocumentChanges: []any{
-						protocol.CreateFile{
-							Kind:    "create",
-							URI:     uri,
-							Options: &protocol.CreateFileOptions{IgnoreIfExists: boolPtr(true)},
-						},
-						protocol.TextDocumentEdit{
-							TextDocument: protocol.OptionalVersionedTextDocumentIdentifier{
-								TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
-							},
-							Edits: []any{
-								protocol.TextEdit{
-									Range:   protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
-									NewText: stub,
-								},
-							},
-						},
-					},
-				},
-			}
-			actions = append(actions, action)
 		}
 	}
 
@@ -672,6 +829,173 @@ func (s *Server) codeAction(_ *glsp.Context, params *protocol.CodeActionParams) 
 		return nil, nil
 	}
 	return actions, nil
+}
+
+func codeActionRemoveFrontmatter(diag protocol.Diagnostic, uri string, content string) *protocol.CodeAction {
+	fmRange := frontmatterBlockRange(content)
+	if fmRange == nil {
+		return nil
+	}
+	kind := protocol.CodeActionKindQuickFix
+	preferred := true
+	action := protocol.CodeAction{
+		Title:       actionTitleRemoveFrontmatter,
+		Kind:        &kind,
+		Diagnostics: []protocol.Diagnostic{diag},
+		IsPreferred: &preferred,
+		Edit: &protocol.WorkspaceEdit{
+			Changes: map[string][]protocol.TextEdit{
+				uri: {
+					{
+						Range:   *fmRange,
+						NewText: "",
+					},
+				},
+			},
+		},
+	}
+	return &action
+}
+
+func codeActionInsertPlaceholder(diag protocol.Diagnostic, uri string, path string, content string) *protocol.CodeAction {
+	if strings.TrimSpace(content) != "" {
+		return nil
+	}
+	stub := stubContentForPath(path)
+	if stub == "" {
+		return nil
+	}
+	kind := protocol.CodeActionKindQuickFix
+	preferred := true
+	action := protocol.CodeAction{
+		Title:       actionTitleInsertPlaceholder,
+		Kind:        &kind,
+		Diagnostics: []protocol.Diagnostic{diag},
+		IsPreferred: &preferred,
+		Edit: &protocol.WorkspaceEdit{
+			Changes: map[string][]protocol.TextEdit{
+				uri: {
+					{
+						Range:   protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+						NewText: stub,
+					},
+				},
+			},
+		},
+	}
+	return &action
+}
+
+func (s *Server) codeActionAllowGitignore(diag protocol.Diagnostic, path string) *protocol.CodeAction {
+	repoRoot := repoRootForPath(s.rootPath, path)
+	if repoRoot == "" {
+		return nil
+	}
+	rel, ok := relativeRepoPath(repoRoot, path)
+	if !ok {
+		return nil
+	}
+	entry := "!" + rel
+	gitignorePath := filepath.Join(repoRoot, ".gitignore")
+	return quickFixGitignore(s.fs, entry, gitignorePath, diag)
+}
+
+func (s *Server) codeActionCreateRepoConfig(diag protocol.Diagnostic, path string) *protocol.CodeAction {
+	candidate := candidateRepoPathFromDiagnostic(diag)
+	if candidate == "" {
+		return nil
+	}
+	repoRoot := repoRootForPath(s.rootPath, path)
+	if repoRoot == "" {
+		return nil
+	}
+	if isGlobPath(candidate) {
+		return nil
+	}
+	absPath := filepath.Join(repoRoot, filepath.FromSlash(candidate))
+	if _, err := s.fs.Stat(absPath); err == nil {
+		return nil
+	}
+	parent := filepath.Dir(absPath)
+	if info, err := s.fs.Stat(parent); err != nil || !info.IsDir() {
+		return nil
+	}
+	stub := stubContentForPath(absPath)
+	if stub == "" {
+		return nil
+	}
+	uri := pathToURI(absPath)
+	kind := protocol.CodeActionKindQuickFix
+	action := protocol.CodeAction{
+		Title:       actionTitleCreateRepoPrefix + candidate,
+		Kind:        &kind,
+		Diagnostics: []protocol.Diagnostic{diag},
+		Edit: &protocol.WorkspaceEdit{
+			DocumentChanges: []any{
+				protocol.CreateFile{
+					Kind:    "create",
+					URI:     uri,
+					Options: &protocol.CreateFileOptions{IgnoreIfExists: boolPtr(true)},
+				},
+				protocol.TextDocumentEdit{
+					TextDocument: protocol.OptionalVersionedTextDocumentIdentifier{
+						TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+					},
+					Edits: []any{
+						protocol.TextEdit{
+							Range:   protocol.Range{Start: protocol.Position{Line: 0, Character: 0}, End: protocol.Position{Line: 0, Character: 0}},
+							NewText: stub,
+						},
+					},
+				},
+			},
+		},
+	}
+	return &action
+}
+
+func codeActionRemoveDuplicateFrontmatter(diag protocol.Diagnostic, uri string, content string) *protocol.CodeAction {
+	lineIndex := int(diag.Range.Start.Line)
+	lineText, ok := lineTextAt(content, lineIndex)
+	if !ok {
+		return nil
+	}
+	if fmRange := frontmatterBlockRange(content); fmRange == nil || lineIndex > int(fmRange.End.Line) {
+		return nil
+	}
+	field := diagnosticEvidenceString(diag, "field")
+	value := diagnosticEvidenceString(diag, "value")
+	lowerLine := strings.ToLower(strings.TrimSpace(lineText))
+	if field != "" && !strings.Contains(lowerLine, strings.ToLower(field)+":") {
+		return nil
+	}
+	deleteRange := lineDeleteRange(content, lineIndex)
+	if deleteRange == nil {
+		return nil
+	}
+	title := actionTitleRemoveDuplicateFrontmatterPrefix + "entry"
+	if field != "" && value != "" {
+		title = fmt.Sprintf("%s%s=%s", actionTitleRemoveDuplicateFrontmatterPrefix, field, value)
+	} else if field != "" {
+		title = actionTitleRemoveDuplicateFrontmatterPrefix + field
+	}
+	kind := protocol.CodeActionKindQuickFix
+	action := protocol.CodeAction{
+		Title:       title,
+		Kind:        &kind,
+		Diagnostics: []protocol.Diagnostic{diag},
+		Edit: &protocol.WorkspaceEdit{
+			Changes: map[string][]protocol.TextEdit{
+				uri: {
+					{
+						Range:   *deleteRange,
+						NewText: "",
+					},
+				},
+			},
+		},
+	}
+	return &action
 }
 
 func diagnosticRuleID(diag protocol.Diagnostic) string {
@@ -719,6 +1043,46 @@ func candidateRepoPathFromDiagnostic(diag protocol.Diagnostic) string {
 		}
 	}
 	return ""
+}
+
+func diagnosticEvidenceValue(diag protocol.Diagnostic, key string) (any, bool) {
+	if diag.Data == nil {
+		return nil, false
+	}
+	data, ok := diag.Data.(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	evidence, ok := data["evidence"].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	value, ok := evidence[key]
+	return value, ok
+}
+
+func diagnosticEvidenceString(diag protocol.Diagnostic, key string) string {
+	value, ok := diagnosticEvidenceValue(diag, key)
+	if !ok {
+		return ""
+	}
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case fmt.Stringer:
+		return typed.String()
+	case []string:
+		if len(typed) > 0 {
+			return typed[0]
+		}
+	case []any:
+		for _, item := range typed {
+			if str, ok := item.(string); ok && str != "" {
+				return str
+			}
+		}
+	}
+	return fmt.Sprintf("%v", value)
 }
 
 func quickFixGitignore(fs afero.Fs, entry string, gitignorePath string, diag protocol.Diagnostic) *protocol.CodeAction {
@@ -785,6 +1149,115 @@ func quickFixGitignore(fs afero.Fs, entry string, gitignorePath string, diag pro
 	return &action
 }
 
+func formatTools(tools []audit.Tool) string {
+	if len(tools) == 0 {
+		return ""
+	}
+	items := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		if tool.ToolID == "" && tool.Kind == "" {
+			continue
+		}
+		if tool.ToolID != "" && tool.Kind != "" {
+			items = append(items, fmt.Sprintf("%s (%s)", tool.ToolID, tool.Kind))
+			continue
+		}
+		if tool.ToolID != "" {
+			items = append(items, tool.ToolID)
+			continue
+		}
+		if tool.Kind != "" {
+			items = append(items, tool.Kind)
+		}
+	}
+	return strings.Join(items, ", ")
+}
+
+func formatPaths(paths []audit.Path, limit int) string {
+	if len(paths) == 0 {
+		return ""
+	}
+	items := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if path.Path == "" {
+			continue
+		}
+		if path.Scope != "" {
+			items = append(items, fmt.Sprintf("%s:%s", path.Scope, path.Path))
+		} else {
+			items = append(items, path.Path)
+		}
+	}
+	return joinWithLimit(items, limit)
+}
+
+func formatEvidence(evidence map[string]any) string {
+	if len(evidence) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(evidence))
+	for key := range evidence {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		value := formatEvidenceValue(evidence[key])
+		if value == "" {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s=%s", key, value))
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatEvidenceValue(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case fmt.Stringer:
+		return typed.String()
+	case bool:
+		return fmt.Sprintf("%t", typed)
+	case int, int8, int16, int32, int64:
+		return fmt.Sprintf("%d", typed)
+	case uint, uint8, uint16, uint32, uint64:
+		return fmt.Sprintf("%d", typed)
+	case float32, float64:
+		return fmt.Sprintf("%v", typed)
+	case []string:
+		return joinWithLimit(typed, 3)
+	case []any:
+		items := make([]string, 0, len(typed))
+		for _, item := range typed {
+			switch v := item.(type) {
+			case string:
+				if v != "" {
+					items = append(items, v)
+				}
+			default:
+				if item != nil {
+					items = append(items, fmt.Sprintf("%v", item))
+				}
+			}
+		}
+		return joinWithLimit(items, 3)
+	default:
+		return fmt.Sprintf("%v", typed)
+	}
+}
+
+func joinWithLimit(items []string, limit int) string {
+	if len(items) == 0 {
+		return ""
+	}
+	if limit <= 0 || len(items) <= limit {
+		return strings.Join(items, ", ")
+	}
+	extra := len(items) - limit
+	return strings.Join(items[:limit], ", ") + fmt.Sprintf(" (+%d more)", extra)
+}
+
 func hasGitignoreEntry(content string, entry string) bool {
 	if entry == "" {
 		return true
@@ -808,6 +1281,40 @@ func repoRootForPath(root string, path string) string {
 	return filepath.Dir(path)
 }
 
+func userRootForPath(path string) (string, bool) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", false
+	}
+	for _, root := range scan.DefaultUserRoots() {
+		root = strings.TrimSpace(root)
+		if root == "" {
+			continue
+		}
+		root = expandHomePath(root)
+		absRoot, err := filepath.Abs(root)
+		if err != nil {
+			continue
+		}
+		absRoot = filepath.Clean(absRoot)
+		if pathWithinRoot(absRoot, absPath) {
+			return absRoot, true
+		}
+	}
+	return "", false
+}
+
+func pathWithinRoot(root string, path string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	return !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && rel != ".."
+}
+
 func relativeRepoPath(repoRoot string, path string) (string, bool) {
 	if repoRoot == "" || path == "" {
 		return "", false
@@ -822,6 +1329,26 @@ func relativeRepoPath(repoRoot string, path string) (string, bool) {
 	rel = filepath.ToSlash(rel)
 	rel = strings.TrimPrefix(rel, "./")
 	return rel, rel != ""
+}
+
+func expandHomePath(path string) string {
+	if path == "" {
+		return path
+	}
+	if path[0] != '~' {
+		return path
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+	if path == "~" {
+		return home
+	}
+	if len(path) > 1 && (path[1] == '/' || path[1] == '\\') {
+		return filepath.Join(home, path[2:])
+	}
+	return path
 }
 
 func isGlobPath(path string) bool {
@@ -909,6 +1436,193 @@ func frontmatterBlockRange(content string) *protocol.Range {
 		Start: protocol.Position{Line: 0, Character: 0},
 		End:   protocol.Position{Line: clampToUint32(end), Character: endChar},
 	}
+}
+
+func lineTextAt(content string, line int) (string, bool) {
+	lines := strings.Split(content, "\n")
+	if line < 0 || line >= len(lines) {
+		return "", false
+	}
+	return strings.TrimRight(lines[line], "\r"), true
+}
+
+func lineDeleteRange(content string, line int) *protocol.Range {
+	lines := strings.Split(content, "\n")
+	if line < 0 || line >= len(lines) {
+		return nil
+	}
+	if line+1 < len(lines) {
+		return &protocol.Range{
+			Start: protocol.Position{Line: clampToUint32(line), Character: 0},
+			End:   protocol.Position{Line: clampToUint32(line + 1), Character: 0},
+		}
+	}
+	text := strings.TrimRight(lines[line], "\r")
+	return &protocol.Range{
+		Start: protocol.Position{Line: clampToUint32(line), Character: 0},
+		End:   protocol.Position{Line: clampToUint32(line), Character: utf16Len(text)},
+	}
+}
+
+func decodeContentChange(change any) (protocol.TextDocumentContentChangeEvent, bool) {
+	switch typed := change.(type) {
+	case protocol.TextDocumentContentChangeEvent:
+		return typed, true
+	case protocol.TextDocumentContentChangeEventWhole:
+		return protocol.TextDocumentContentChangeEvent{Text: typed.Text}, true
+	case *protocol.TextDocumentContentChangeEvent:
+		if typed == nil {
+			return protocol.TextDocumentContentChangeEvent{}, false
+		}
+		return *typed, true
+	case *protocol.TextDocumentContentChangeEventWhole:
+		if typed == nil {
+			return protocol.TextDocumentContentChangeEvent{}, false
+		}
+		return protocol.TextDocumentContentChangeEvent{Text: typed.Text}, true
+	case map[string]any:
+		var event protocol.TextDocumentContentChangeEvent
+		if text, ok := typed["text"].(string); ok {
+			event.Text = text
+		}
+		if rangeValue, ok := typed["range"]; ok {
+			if rng, ok := rangeFromAny(rangeValue); ok {
+				event.Range = &rng
+			}
+		}
+		return event, true
+	default:
+		return protocol.TextDocumentContentChangeEvent{}, false
+	}
+}
+
+func rangeFromAny(value any) (protocol.Range, bool) {
+	typed, ok := value.(map[string]any)
+	if !ok {
+		return protocol.Range{}, false
+	}
+	start, ok := positionFromAny(typed["start"])
+	if !ok {
+		return protocol.Range{}, false
+	}
+	end, ok := positionFromAny(typed["end"])
+	if !ok {
+		return protocol.Range{}, false
+	}
+	return protocol.Range{Start: start, End: end}, true
+}
+
+func positionFromAny(value any) (protocol.Position, bool) {
+	typed, ok := value.(map[string]any)
+	if !ok {
+		return protocol.Position{}, false
+	}
+	line, ok := toUint32(typed["line"])
+	if !ok {
+		return protocol.Position{}, false
+	}
+	character, ok := toUint32(typed["character"])
+	if !ok {
+		return protocol.Position{}, false
+	}
+	return protocol.Position{Line: line, Character: character}, true
+}
+
+func toUint32(value any) (uint32, bool) {
+	const maxUint32 = uint64(^uint32(0))
+	switch typed := value.(type) {
+	case int:
+		if typed < 0 {
+			return 0, false
+		}
+		if uint64(typed) > maxUint32 {
+			return 0, false
+		}
+		// #nosec G115 -- bounded by maxUint32 check above.
+		return uint32(typed), true
+	case int32:
+		if typed < 0 {
+			return 0, false
+		}
+		return uint32(typed), true
+	case int64:
+		if typed < 0 {
+			return 0, false
+		}
+		if uint64(typed) > maxUint32 {
+			return 0, false
+		}
+		// #nosec G115 -- bounded by maxUint32 check above.
+		return uint32(typed), true
+	case uint32:
+		return typed, true
+	case uint64:
+		if typed > maxUint32 {
+			return 0, false
+		}
+		return uint32(typed), true
+	case float64:
+		if typed < 0 {
+			return 0, false
+		}
+		if typed > float64(maxUint32) {
+			return 0, false
+		}
+		return uint32(typed), true
+	default:
+		return 0, false
+	}
+}
+
+func applyContentChange(content string, change protocol.TextDocumentContentChangeEvent) (string, bool) {
+	if change.Range == nil {
+		return change.Text, true
+	}
+	start := offsetForPosition(content, change.Range.Start)
+	end := offsetForPosition(content, change.Range.End)
+	if start < 0 || end < 0 || start > end {
+		return content, false
+	}
+	if start > len(content) || end > len(content) {
+		return content, false
+	}
+	return content[:start] + change.Text + content[end:], true
+}
+
+func offsetForPosition(content string, pos protocol.Position) int {
+	targetLine := int(pos.Line)
+	targetCol := int(pos.Character)
+	if targetLine < 0 || targetCol < 0 {
+		return 0
+	}
+
+	line := 0
+	col := 0
+	offset := 0
+	for _, r := range content {
+		if line == targetLine && col >= targetCol {
+			return offset
+		}
+		if r == '\n' {
+			if line == targetLine {
+				return offset
+			}
+			line++
+			col = 0
+			offset += utf8.RuneLen(r)
+			continue
+		}
+		colWidth := utf16.RuneLen(r)
+		if colWidth < 0 {
+			colWidth = 1
+		}
+		col += colWidth
+		offset += utf8.RuneLen(r)
+		if line == targetLine && col >= targetCol {
+			return offset
+		}
+	}
+	return len(content)
 }
 
 func utf16Len(value string) uint32 {
