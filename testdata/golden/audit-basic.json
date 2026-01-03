@@ -34,7 +34,7 @@
     "issueCounts": {
       "error": 3,
       "warning": 2,
-      "info": 1
+      "info": 2
     },
     "rulesFired": [
       "MD001",
@@ -42,7 +42,8 @@
       "MD003",
       "MD004",
       "MD005",
-      "MD006"
+      "MD006",
+      "MD009"
     ]
   },
   "issues": [
@@ -75,6 +76,10 @@
         "kind": "rules",
         "scope": "repo",
         "toolId": "cursor"
+      },
+      "data": {
+        "category": "conflict",
+        "docUrl": "docs/audit-spec-v1.md"
       }
     },
     {
@@ -99,6 +104,13 @@
       ],
       "evidence": {
         "frontmatterError": "yaml: bad"
+      },
+      "data": {
+        "category": "validity",
+        "docUrl": "docs/audit-spec-v1.md",
+        "quickFixes": [
+          "remove-frontmatter"
+        ]
       }
     },
     {
@@ -123,6 +135,10 @@
       ],
       "evidence": {
         "error": "EACCES"
+      },
+      "data": {
+        "category": "validity",
+        "docUrl": "docs/audit-spec-v1.md"
       }
     },
     {
@@ -147,6 +163,16 @@
       ],
       "evidence": {
         "gitignored": true
+      },
+      "data": {
+        "category": "scope",
+        "docUrl": "docs/audit-spec-v1.md",
+        "tags": [
+          "unnecessary"
+        ],
+        "quickFixes": [
+          "allow-gitignore"
+        ]
       }
     },
     {
@@ -176,6 +202,16 @@
       "evidence": {
         "sizeBytes": 0,
         "warning": "empty"
+      },
+      "data": {
+        "category": "content",
+        "docUrl": "docs/audit-spec-v1.md",
+        "tags": [
+          "unnecessary"
+        ],
+        "quickFixes": [
+          "insert-placeholder"
+        ]
       }
     },
     {
@@ -206,6 +242,36 @@
         "detectedScopes": [
           "user"
         ]
+      },
+      "data": {
+        "category": "scope",
+        "docUrl": "docs/audit-spec-v1.md",
+        "quickFixes": [
+          "create-repo-config"
+        ]
+      }
+    },
+    {
+      "ruleId": "MD009",
+      "severity": "info",
+      "title": "Unrecognized stdin path",
+      "message": "stdin path not recognized",
+      "suggestion": "Add a registry pattern for this path or remove it from stdin.",
+      "fingerprint": "sha256:80b5c48165a4233c5664465c3f2b82fc8dc0ebca2155ecd05ca7523cea3f721c",
+      "paths": [
+        {
+          "path": "./unknown",
+          "scope": "repo",
+          "redacted": false
+        }
+      ],
+      "evidence": {
+        "warningCode": "UNRECOGNIZED_STDIN",
+        "warningMessage": "stdin path not recognized"
+      },
+      "data": {
+        "category": "discovery",
+        "docUrl": "docs/audit-spec-v1.md"
       }
     }
   ]

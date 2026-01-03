@@ -76,6 +76,15 @@ type Issue struct {
 	Paths       []Path         `json:"paths"`
 	Tools       []Tool         `json:"tools,omitempty"`
 	Evidence    map[string]any `json:"evidence,omitempty"`
+	Data        any            `json:"data,omitempty"`
+}
+
+// RuleData captures optional UX metadata for diagnostics consumers.
+type RuleData struct {
+	Category   string   `json:"category,omitempty"`
+	DocURL     string   `json:"docUrl,omitempty"`
+	Tags       []string `json:"tags,omitempty"`
+	QuickFixes []string `json:"quickFixes,omitempty"`
 }
 
 // Path describes an affected path in an issue.

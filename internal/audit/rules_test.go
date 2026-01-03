@@ -163,9 +163,128 @@ func TestRuleUnreadableSeverity(t *testing.T) {
 	}
 }
 
+func TestRuleCircularSymlink(t *testing.T) {
+	ctx := testContext(nil, scan.Registry{})
+	ctx.Scan.Warnings = []scan.Warning{
+		{Path: "/repo/.cursor", Code: "CIRCULAR_SYMLINK", Message: "Circular symlink detected"},
+	}
+	issues := ruleCircularSymlink(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one issue, got %d", len(issues))
+	}
+	if issues[0].RuleID != "MD008" {
+		t.Fatalf("unexpected rule id: %s", issues[0].RuleID)
+	}
+	if issues[0].Evidence["warningCode"] != "CIRCULAR_SYMLINK" {
+		t.Fatalf("expected warning code evidence")
+	}
+	if len(issues[0].Paths) != 1 {
+		t.Fatalf("expected one path")
+	}
+	requireRuleData(t, issues[0], "discovery")
+}
+
+func TestRuleUnrecognizedStdin(t *testing.T) {
+	ctx := testContext(nil, scan.Registry{})
+	ctx.Scan.Warnings = []scan.Warning{
+		{Path: "/repo/unknown.md", Code: "UNRECOGNIZED_STDIN", Message: "stdin path did not match any registry pattern"},
+	}
+	issues := ruleUnrecognizedStdin(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one issue, got %d", len(issues))
+	}
+	if issues[0].RuleID != "MD009" {
+		t.Fatalf("unexpected rule id: %s", issues[0].RuleID)
+	}
+	if issues[0].Severity != SeverityInfo {
+		t.Fatalf("expected info severity")
+	}
+	requireRuleData(t, issues[0], "discovery")
+}
+
+func TestRuleScanWarning(t *testing.T) {
+	ctx := testContext(nil, scan.Registry{})
+	ctx.Scan.Warnings = []scan.Warning{
+		{Path: "/repo/AGENTS.md", Code: "EACCES", Message: "permission denied"},
+		{Path: "/repo/README.md", Code: "ERROR", Message: "read error"},
+	}
+	issues := ruleScanWarning(ctx)
+	if len(issues) != 2 {
+		t.Fatalf("expected two issues, got %d", len(issues))
+	}
+	for _, issue := range issues {
+		if issue.RuleID != "MD010" {
+			t.Fatalf("unexpected rule id: %s", issue.RuleID)
+		}
+		if issue.Severity != SeverityWarning {
+			t.Fatalf("expected warning severity")
+		}
+		requireRuleData(t, issue, "discovery")
+	}
+}
+
+func TestRuleScanWarningEmptyPath(t *testing.T) {
+	ctx := testContext(nil, scan.Registry{})
+	ctx.Scan.Warnings = []scan.Warning{
+		{Path: "", Code: "EACCES", Message: "permission denied"},
+	}
+	issues := ruleScanWarning(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one issue, got %d", len(issues))
+	}
+	if len(issues[0].Paths) != 0 {
+		t.Fatalf("expected empty paths for pathless warning")
+	}
+	requireRuleData(t, issues[0], "discovery")
+}
+
+func TestRuleBinaryContent(t *testing.T) {
+	skipped := "binary"
+	size := int64(12)
+	entry := configEntry("/repo/config.bin", "repo", "codex", "instructions")
+	entry.ContentSkipped = &skipped
+	entry.SizeBytes = &size
+	ctx := testContext([]scan.ConfigEntry{entry}, scan.Registry{})
+	issues := ruleBinaryContent(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one issue, got %d", len(issues))
+	}
+	if issues[0].RuleID != "MD011" {
+		t.Fatalf("unexpected rule id: %s", issues[0].RuleID)
+	}
+	if issues[0].Evidence["contentSkipped"] != "binary" {
+		t.Fatalf("expected contentSkipped evidence")
+	}
+	requireRuleData(t, issues[0], "content")
+}
+
+func TestRuleMissingFrontmatterID(t *testing.T) {
+	entry := configEntry("/repo/.codex/skills/alpha/SKILL.md", "repo", "codex", "skills")
+	entry.Frontmatter = map[string]any{}
+	ctx := testContext([]scan.ConfigEntry{entry}, scan.Registry{})
+	issues := ruleMissingFrontmatterID(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one issue, got %d", len(issues))
+	}
+	if issues[0].RuleID != "MD012" {
+		t.Fatalf("unexpected rule id: %s", issues[0].RuleID)
+	}
+	requireRuleData(t, issues[0], "validity")
+}
+
+func TestRuleMissingFrontmatterIDSkipsPresentKey(t *testing.T) {
+	entry := configEntry("/repo/.codex/skills/alpha/SKILL.md", "repo", "codex", "skills")
+	entry.Frontmatter = map[string]any{"name": "Alpha"}
+	ctx := testContext([]scan.ConfigEntry{entry}, scan.Registry{})
+	issues := ruleMissingFrontmatterID(ctx)
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues when identifier present")
+	}
+}
+
 func testContext(entries []scan.ConfigEntry, reg scan.Registry) Context {
 	return Context{
-		Scan:     scan.Output{Configs: entries},
+		Scan:     scan.Output{RepoRoot: "/repo", Configs: entries},
 		Registry: reg,
 		Redactor: NewRedactor("/repo", "/home/user", "/home/user/.config", RedactAuto),
 	}
@@ -176,5 +295,19 @@ func configEntry(path, scope, toolID, kind string) scan.ConfigEntry {
 		Path:  path,
 		Scope: scope,
 		Tools: []scan.ToolEntry{{ToolID: toolID, Kind: kind}},
+	}
+}
+
+func requireRuleData(t *testing.T, issue Issue, expectedCategory string) {
+	t.Helper()
+	data, ok := issue.Data.(RuleData)
+	if !ok {
+		t.Fatalf("expected rule data, got %T", issue.Data)
+	}
+	if data.Category != expectedCategory {
+		t.Fatalf("unexpected category: %s", data.Category)
+	}
+	if data.DocURL == "" {
+		t.Fatalf("expected doc url")
 	}
 }

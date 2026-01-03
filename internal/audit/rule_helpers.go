@@ -182,3 +182,46 @@ func dedupePaths(paths []Path) []Path {
 	}
 	return unique
 }
+
+func warningPaths(ctx Context, rawPath string) []Path {
+	if strings.TrimSpace(rawPath) == "" {
+		return nil
+	}
+	pathValue := filepath.Clean(rawPath)
+	if !isAbsPath(pathValue) {
+		if resolved, err := filepath.Abs(pathValue); err == nil {
+			pathValue = resolved
+		}
+	}
+	scope := scan.ScopeUser
+	if ctx.Scan.RepoRoot != "" && isWithin(pathValue, filepath.Clean(ctx.Scan.RepoRoot)) {
+		scope = scan.ScopeRepo
+	}
+	return []Path{redactPath(ctx, pathValue, scope)}
+}
+
+func warningsByCode(warnings []scan.Warning, codes ...string) []scan.Warning {
+	if len(warnings) == 0 || len(codes) == 0 {
+		return nil
+	}
+	allowed := make(map[string]struct{}, len(codes))
+	for _, code := range codes {
+		allowed[code] = struct{}{}
+	}
+	matched := make([]scan.Warning, 0, len(warnings))
+	for _, warning := range warnings {
+		if _, ok := allowed[warning.Code]; ok {
+			matched = append(matched, warning)
+		}
+	}
+	sort.SliceStable(matched, func(i, j int) bool {
+		if matched[i].Path != matched[j].Path {
+			return matched[i].Path < matched[j].Path
+		}
+		if matched[i].Code != matched[j].Code {
+			return matched[i].Code < matched[j].Code
+		}
+		return matched[i].Message < matched[j].Message
+	})
+	return matched
+}

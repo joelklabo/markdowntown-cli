@@ -142,15 +142,17 @@ When `--input` is provided, scan-related flags are ignored to keep behavior dete
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `ruleId` | string | Stable rule identifier (MD001..MD007). |
+| `ruleId` | string | Stable rule identifier (MD001..MD012). |
 | `severity` | enum | `error`, `warning`, `info`. |
 | `title` | string | Short issue label. |
 | `message` | string | Human-readable description. |
 | `suggestion` | string | Remediation guidance (no shell commands). |
 | `fingerprint` | string | Deterministic hash for stable suppression/diffing. |
+| `range` | object | Optional location (1-based line/col) when available. |
 | `paths` | array | Affected paths (path objects). |
 | `tools` | array | Tool metadata (tool objects). |
 | `evidence` | object | Raw scan fields that triggered the rule. |
+| `data` | object | Optional UX metadata for diagnostics consumers. |
 
 ### Path Object
 
@@ -167,6 +169,17 @@ When `--input` is provided, scan-related flags are ignored to keep behavior dete
 | --- | --- | --- |
 | `toolId` | string | Registry toolId. |
 | `kind` | string | Registry kind (instructions, config, prompts, rules, skills, agent). |
+
+---
+
+### Data Object (Rule Metadata)
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `category` | string | UX category (conflict, validity, content, scope, discovery, registry). |
+| `docUrl` | string | Documentation link for the rule. |
+| `tags` | array | Diagnostic tags (unnecessary, deprecated). |
+| `quickFixes` | array | Available quick fix identifiers. |
 
 ---
 
@@ -219,6 +232,11 @@ All v1 rules are metadata-only and based on `scan` output fields. `audit` does *
 | `MD005` | info | No repo configs for a `(toolId, kind)` but user/global configs exist | Add a repo-scoped config for consistent behavior. |
 | `MD006` | error/warn | `configs[].error` in (`EACCES`, `ENOENT`, `ERROR`) | Fix permissions or path; repo scope is error, user/global is warning. |
 | `MD007` | warning | Duplicate frontmatter identifiers within multi-file kinds (`skills`, `prompts`) | Ensure frontmatter identifiers are unique or consolidate duplicates. |
+| `MD008` | warning | `scanWarnings[].code == "CIRCULAR_SYMLINK"` | Break the symlink loop or remove the entry. |
+| `MD009` | info | `scanWarnings[].code == "UNRECOGNIZED_STDIN"` | Add a registry pattern or remove the stdin path. |
+| `MD010` | warning | `scanWarnings[].code in ("EACCES", "ERROR", "ENOENT")` | Fix permissions or registry paths, then re-run. |
+| `MD011` | warning | `configs[].contentSkipped == "binary"` | Replace with a text config or remove the file. |
+| `MD012` | warning | Missing required frontmatter identifier for multi-file kinds | Add a required identifier (name/title/id). |
 
 ### MD001 conflict fallback
 
@@ -235,6 +253,21 @@ All v1 rules are metadata-only and based on `scan` output fields. `audit` does *
   - `prompts`: `name`, `title`, `id`
 - Group configs by `(scope, toolId, kind, key, value)` and emit a warning when a group has more than one config.
 - Uses frontmatter only; does not read file content.
+
+### MD008-MD010 scan warning mapping
+
+- Map scan warnings to audit issues for visibility in diagnostics.
+- Use the warning code/message as evidence and do not duplicate MD001 conflict issues.
+
+### MD011 binary content detection
+
+- Emit when `contentSkipped == "binary"` on a matched config entry.
+- No file content is read beyond binary detection.
+
+### MD012 frontmatter identifier requirement
+
+- Applies to multi-file kinds (`skills`, `prompts`).
+- Emit when no required identifiers are present in frontmatter.
 
 ### MD005 scope awareness
 
@@ -253,6 +286,7 @@ All v1 rules are metadata-only and based on `scan` output fields. `audit` does *
 The `fingerprint` field is a deterministic hash to support stable diffs and suppression lists.
 
 Canonical input (sorted):
+
 - `ruleId`
 - `severity`
 - `paths` (path + scope + pathId)
@@ -284,6 +318,6 @@ Hash: `sha256` of the canonical JSON representation.
 - docs/scan-spec-v1.md
 - docs/USER_GUIDE.md
 - docs/architecture/scan.md
-- https://code.visualstudio.com/docs/copilot/customization/custom-instructions
-- https://code.visualstudio.com/docs/copilot/customization/prompt-files
-- https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli
+- <https://code.visualstudio.com/docs/copilot/customization/custom-instructions>
+- <https://code.visualstudio.com/docs/copilot/customization/prompt-files>
+- <https://docs.github.com/en/copilot/how-tos/use-copilot-agents/use-copilot-cli>

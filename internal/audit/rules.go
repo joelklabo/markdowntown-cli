@@ -23,6 +23,30 @@ type Rule struct {
 	Run      func(Context) []Issue
 }
 
+const ruleDocURL = "docs/audit-spec-v1.md"
+
+var ruleMetadata = map[string]RuleData{
+	"MD001": {Category: "conflict", DocURL: ruleDocURL},
+	"MD002": {Category: "scope", DocURL: ruleDocURL, Tags: []string{"unnecessary"}, QuickFixes: []string{"allow-gitignore"}},
+	"MD003": {Category: "validity", DocURL: ruleDocURL, QuickFixes: []string{"remove-frontmatter"}},
+	"MD004": {Category: "content", DocURL: ruleDocURL, Tags: []string{"unnecessary"}, QuickFixes: []string{"insert-placeholder"}},
+	"MD005": {Category: "scope", DocURL: ruleDocURL, QuickFixes: []string{"create-repo-config"}},
+	"MD006": {Category: "validity", DocURL: ruleDocURL},
+	"MD007": {Category: "conflict", DocURL: ruleDocURL, QuickFixes: []string{"remove-duplicate-frontmatter"}},
+	"MD008": {Category: "discovery", DocURL: ruleDocURL},
+	"MD009": {Category: "discovery", DocURL: ruleDocURL},
+	"MD010": {Category: "discovery", DocURL: ruleDocURL},
+	"MD011": {Category: "content", DocURL: ruleDocURL, Tags: []string{"unnecessary"}},
+	"MD012": {Category: "validity", DocURL: ruleDocURL, QuickFixes: []string{"insert-frontmatter-id"}},
+}
+
+func ruleData(ruleID string) any {
+	if meta, ok := ruleMetadata[ruleID]; ok {
+		return meta
+	}
+	return nil
+}
+
 // DefaultRules returns the v1 rule set.
 func DefaultRules() []Rule {
 	return []Rule{
@@ -33,6 +57,11 @@ func DefaultRules() []Rule {
 		{ID: "MD005", Severity: SeverityInfo, Run: ruleNoRepoConfig},
 		{ID: "MD006", Severity: SeverityWarning, Run: ruleUnreadable},
 		{ID: "MD007", Severity: SeverityWarning, Run: ruleFrontmatterConflict},
+		{ID: "MD008", Severity: SeverityWarning, Run: ruleCircularSymlink},
+		{ID: "MD009", Severity: SeverityInfo, Run: ruleUnrecognizedStdin},
+		{ID: "MD010", Severity: SeverityWarning, Run: ruleScanWarning},
+		{ID: "MD011", Severity: SeverityWarning, Run: ruleBinaryContent},
+		{ID: "MD012", Severity: SeverityWarning, Run: ruleMissingFrontmatterID},
 	}
 }
 
@@ -83,6 +112,7 @@ func ruleConflict(ctx Context) []Issue {
 			Suggestion: "Keep exactly one config for this tool/kind/scope. Delete or rename extras, or use a documented override pair.",
 			Paths:      issuePaths,
 			Tools:      []Tool{{ToolID: key.ToolID, Kind: key.Kind}},
+			Data:       ruleData("MD001"),
 			Evidence: map[string]any{
 				"scope":  key.Scope,
 				"toolId": key.ToolID,
@@ -155,6 +185,7 @@ func ruleFrontmatterConflict(ctx Context) []Issue {
 			Paths:      paths,
 			Tools:      []Tool{{ToolID: key.ToolID, Kind: key.Kind}},
 			Range:      frontmatterLocation(entries[0], key.Field),
+			Data:       ruleData("MD007"),
 			Evidence: map[string]any{
 				"scope": key.Scope,
 				"tool":  key.ToolID,
@@ -200,6 +231,7 @@ func ruleGitignored(ctx Context) []Issue {
 			Suggestion: "Remove this path from .gitignore or move the file to a tracked location.",
 			Paths:      []Path{redactPath(ctx, entry.Path, entry.Scope)},
 			Tools:      toolsForEntry(entry),
+			Data:       ruleData("MD002"),
 			Evidence: map[string]any{
 				"gitignored": true,
 			},
@@ -223,6 +255,7 @@ func ruleFrontmatter(ctx Context) []Issue {
 			Suggestion: "Fix the YAML frontmatter syntax or remove it entirely.",
 			Paths:      []Path{redactPath(ctx, entry.Path, entry.Scope)},
 			Tools:      toolsForEntry(entry),
+			Data:       ruleData("MD003"),
 			Evidence: map[string]any{
 				"frontmatterError": *entry.FrontmatterError,
 			},
@@ -271,6 +304,7 @@ func ruleEmpty(ctx Context) []Issue {
 			Suggestion: "Add the intended instructions or delete the file.",
 			Paths:      []Path{redactPath(ctx, entry.Path, entry.Scope)},
 			Tools:      toolsForEntry(entry),
+			Data:       ruleData("MD004"),
 			Evidence:   evidence,
 		}
 		issues = append(issues, issue)
@@ -322,6 +356,7 @@ func ruleNoRepoConfig(ctx Context) []Issue {
 			Suggestion: "Add a repo-scoped config for consistent behavior across teammates and CI.",
 			Paths:      paths,
 			Tools:      []Tool{{ToolID: key.ToolID, Kind: key.Kind}},
+			Data:       ruleData("MD005"),
 			Evidence: map[string]any{
 				"detectedScopes": detectedScopes,
 				"candidatePaths": candidatePaths,
@@ -354,9 +389,129 @@ func ruleUnreadable(ctx Context) []Issue {
 			Suggestion: "Check the file permissions and ensure the path exists.",
 			Paths:      []Path{redactPath(ctx, entry.Path, entry.Scope)},
 			Tools:      toolsForEntry(entry),
+			Data:       ruleData("MD006"),
 			Evidence: map[string]any{
 				"error": err,
 			},
+		}
+		issues = append(issues, issue)
+	}
+	return issues
+}
+
+func ruleCircularSymlink(ctx Context) []Issue {
+	warnings := warningsByCode(ctx.Scan.Warnings, "CIRCULAR_SYMLINK")
+	return warningIssues(ctx, warnings, "MD008", SeverityWarning, "Circular symlink", "Circular symlink detected during scan.", "Break the symlink loop or remove the entry.")
+}
+
+func ruleUnrecognizedStdin(ctx Context) []Issue {
+	warnings := warningsByCode(ctx.Scan.Warnings, "UNRECOGNIZED_STDIN")
+	return warningIssues(ctx, warnings, "MD009", SeverityInfo, "Unrecognized stdin path", "Stdin path did not match any registry pattern.", "Add a registry pattern for this path or remove it from stdin.")
+}
+
+func ruleScanWarning(ctx Context) []Issue {
+	warnings := warningsByCode(ctx.Scan.Warnings, "EACCES", "ERROR", "ENOENT")
+	return warningIssues(ctx, warnings, "MD010", SeverityWarning, "Scan warning", "Scan warning encountered during discovery.", "Verify permissions and registry paths, then re-run the scan.")
+}
+
+func ruleBinaryContent(ctx Context) []Issue {
+	var issues []Issue
+	for _, entry := range ctx.Scan.Configs {
+		if entry.ContentSkipped == nil || *entry.ContentSkipped != "binary" {
+			continue
+		}
+		evidence := map[string]any{
+			"contentSkipped": *entry.ContentSkipped,
+		}
+		if entry.SizeBytes != nil {
+			evidence["sizeBytes"] = *entry.SizeBytes
+		}
+		issue := Issue{
+			RuleID:     "MD011",
+			Severity:   SeverityWarning,
+			Title:      "Binary config content",
+			Message:    "Binary config content was skipped.",
+			Suggestion: "Replace the file with text instructions or remove it.",
+			Paths:      []Path{redactPath(ctx, entry.Path, entry.Scope)},
+			Tools:      toolsForEntry(entry),
+			Data:       ruleData("MD011"),
+			Evidence:   evidence,
+		}
+		issues = append(issues, issue)
+	}
+	return issues
+}
+
+func ruleMissingFrontmatterID(ctx Context) []Issue {
+	var issues []Issue
+	for _, entry := range ctx.Scan.Configs {
+		if len(entry.Tools) == 0 {
+			continue
+		}
+		for _, tool := range entry.Tools {
+			keys := frontmatterConflictKeys(tool.Kind)
+			if len(keys) == 0 {
+				continue
+			}
+			if hasFrontmatterIdentifier(entry.Frontmatter, keys) {
+				continue
+			}
+			suggestion := fmt.Sprintf("Add one of: %s.", strings.Join(keys, ", "))
+			issue := Issue{
+				RuleID:     "MD012",
+				Severity:   SeverityWarning,
+				Title:      "Missing frontmatter identifier",
+				Message:    fmt.Sprintf("Missing required frontmatter identifier for %s (%s).", tool.ToolID, tool.Kind),
+				Suggestion: suggestion,
+				Paths:      []Path{redactPath(ctx, entry.Path, entry.Scope)},
+				Tools:      []Tool{{ToolID: tool.ToolID, Kind: tool.Kind}},
+				Data:       ruleData("MD012"),
+				Evidence: map[string]any{
+					"requiredKeys": keys,
+					"toolId":       tool.ToolID,
+					"kind":         tool.Kind,
+				},
+			}
+			issues = append(issues, issue)
+		}
+	}
+	return issues
+}
+
+func hasFrontmatterIdentifier(frontmatter map[string]any, keys []string) bool {
+	for _, key := range keys {
+		if len(frontmatterValues(frontmatter, key)) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func warningIssues(ctx Context, warnings []scan.Warning, ruleID string, severity Severity, title, defaultMessage, suggestion string) []Issue {
+	if len(warnings) == 0 {
+		return nil
+	}
+	issues := make([]Issue, 0, len(warnings))
+	for _, warning := range warnings {
+		message := defaultMessage
+		if strings.TrimSpace(warning.Message) != "" {
+			message = warning.Message
+		}
+		evidence := map[string]any{
+			"warningCode": warning.Code,
+		}
+		if warning.Message != "" {
+			evidence["warningMessage"] = warning.Message
+		}
+		issue := Issue{
+			RuleID:     ruleID,
+			Severity:   severity,
+			Title:      title,
+			Message:    message,
+			Suggestion: suggestion,
+			Paths:      warningPaths(ctx, warning.Path),
+			Data:       ruleData(ruleID),
+			Evidence:   evidence,
 		}
 		issues = append(issues, issue)
 	}

@@ -65,6 +65,13 @@
       ],
       "evidence": {
         "frontmatterError": "yaml: line 1: did not find expected ',' or ']'"
+      },
+      "data": {
+        "category": "validity",
+        "docUrl": "docs/audit-spec-v1.md",
+        "quickFixes": [
+          "remove-frontmatter"
+        ]
       }
     },
     {
@@ -98,6 +105,16 @@
       "evidence": {
         "sizeBytes": 0,
         "warning": "empty"
+      },
+      "data": {
+        "category": "content",
+        "docUrl": "docs/audit-spec-v1.md",
+        "quickFixes": [
+          "insert-placeholder"
+        ],
+        "tags": [
+          "unnecessary"
+        ]
       }
     }
   ]
