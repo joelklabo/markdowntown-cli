@@ -12,6 +12,7 @@ import (
 	"syscall/js"
 
 	"markdowntown-cli/internal/audit"
+	"markdowntown-cli/internal/engine"
 	"markdowntown-cli/internal/scan"
 
 	"github.com/spf13/afero"
@@ -117,7 +118,7 @@ func scanAudit(_ js.Value, args []js.Value) (result any) {
 
 	output := scan.BuildOutput(scanResult, scan.OutputOptions{RepoRoot: repoRoot})
 	redactor := audit.NewRedactor(repoRoot, "", "", audit.RedactNever)
-	issues := audit.RunRules(audit.Context{
+	issues := engine.Run(audit.Context{
 		Scan:     output,
 		Registry: req.Registry,
 		Redactor: redactor,

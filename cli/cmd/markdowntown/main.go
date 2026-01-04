@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"markdowntown-cli/internal/audit"
+	"markdowntown-cli/internal/engine"
 	"markdowntown-cli/internal/git"
 	"markdowntown-cli/internal/lsp"
 	"markdowntown-cli/internal/scan"
@@ -628,9 +629,9 @@ func runAudit(args []string) error {
 		Redactor: redactor,
 	}
 
-	issues := audit.RunRules(ctx, rules)
-	engine := audit.NewEngine(redactor)
-	issues = engine.NormalizeIssues(issues)
+	issues := engine.Run(ctx, rules)
+	normalizer := audit.NewEngine(redactor)
+	issues = normalizer.NormalizeIssues(issues)
 
 	summary := audit.BuildSummary(issues)
 	generatedAt := time.Now()

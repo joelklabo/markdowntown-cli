@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"markdowntown-cli/internal/engine"
 	"markdowntown-cli/internal/scan"
 )
 
@@ -21,6 +22,11 @@ type Rule struct {
 	ID       string
 	Severity Severity
 	Run      func(Context) []Issue
+}
+
+// Evaluate runs the rule for the provided context.
+func (r Rule) Evaluate(ctx Context) []Issue {
+	return r.Run(ctx)
 }
 
 const ruleDocURL = "docs/audit-spec-v1.md"
@@ -67,11 +73,7 @@ func DefaultRules() []Rule {
 
 // RunRules executes the provided rules and returns the aggregated issues.
 func RunRules(ctx Context, rules []Rule) []Issue {
-	var issues []Issue
-	for _, rule := range rules {
-		issues = append(issues, rule.Run(ctx)...)
-	}
-	return issues
+	return engine.Run(ctx, rules)
 }
 
 func ruleConflict(ctx Context) []Issue {
