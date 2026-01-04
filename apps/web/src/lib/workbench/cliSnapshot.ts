@@ -11,23 +11,27 @@ export type CliSnapshotContext = {
 export type CliSnapshotParseResult = {
   context: CliSnapshotContext | null;
   error?: string | null;
+  errorCode?: 'missing_repo' | 'invalid_status' | 'empty_param' | 'multi_value' | 'too_long' | 'unknown';
 };
 
 const CLI_PARAM_KEYS = ['cliRepoId', 'cliSnapshotId', 'cliBranch', 'cliStatus'] as const;
 const CLI_PARAM_MAX_LENGTH = 200;
 
-function normalizeParam(value: SearchParamValue, label: string): { value: string | null; error?: string } {
+function normalizeParam(
+  value: SearchParamValue,
+  label: string
+): { value: string | null; error?: string; errorCode?: CliSnapshotParseResult['errorCode'] } {
   if (Array.isArray(value)) {
     if (value.length > 1) {
-      return { value: null, error: `${label} has multiple values.` };
+      return { value: null, error: `${label} has multiple values.`, errorCode: 'multi_value' };
     }
     value = value[0];
   }
   if (typeof value !== 'string') return { value: null };
   const trimmed = value.trim();
-  if (!trimmed) return { value: null, error: `${label} is empty.` };
+  if (!trimmed) return { value: null, error: `${label} is empty.`, errorCode: 'empty_param' };
   if (trimmed.length > CLI_PARAM_MAX_LENGTH) {
-    return { value: null, error: `${label} is too long.` };
+    return { value: null, error: `${label} is too long.`, errorCode: 'too_long' };
   }
   return { value: trimmed };
 }
@@ -44,24 +48,25 @@ export function parseCliSnapshotContext(searchParams: WorkbenchSearchParams): Cl
   const branchParam = normalizeParam(searchParams.cliBranch, 'Branch');
   const statusParam = normalizeParam(searchParams.cliStatus, 'Status');
   const errors = [
-    repoIdParam.error,
-    snapshotIdParam.error,
-    branchParam.error,
-    statusParam.error,
-  ].filter(Boolean) as string[];
+    { message: repoIdParam.error, code: repoIdParam.errorCode },
+    { message: snapshotIdParam.error, code: snapshotIdParam.errorCode },
+    { message: branchParam.error, code: branchParam.errorCode },
+    { message: statusParam.error, code: statusParam.errorCode },
+  ].filter((entry) => Boolean(entry.message)) as Array<{ message: string; code?: CliSnapshotParseResult['errorCode'] }>;
 
   if (!repoIdParam.value) {
-    errors.push('Repository ID is required.');
+    errors.push({ message: 'Repository ID is required.', code: 'missing_repo' });
   }
 
   const statusRaw = statusParam.value?.toLowerCase();
   const status = statusRaw === 'pending' ? 'pending' : statusRaw === 'ready' ? 'ready' : undefined;
   if (statusParam.value && !status) {
-    errors.push('Status must be ready or pending.');
+    errors.push({ message: 'Status must be ready or pending.', code: 'invalid_status' });
   }
 
   if (errors.length > 0) {
-    return { context: null, error: errors[0] };
+    const [first] = errors;
+    return { context: null, error: first.message, errorCode: first.code ?? 'unknown' };
   }
 
   return {

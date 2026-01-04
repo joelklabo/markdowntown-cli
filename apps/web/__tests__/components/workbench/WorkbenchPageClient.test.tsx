@@ -31,6 +31,7 @@ const baseProps = {
   initialScanContext: null,
   initialCliSnapshotContext: null,
   initialCliSnapshotError: null,
+  initialCliSnapshotErrorCode: null,
   session: null,
 };
 

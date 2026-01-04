@@ -43,6 +43,7 @@ export default async function WorkbenchPage(props: { searchParams: Promise<Workb
       initialScanContext={initialScanContext}
       initialCliSnapshotContext={cliSnapshotResult.context}
       initialCliSnapshotError={cliSnapshotResult.error ?? null}
+      initialCliSnapshotErrorCode={cliSnapshotResult.errorCode ?? null}
       session={session}
     />
   );

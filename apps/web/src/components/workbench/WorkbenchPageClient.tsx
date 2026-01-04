@@ -31,6 +31,7 @@ type WorkbenchPageClientProps = {
   initialScanContext: ScanContext | null;
   initialCliSnapshotContext: CliSnapshotContext | null;
   initialCliSnapshotError: string | null;
+  initialCliSnapshotErrorCode: string | null;
   session: Session | null;
 };
 
@@ -50,6 +51,7 @@ export function WorkbenchPageClient({
   initialScanContext,
   initialCliSnapshotContext,
   initialCliSnapshotError,
+  initialCliSnapshotErrorCode,
   session,
 }: WorkbenchPageClientProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -71,6 +73,7 @@ export function WorkbenchPageClient({
   const [showArtifactNotice, setShowArtifactNotice] = useState(false);
   const [draftPrompt, setDraftPrompt] = useState<{ lastSavedAt: number | null } | null>(null);
   const [cliSnapshotError, setCliSnapshotError] = useState<string | null>(initialCliSnapshotError);
+  const cliSnapshotTrackedRef = useRef(false);
   const appliedScanRef = useRef(false);
   const focusAppliedRef = useRef(false);
   const openWorkbenchTrackedRef = useRef(false);
@@ -202,6 +205,16 @@ export function WorkbenchPageClient({
       ...timing,
     });
   }, [entrySource, mounted]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    if (cliSnapshotTrackedRef.current) return;
+    if (!initialCliSnapshotError) return;
+    cliSnapshotTrackedRef.current = true;
+    track('workbench_cli_snapshot_invalid', {
+      reason: initialCliSnapshotErrorCode ?? 'unknown',
+    });
+  }, [initialCliSnapshotError, initialCliSnapshotErrorCode, mounted]);
 
   const preferredMobileTab = useMemo<'structure' | 'editor' | 'output'>(() => {
     if (entrySource === 'scan' || entrySource === 'translate') return 'output';
