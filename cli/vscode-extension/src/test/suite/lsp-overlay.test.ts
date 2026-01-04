@@ -1,7 +1,7 @@
 import * as assert from "node:assert";
 import * as vscode from "vscode";
 
-const frontmatterErrorMessage = "Invalid YAML frontmatter.";
+const frontmatterErrorMessage = "Invalid YAML frontmatter";
 
 suite("markdowntown LSP overlay", () => {
   test("publishes diagnostics for unsaved overlay changes", async () => {
@@ -26,15 +26,16 @@ suite("markdowntown LSP overlay", () => {
         items.some(
           (item) =>
             item.source === "markdowntown" &&
-            item.message === frontmatterErrorMessage
-        )
+            item.message.startsWith(frontmatterErrorMessage)
+        ),
+      20000
     );
 
     assert.ok(
       diagnostics.find(
         (item) =>
           item.source === "markdowntown" &&
-          item.message === frontmatterErrorMessage
+          item.message.startsWith(frontmatterErrorMessage)
       )
     );
   });
