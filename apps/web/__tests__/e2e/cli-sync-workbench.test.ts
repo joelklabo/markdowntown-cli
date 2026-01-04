@@ -49,4 +49,35 @@ describe("CLI sync workbench handoff", () => {
       "cli-sync-workbench"
     );
   });
+
+  maybe("cli-sync-workbench shows invalid snapshot banner", { timeout: 45000 }, async () => {
+    await withE2EPage(
+      browser,
+      { baseURL, viewport: { width: 1400, height: 900 } },
+      async (page) => {
+        await page.goto("/workbench?cliRepoId=demo-repo&cliStatus=invalid", { waitUntil: "domcontentloaded" });
+        await page.getByText("CLI snapshot unavailable").waitFor({ state: "visible" });
+        await page.getByText("Status must be ready or pending.").waitFor({ state: "visible" });
+
+        const dismissButton = page.getByRole("button", { name: "Dismiss", exact: true });
+        await dismissButton.waitFor({ state: "visible" });
+        await dismissButton.click();
+        await page.getByText("CLI snapshot unavailable").waitFor({ state: "hidden" });
+
+        const screenshotPath = path.join(
+          process.cwd(),
+          "..",
+          "..",
+          "docs",
+          "screenshots",
+          "cli-sync",
+          "workbench-handoff-invalid.png"
+        );
+        await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
+        await page.waitForTimeout(500);
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+      },
+      "cli-sync-workbench-invalid"
+    );
+  });
 });
