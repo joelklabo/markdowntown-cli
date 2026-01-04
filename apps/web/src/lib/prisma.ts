@@ -21,4 +21,4 @@ if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 
-export type { Prisma } from "@prisma/client";
+export type { Prisma, Project, Snapshot, SnapshotFile, Blob, Run, CliToken } from "@prisma/client";

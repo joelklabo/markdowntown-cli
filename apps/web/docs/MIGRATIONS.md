@@ -1,7 +1,7 @@
 # Database Migration Policy
 
 - Tooling: Prisma migrate.
-- Default dev DB: SQLite (`file:./dev.db`). Prod: Azure PostgreSQL.
+- Default dev DB: Postgres (local or containerized). Prod: Azure PostgreSQL.
 
 ## Adding a migration
 ```bash
@@ -22,5 +22,6 @@ Commit the generated folder under `prisma/migrations`.
 - Rely on Azure Flexible Server PITR (currently 7+ days retention); take a manual dump before risky migrations if possible.
 
 ## Local tips
+- Ensure `DATABASE_URL` points to a Postgres database before running migrations.
 - Reset dev DB: `pnpm prisma migrate reset` (will wipe data).
 - Use `pnpm prisma studio` for inspecting data locally.
