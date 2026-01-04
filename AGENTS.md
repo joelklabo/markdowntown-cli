@@ -1,8 +1,9 @@
-# markdowntown-cli
+# markdowntown monorepo
 
 ## Purpose
 
-- Build the markdowntown scan CLI per `docs/scan-spec-v1.md`.
+- Build the markdowntown CLI (`/cli`) and web app (`/apps/web`) in one repo.
+- Keep CLI scan/audit behavior stable while evolving web + sync flows.
 
 ## Workflow
 
@@ -12,11 +13,17 @@
 - Add or update tests when behavior changes; call out gaps.
 - CI must always be green; investigate and fix failures before marking work complete.
 - Always inspect failing CI logs and fix every failure; do not ask for confirmation.
+- For CLI changes, follow `cli/AGENTS.md` and run `cd cli && make lint` + `cd cli && make test`.
+- For web changes, follow `apps/web/AGENTS.md` and run `pnpm -C apps/web lint` + `pnpm -C apps/web compile` + `pnpm -C apps/web test:unit`.
+- For docs-only changes, run `pnpm -C apps/web lint:md`.
+- Use bd with `npx bd --no-daemon ...` (see repo instructions).
 
 ## Files
 
-- Specs live in `docs/`.
-- Pattern registry lives in `data/ai-config-patterns.json` (strict JSON).
+- CLI specs live in `cli/docs/` (ex: `cli/docs/scan-spec-v1.md`).
+- Architecture/UX docs live in `docs/`.
+- Pattern registry lives in `cli/data/ai-config-patterns.json` (strict JSON).
+- Codex skills source of truth: `codex/skills/` (repo). Local runtime copies live in `.codex/skills/` or `~/.codex/skills/` (sync via scripts if needed).
 
 ## Landing the Plane (Session Completion)
 
