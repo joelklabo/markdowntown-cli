@@ -6,14 +6,18 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"golang.org/x/sys/unix"
 )
 
 const safeOpenSupported = true
+
+var openat2FallbackOnce sync.Once
 
 func safeStatPath(path string) (os.FileInfo, error) {
 	file, err := openNoFollowAbsolute(path)
@@ -82,6 +86,7 @@ func openNoFollowAbsolute(path string) (*os.File, error) {
 	if !errors.Is(err, errOpenat2Unavailable) {
 		return nil, err
 	}
+	logOpenat2FallbackOnce(string(os.PathSeparator), err)
 	fd, err = openAtNoFollow(rootfd, parts)
 	if err != nil {
 		return nil, err
@@ -112,6 +117,7 @@ func openNoFollowRelative(root string, parts []string, path string) (*os.File, e
 	if !errors.Is(err, errOpenat2Unavailable) {
 		return nil, err
 	}
+	logOpenat2FallbackOnce(root, err)
 	fd, err = openAtNoFollow(rootfd, parts)
 	if err != nil {
 		return nil, err
@@ -167,6 +173,17 @@ func verifyFdWithinRoot(rootfd int, relPath string, fd int) error {
 		return fs.ErrInvalid
 	}
 	return nil
+}
+
+func logOpenat2FallbackOnce(root string, err error) {
+	openat2FallbackOnce.Do(func() {
+		cause := err
+		var fallbackErr openat2UnavailableError
+		if errors.As(err, &fallbackErr) && fallbackErr.cause != nil {
+			cause = fallbackErr.cause
+		}
+		log.Printf("scan: openat2 unavailable; falling back to safe-open verification (verify=true root=%q err=%v)", root, cause)
+	})
 }
 
 func splitPathComponents(path string) ([]string, error) {
