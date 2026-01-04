@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"markdowntown-cli/internal/audit"
+	"markdowntown-cli/internal/scan"
 
 	"github.com/spf13/afero"
 	"github.com/tliron/glsp"
@@ -185,16 +186,66 @@ func TestHover(t *testing.T) {
 	}
 }
 
-func TestDefinition(t *testing.T) {
+func TestDefinitionRegistry(t *testing.T) {
 	s := NewServer("0.1.0")
 	repoRoot := t.TempDir()
 	s.rootPath = repoRoot
 	s.fs = afero.NewCopyOnWriteFs(afero.NewOsFs(), s.overlay)
+	setRegistryEnv(t)
 
 	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
 	content := "---\ntoolId: gemini-cli\n---\n# Hello"
 
 	// Create AGENTS.md
+	agentsPath := filepath.Join(repoRoot, "AGENTS.md")
+	if err := os.WriteFile(agentsPath, []byte("# Agents"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.didOpen(nil, &protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen failed: %v", err)
+	}
+
+	params := &protocol.DefinitionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: 1, Character: 8},
+		},
+	}
+
+	result, err := s.definition(nil, params)
+	if err != nil {
+		t.Fatalf("definition failed: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("expected definition result")
+	}
+
+	loc := result.(protocol.Location)
+	if !strings.Contains(loc.URI, "ai-config-patterns.json") {
+		t.Errorf("expected link to registry, got %s", loc.URI)
+	}
+	if loc.Range.Start.Line == 0 && loc.Range.End.Line == 0 {
+		t.Fatalf("expected registry range, got %+v", loc.Range)
+	}
+}
+
+func TestDefinitionFallbackToAgents(t *testing.T) {
+	s := NewServer("0.1.0")
+	repoRoot := t.TempDir()
+	s.rootPath = repoRoot
+	s.fs = afero.NewCopyOnWriteFs(afero.NewOsFs(), s.overlay)
+	t.Setenv(scan.RegistryEnvVar, filepath.Join(repoRoot, "missing-registry.json"))
+
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
+	content := "---\ntoolId: gemini-cli\n---\n# Hello"
+
 	agentsPath := filepath.Join(repoRoot, "AGENTS.md")
 	if err := os.WriteFile(agentsPath, []byte("# Agents"), 0600); err != nil {
 		t.Fatal(err)

@@ -371,6 +371,10 @@ func (s *Server) definition(_ *glsp.Context, params *protocol.DefinitionParams) 
 		if ok {
 			toolID, _ := val.(string)
 			if toolID != "" {
+				if location, err := registryDefinitionLocation(toolID); err == nil && location != nil {
+					return *location, nil
+				}
+
 				repoRoot := s.rootPath
 				if repoRoot != "" {
 					agentsPath := filepath.Join(repoRoot, "AGENTS.md")

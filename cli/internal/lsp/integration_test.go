@@ -165,6 +165,72 @@ func TestDocumentSymbolsOverPipe(t *testing.T) {
 	}
 }
 
+func TestDefinitionRegistryOverPipe(t *testing.T) {
+	s := NewServer("0.1.0")
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 1)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
+	content := "---\ntoolId: gemini-cli\n---\n# Hello"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	var loc protocol.Location
+	if err := clientRPC.Call(ctx, protocol.MethodTextDocumentDefinition, protocol.DefinitionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: 1, Character: 8},
+		},
+	}, &loc); err != nil {
+		t.Fatalf("definition failed: %v", err)
+	}
+
+	if !strings.Contains(loc.URI, "ai-config-patterns.json") {
+		t.Fatalf("expected registry definition, got %s", loc.URI)
+	}
+	if loc.Range.Start.Line == 0 && loc.Range.End.Line == 0 {
+		t.Fatalf("expected registry range, got %+v", loc.Range)
+	}
+}
+
 func TestLeakShutdown(t *testing.T) {
 	defer goleak.VerifyNone(t, goleakOptions()...)
 
