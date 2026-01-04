@@ -8,6 +8,13 @@ Monorepo for the Markdowntown CLI + web app. The CLI provides deterministic scan
 - `cli`: Go CLI + LSP + VS Code extension
 - `packages/*`: shared packages (when present)
 
+## Docs
+
+- Developer onboarding: `docs/DEV_ONBOARDING.md`
+- Monorepo user guide: `docs/USER_GUIDE.md`
+- Web app guides: `apps/web/docs/DEV_ONBOARDING.md`, `apps/web/docs/USER_GUIDE.md`
+- CLI user guide: `cli/docs/USER_GUIDE.md`
+
 ## CLI install
 
 Homebrew (if available):
@@ -42,6 +49,10 @@ rm "$(go env GOPATH)/bin/markdowntown"
 ```bash
 markdowntown scan --repo /path/to/repo --repo-only
 ```
+
+## CLI sync (overview)
+
+The CLI sync flow generates a Workbench handoff link for a repo snapshot. Open the link to review and edit the snapshot in Workbench, then use **Export patch** or **Copy CLI command** to pull changes back to the CLI.
 
 ## LSP overlay (VS Code)
 
