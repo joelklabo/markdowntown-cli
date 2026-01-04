@@ -30,6 +30,7 @@ const rootUsage = `markdowntown
 Usage:
   markdowntown                     # Show help (no default command)
   markdowntown login               # Authenticate via device flow
+  markdowntown sync upload [flags] # Upload snapshot to the web app
   markdowntown scan [flags]        # Scan for AI config files
   markdowntown scan-remote [flags] # Scan a remote git repository
   markdowntown suggest [flags]     # Generate evidence-backed suggestions
@@ -138,6 +139,11 @@ func main() {
 		return
 	case "login":
 		if err := runLogin(args[1:]); err != nil {
+			exitWithError(err)
+		}
+		return
+	case "sync":
+		if err := runSync(args[1:]); err != nil {
 			exitWithError(err)
 		}
 		return
