@@ -1,7 +1,9 @@
 import * as assert from "node:assert";
 import * as vscode from "vscode";
 
+// Messages include the YAML parser detail, so match the prefix plus rule ID.
 const frontmatterErrorMessage = "Invalid YAML frontmatter";
+const frontmatterRuleId = "MD003";
 
 suite("markdowntown LSP overlay", () => {
   test("publishes diagnostics for unsaved overlay changes", async () => {
@@ -26,20 +28,31 @@ suite("markdowntown LSP overlay", () => {
         items.some(
           (item) =>
             item.source === "markdowntown" &&
-            item.message.startsWith(frontmatterErrorMessage)
-        ),
-      20000
+            item.message.startsWith(frontmatterErrorMessage) &&
+            diagnosticCode(item) === frontmatterRuleId
+        )
     );
 
     assert.ok(
       diagnostics.find(
         (item) =>
           item.source === "markdowntown" &&
-          item.message.startsWith(frontmatterErrorMessage)
+          item.message.startsWith(frontmatterErrorMessage) &&
+          diagnosticCode(item) === frontmatterRuleId
       )
     );
   });
 });
+
+function diagnosticCode(item: vscode.Diagnostic): string | undefined {
+  if (!item.code) {
+    return undefined;
+  }
+  if (typeof item.code === "string" || typeof item.code === "number") {
+    return String(item.code);
+  }
+  return String(item.code.value);
+}
 
 async function waitForDiagnostics(
   uri: vscode.Uri,
