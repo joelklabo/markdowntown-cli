@@ -117,6 +117,7 @@ module keyvault 'modules/keyvault.bicep' = {
     location: location
     tags: tags
     principalId: identity.outputs.principalId
+    secrets: keyVaultSecrets
   }
 }
 
@@ -169,18 +170,27 @@ var storageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${stor
 var pubsubConnectionString = listKeys(resourceId('Microsoft.SignalRService/webPubSub', pubsubName), '2021-10-01').primaryConnectionString
 var acrLoginServer = acrEnabled ? '${acrNameResolved}.azurecr.io' : ''
 
+var keyVaultSecrets = {
+  'database-url': databaseUrl
+  'storage-conn': storageConnectionString
+  'pubsub-conn': pubsubConnectionString
+}
+
 var webSecrets = [
   {
     name: 'database-url'
-    value: databaseUrl
+    keyVaultUrl: '${keyvault.outputs.vaultUri}secrets/database-url'
+    identity: identity.outputs.id
   }
   {
     name: 'storage-conn'
-    value: storageConnectionString
+    keyVaultUrl: '${keyvault.outputs.vaultUri}secrets/storage-conn'
+    identity: identity.outputs.id
   }
   {
     name: 'pubsub-conn'
-    value: pubsubConnectionString
+    keyVaultUrl: '${keyvault.outputs.vaultUri}secrets/pubsub-conn'
+    identity: identity.outputs.id
   }
 ]
 

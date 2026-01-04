@@ -24,11 +24,12 @@
 - If ACR enabled, confirm `acrLoginServer` output and push images before updating tags.
 
 ## Secrets and configuration
-- Container Apps use secrets injected by `infra/main.bicep`:
-  - `DATABASE_URL`
-  - `AZURE_STORAGE_CONNECTION_STRING`
-  - `WEBPUBSUB_CONNECTION_STRING`
-- To move secrets into Key Vault, add Key Vault references in `infra/modules/aca.bicep` and grant the managed identity `Key Vault Secrets User`.
+- Key Vault secrets are created by `infra/main.bicep`:
+  - `database-url`
+  - `storage-conn`
+  - `pubsub-conn`
+- Container Apps reference Key Vault secrets via the managed identity.
+- Provide secret values via secure deployment inputs (pipeline secrets or local env), not committed parameter files.
 
 ## Local dev emulators
 1) Start Postgres + Azurite:

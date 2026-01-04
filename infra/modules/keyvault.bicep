@@ -3,6 +3,8 @@ param location string
 param tags object = {}
 param tenantId string = subscription().tenantId
 param principalId string = ''
+@secure()
+param secrets object = {}
 param skuName string = 'standard'
 
 resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
@@ -22,6 +24,14 @@ resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     publicNetworkAccess: 'Enabled'
   }
 }
+
+resource vaultSecrets 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = [for secret in items(secrets): {
+  name: secret.key
+  parent: vault
+  properties: {
+    value: secret.value
+  }
+}]
 
 resource vaultRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (principalId != '') {
   name: guid(vault.id, principalId, 'kv-secrets-user')
