@@ -47,3 +47,8 @@ make lsp-vscode-test
 3. In Workbench, use **Export patch** or **Copy CLI command** to pull changes back locally.
 
 See `apps/web/docs/DEV_ONBOARDING.md` for web-specific details and `cli/docs/USER_GUIDE.md` for CLI flags.
+
+## AI workflows
+- Repo guidance: `AGENTS.md` (root) and `cli/AGENTS.md` (CLI-only).
+- Codex skills: `codex/skills/` (monorepo + CLI skills).
+- Prompt templates: `codex/prompts/` (common scan/test flows).

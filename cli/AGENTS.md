@@ -9,6 +9,7 @@
 - Keep changes small and aligned with the specs.
 - Run `make lint` and `make test` from the `cli/` directory.
 - Update or add Go tests when behavior changes.
+- Follow CLI model notes in `cli/CLAUDE.md` and `cli/GEMINI.md` when using those tools.
 
 ## Files
 - Specs: `cli/docs/`.

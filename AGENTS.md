@@ -24,6 +24,8 @@
 - Architecture/UX docs live in `docs/`.
 - Pattern registry lives in `cli/data/ai-config-patterns.json` (strict JSON).
 - Codex skills source of truth: `codex/skills/` (repo). Local runtime copies live in `.codex/skills/` or `~/.codex/skills/` (sync via scripts if needed).
+- Codex prompt templates live in `codex/prompts/`.
+- Model instructions: root `CLAUDE.md`/`GEMINI.md` and CLI-specific `cli/CLAUDE.md`/`cli/GEMINI.md`.
 
 ## Landing the Plane (Session Completion)
 
