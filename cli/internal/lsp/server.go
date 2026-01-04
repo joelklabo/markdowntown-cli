@@ -316,6 +316,13 @@ func (s *Server) didClose(_ *glsp.Context, params *protocol.DidCloseTextDocument
 	delete(s.frontmatterCache, params.TextDocument.URI)
 	s.cacheMu.Unlock()
 
+	s.diagnosticsMu.Lock()
+	if timer, ok := s.diagnosticTimers[params.TextDocument.URI]; ok {
+		timer.Stop()
+		delete(s.diagnosticTimers, params.TextDocument.URI)
+	}
+	s.diagnosticsMu.Unlock()
+
 	s.versionMu.Lock()
 	delete(s.documentVersions, params.TextDocument.URI)
 	s.versionMu.Unlock()
@@ -444,9 +451,19 @@ func (s *Server) triggerDiagnostics(context *glsp.Context, uri string) {
 	if delay <= 0 {
 		delay = debounceTimeout
 	}
-	s.diagnosticTimers[uri] = time.AfterFunc(delay, func() {
+	var timer *time.Timer
+	timer = time.AfterFunc(delay, func() {
+		s.diagnosticsMu.Lock()
+		current, ok := s.diagnosticTimers[uri]
+		if !ok || current != timer {
+			s.diagnosticsMu.Unlock()
+			return
+		}
+		delete(s.diagnosticTimers, uri)
+		s.diagnosticsMu.Unlock()
 		s.runDiagnostics(context, uri)
 	})
+	s.diagnosticTimers[uri] = timer
 }
 
 func (s *Server) runDiagnostics(context *glsp.Context, uri string) {

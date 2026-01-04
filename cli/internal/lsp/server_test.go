@@ -152,6 +152,45 @@ func TestDidChangeIgnoresStaleVersion(t *testing.T) {
 	}
 }
 
+func TestDidCloseClearsDebounceTimer(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 200 * time.Millisecond
+	path := filepath.Join(t.TempDir(), "test.md")
+	uri := pathToURL(path)
+	content := "# Hello"
+
+	ctx := &glsp.Context{}
+	if err := s.didOpen(ctx, &protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:     uri,
+			Text:    content,
+			Version: 1,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen failed: %v", err)
+	}
+
+	s.diagnosticsMu.Lock()
+	_, ok := s.diagnosticTimers[uri]
+	s.diagnosticsMu.Unlock()
+	if !ok {
+		t.Fatalf("expected debounce timer to be set")
+	}
+
+	if err := s.didClose(nil, &protocol.DidCloseTextDocumentParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	}); err != nil {
+		t.Fatalf("didClose failed: %v", err)
+	}
+
+	s.diagnosticsMu.Lock()
+	_, ok = s.diagnosticTimers[uri]
+	s.diagnosticsMu.Unlock()
+	if ok {
+		t.Fatalf("expected debounce timer to be cleared on close")
+	}
+}
+
 func TestRunDiagnosticsWithError(t *testing.T) {
 	s := NewServer("0.1.0")
 	repoRoot := t.TempDir()
