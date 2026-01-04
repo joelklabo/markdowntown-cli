@@ -30,6 +30,7 @@ const baseProps = {
   initialTemplateUam: null,
   initialScanContext: null,
   initialCliSnapshotContext: null,
+  initialCliSnapshotError: null,
   session: null,
 };
 

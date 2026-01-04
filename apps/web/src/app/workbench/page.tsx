@@ -33,7 +33,7 @@ export default async function WorkbenchPage(props: { searchParams: Promise<Workb
   }
 
   const initialScanContext = parseScanContext(searchParams);
-  const initialCliSnapshotContext = parseCliSnapshotContext(searchParams);
+  const cliSnapshotResult = parseCliSnapshotContext(searchParams);
 
   return (
     <WorkbenchPageClient
@@ -41,7 +41,8 @@ export default async function WorkbenchPage(props: { searchParams: Promise<Workb
       initialEntryHint={entry === 'translate' ? 'translate' : null}
       initialTemplateUam={initialTemplateUam}
       initialScanContext={initialScanContext}
-      initialCliSnapshotContext={initialCliSnapshotContext}
+      initialCliSnapshotContext={cliSnapshotResult.context}
+      initialCliSnapshotError={cliSnapshotResult.error ?? null}
       session={session}
     />
   );

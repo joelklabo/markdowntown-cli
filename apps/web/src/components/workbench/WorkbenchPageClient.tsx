@@ -30,6 +30,7 @@ type WorkbenchPageClientProps = {
   initialTemplateUam: UamV1 | null;
   initialScanContext: ScanContext | null;
   initialCliSnapshotContext: CliSnapshotContext | null;
+  initialCliSnapshotError: string | null;
   session: Session | null;
 };
 
@@ -48,6 +49,7 @@ export function WorkbenchPageClient({
   initialTemplateUam,
   initialScanContext,
   initialCliSnapshotContext,
+  initialCliSnapshotError,
   session,
 }: WorkbenchPageClientProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -68,6 +70,7 @@ export function WorkbenchPageClient({
   }>({ status: 'idle' });
   const [showArtifactNotice, setShowArtifactNotice] = useState(false);
   const [draftPrompt, setDraftPrompt] = useState<{ lastSavedAt: number | null } | null>(null);
+  const [cliSnapshotError, setCliSnapshotError] = useState<string | null>(initialCliSnapshotError);
   const appliedScanRef = useRef(false);
   const focusAppliedRef = useRef(false);
   const openWorkbenchTrackedRef = useRef(false);
@@ -280,6 +283,27 @@ export function WorkbenchPageClient({
   return (
     <div className="flex h-[calc(100vh-64px)] min-h-0 flex-col bg-mdt-bg">
       <WorkbenchHeader session={session} cliSnapshotContext={initialCliSnapshotContext} entrySource={entrySource} />
+
+      {cliSnapshotError ? (
+        <div className="border-b border-mdt-border bg-mdt-surface px-mdt-4 py-mdt-3">
+          <div className="flex flex-wrap items-start justify-between gap-mdt-3">
+            <div className="space-y-mdt-1">
+              <Text size="caption" tone="muted">
+                CLI snapshot unavailable
+              </Text>
+              <Text weight="semibold">{cliSnapshotError}</Text>
+              <Text size="bodySm" tone="muted">
+                Check the CLI sync link or re-run the snapshot command.
+              </Text>
+            </div>
+            <div className="flex flex-wrap items-center gap-mdt-2">
+              <Button size="sm" variant="secondary" onClick={() => setCliSnapshotError(null)}>
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {saveConflict.status === 'conflict' ? (
         <div className="border-b border-mdt-border bg-mdt-surface px-mdt-4 py-mdt-3">

@@ -8,25 +8,69 @@ export type CliSnapshotContext = {
   status?: 'ready' | 'pending';
 };
 
-function firstString(value: SearchParamValue): string | null {
-  if (!value) return null;
-  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : null;
-  return typeof value === 'string' ? value : null;
+export type CliSnapshotParseResult = {
+  context: CliSnapshotContext | null;
+  error?: string | null;
+};
+
+const CLI_PARAM_KEYS = ['cliRepoId', 'cliSnapshotId', 'cliBranch', 'cliStatus'] as const;
+const CLI_PARAM_MAX_LENGTH = 200;
+
+function normalizeParam(value: SearchParamValue, label: string): { value: string | null; error?: string } {
+  if (Array.isArray(value)) {
+    if (value.length > 1) {
+      return { value: null, error: `${label} has multiple values.` };
+    }
+    value = value[0];
+  }
+  if (typeof value !== 'string') return { value: null };
+  const trimmed = value.trim();
+  if (!trimmed) return { value: null, error: `${label} is empty.` };
+  if (trimmed.length > CLI_PARAM_MAX_LENGTH) {
+    return { value: null, error: `${label} is too long.` };
+  }
+  return { value: trimmed };
 }
 
-export function parseCliSnapshotContext(searchParams: WorkbenchSearchParams): CliSnapshotContext | null {
-  const repoId = firstString(searchParams.cliRepoId)?.trim();
-  if (!repoId) return null;
-  const snapshotId = firstString(searchParams.cliSnapshotId)?.trim() ?? null;
-  const branch = firstString(searchParams.cliBranch)?.trim() ?? null;
-  const statusRaw = firstString(searchParams.cliStatus)?.trim()?.toLowerCase();
+function hasAnyCliParams(searchParams: WorkbenchSearchParams): boolean {
+  return CLI_PARAM_KEYS.some((key) => searchParams[key] !== undefined);
+}
+
+export function parseCliSnapshotContext(searchParams: WorkbenchSearchParams): CliSnapshotParseResult {
+  if (!hasAnyCliParams(searchParams)) return { context: null };
+
+  const repoIdParam = normalizeParam(searchParams.cliRepoId, 'Repository ID');
+  const snapshotIdParam = normalizeParam(searchParams.cliSnapshotId, 'Snapshot ID');
+  const branchParam = normalizeParam(searchParams.cliBranch, 'Branch');
+  const statusParam = normalizeParam(searchParams.cliStatus, 'Status');
+  const errors = [
+    repoIdParam.error,
+    snapshotIdParam.error,
+    branchParam.error,
+    statusParam.error,
+  ].filter(Boolean) as string[];
+
+  if (!repoIdParam.value) {
+    errors.push('Repository ID is required.');
+  }
+
+  const statusRaw = statusParam.value?.toLowerCase();
   const status = statusRaw === 'pending' ? 'pending' : statusRaw === 'ready' ? 'ready' : undefined;
+  if (statusParam.value && !status) {
+    errors.push('Status must be ready or pending.');
+  }
+
+  if (errors.length > 0) {
+    return { context: null, error: errors[0] };
+  }
 
   return {
-    repoId,
-    snapshotId,
-    branch,
-    status,
+    context: {
+      repoId: repoIdParam.value ?? '',
+      snapshotId: snapshotIdParam.value ?? null,
+      branch: branchParam.value ?? null,
+      status,
+    },
   };
 }
 
