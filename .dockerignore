@@ -1,0 +1,16 @@
+.git
+.github
+.beads
+.DS_Store
+*.log
+coverage*
+**/node_modules
+**/.next
+**/dist
+**/build
+**/storybook-static
+**/test-results
+**/.vercel
+**/.env*
+cli
+markdowntown

@@ -10,25 +10,30 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: test (go${{ matrix.go-version }} ${{ matrix.os }})
+  cli-test:
+    name: cli test (go${{ matrix.go-version }} ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go-version: ['1.22.x', '1.23.x']
+        go-version: ['1.25.x']
+    defaults:
+      run:
+        working-directory: cli
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           cache: true
+          cache-dependency-path: cli/go.sum
       - name: Lint
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.7.2
           args: ./...
+          working-directory: cli
       - name: Coverage threshold
         shell: bash
         run: |
@@ -37,52 +42,70 @@ jobs:
       - name: Build
         run: go build ./cmd/markdowntown
 
-  cross-build:
-    name: cross-build (go${{ matrix.go-version }} ${{ matrix.goos }}/${{ matrix.goarch }})
+  cli-cross-build:
+    name: cli cross-build (go${{ matrix.go-version }} ${{ matrix.goos }}/${{ matrix.goarch }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - go-version: '1.22.x'
+          - go-version: '1.25.x'
             goos: linux
             goarch: amd64
-          - go-version: '1.22.x'
+          - go-version: '1.25.x'
             goos: linux
             goarch: arm64
-          - go-version: '1.22.x'
+          - go-version: '1.25.x'
             goos: darwin
             goarch: amd64
-          - go-version: '1.22.x'
+          - go-version: '1.25.x'
             goos: darwin
             goarch: arm64
-          - go-version: '1.22.x'
+          - go-version: '1.25.x'
             goos: windows
             goarch: amd64
-          - go-version: '1.23.x'
-            goos: linux
-            goarch: amd64
-          - go-version: '1.23.x'
-            goos: linux
-            goarch: arm64
-          - go-version: '1.23.x'
-            goos: darwin
-            goarch: amd64
-          - go-version: '1.23.x'
-            goos: darwin
-            goarch: arm64
-          - go-version: '1.23.x'
-            goos: windows
-            goarch: amd64
+    defaults:
+      run:
+        working-directory: cli
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           cache: true
+          cache-dependency-path: cli/go.sum
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
         run: go build -o /tmp/markdowntown ./cmd/markdowntown
+
+  web:
+    name: web (node 20)
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      NEXTAUTH_SECRET: test-secret
+      GITHUB_CLIENT_ID: test-client
+      GITHUB_CLIENT_SECRET: test-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Enable corepack
+        run: corepack enable
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm -C apps/web exec prisma generate
+      - name: Lint
+        run: pnpm -C apps/web lint
+      - name: Test (unit)
+        run: pnpm -C apps/web test:unit
+      - name: Build
+        run: pnpm -C apps/web build

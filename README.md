@@ -1,8 +1,14 @@
-# markdowntown-cli
+# markdowntown
 
-Deterministic scanning for AI tool configuration files. `markdowntown` walks repo and user scopes, matches a registry of known config patterns, and emits stable JSON output for audits and CI.
+Monorepo for the Markdowntown CLI + web app. The CLI provides deterministic scanning for AI tool configuration files; the web app provides the UI and services around projects/snapshots.
 
-## Install
+## Repo layout
+
+- `apps/web`: Next.js web app
+- `cli`: Go CLI + LSP + VS Code extension
+- `packages/*`: shared packages (when present)
+
+## CLI install
 
 Homebrew (if available):
 
@@ -14,12 +20,14 @@ brew uninstall markdowntown
 Build from source:
 
 ```bash
+cd cli
 go build -o bin/markdowntown ./cmd/markdowntown
 ```
 
 Or install into your Go bin:
 
 ```bash
+cd cli
 go install ./cmd/markdowntown
 ```
 
@@ -29,7 +37,7 @@ Uninstall (Go install):
 rm "$(go env GOPATH)/bin/markdowntown"
 ```
 
-## Quick start
+## CLI quick start
 
 ```bash
 markdowntown scan --repo /path/to/repo --repo-only
@@ -40,6 +48,7 @@ markdowntown scan --repo /path/to/repo --repo-only
 One command to build and launch the VS Code LSP client (uses the in-memory overlay for unsaved buffers):
 
 ```bash
+cd cli
 make lsp-vscode
 ```
 
@@ -48,7 +57,30 @@ Requirements: VS Code's CLI in PATH (`code` or `code-insiders`) and Node/npm for
 Automated smoke test (runs the VS Code extension test runner and asserts overlay diagnostics):
 
 ```bash
+cd cli
 make lsp-vscode-test
+```
+
+## Web app (apps/web)
+
+Install deps once at the repo root:
+
+```bash
+pnpm install
+```
+
+Run the dev server:
+
+```bash
+pnpm -C apps/web dev
+```
+
+Run lint/test/build:
+
+```bash
+pnpm -C apps/web lint
+pnpm -C apps/web test:unit
+pnpm -C apps/web build
 ```
 
 Audit scan results:
@@ -95,7 +127,7 @@ markdowntown tools list
 
 ## Screenshot
 
-![Scan output](docs/screenshots/scan-cli/scan-output.png)
+![Scan output](cli/docs/screenshots/scan-cli/scan-output.png)
 
 ## Commands
 
@@ -150,7 +182,7 @@ If multiple source registries are found without an override, the command fails.
 
 Release archives include `doc-sources.json` next to the binary; keep it co-located or move it into the XDG config path.
 
-See `docs/source-registry.md` for the schema and tier definitions.
+See `cli/docs/source-registry.md` for the schema and tier definitions.
 
 ## Config + cache locations
 
@@ -228,7 +260,7 @@ Scan output is deterministic and sorted. Top-level fields include:
 - `scans` (roots) and `configs` (matched files)
 - `warnings` (non-fatal issues)
 
-See `docs/USER_GUIDE.md` for detailed output schema and examples.
+See `cli/docs/USER_GUIDE.md` for detailed output schema and examples.
 
 ## Audit highlights
 
@@ -249,13 +281,14 @@ These files are commonly scanned and may show up in results:
 
 ## Docs
 
-- `docs/scan-spec-v1.md`
-- `docs/architecture/scan.md`
-- `docs/audit-spec-v1.md`
-- `docs/architecture/audit.md`
-- `docs/USER_GUIDE.md`
-- `docs/CONTRIBUTING.md`
+- `cli/docs/scan-spec-v1.md`
+- `cli/docs/architecture/scan.md`
+- `cli/docs/audit-spec-v1.md`
+- `cli/docs/architecture/audit.md`
+- `cli/docs/USER_GUIDE.md`
+- `cli/docs/CONTRIBUTING.md`
+- `apps/web/docs/` (web guides + specs)
 
 ## Contributing
 
-See `docs/CONTRIBUTING.md` for the full workflow. CI must always be green before merging or releasing changes.
+See `cli/docs/CONTRIBUTING.md` for the full workflow. CI must always be green before merging or releasing changes.

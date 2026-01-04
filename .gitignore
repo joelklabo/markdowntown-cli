@@ -1,10 +1,14 @@
 bin/
+cli/bin/
+node_modules/
 coverage.out
 coverage.html
 *.out
 *.test
 .DS_Store
-vscode-extension/node_modules/
-vscode-extension/out/
-vscode-extension/.vscode-test/
+dist/
+cli/vscode-extension/bin/
+cli/vscode-extension/node_modules/
+cli/vscode-extension/out/
+cli/vscode-extension/.vscode-test/
 markdowntown

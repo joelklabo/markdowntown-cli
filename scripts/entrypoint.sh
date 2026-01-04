@@ -1,6 +1,9 @@
 #!/usr/bin/env sh
 set -e
 
+APP_DIR="${APP_DIR:-/app/apps/web}"
+cd "$APP_DIR"
+
 if [ "${SKIP_DB:-0}" = "1" ]; then
   echo "SKIP_DB=1 set; skipping prisma migrations"
 else

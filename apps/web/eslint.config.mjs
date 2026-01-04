@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     "storybook-static/**",
     "next-env.d.ts",
     "coverage/**",
+    // Monorepo ignores:
+    "../cli/**",
   ]),
   {
     plugins: {
