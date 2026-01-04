@@ -11,11 +11,11 @@ datasource db {
 }
 
 model User {
-  id             String     @id @default(cuid())
-  githubId       String?    @unique
+  id             String          @id @default(cuid())
+  githubId       String?         @unique
   username       String?
   name           String?
-  email          String?    @unique
+  email          String?         @unique
   emailVerified  DateTime?
   image          String?
   avatarUrl      String?
@@ -27,8 +27,9 @@ model User {
   artifacts      Artifact[]
   projects       Project[]
   cliTokens      CliToken[]
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  cliDeviceCodes CliDeviceCode[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
 
 enum Visibility {
@@ -56,6 +57,33 @@ enum RunStatus {
   FAILED
 }
 
+enum SnapshotStatus {
+  CREATED
+  UPLOADING
+  READY
+  FAILED
+}
+
+enum PatchStatus {
+  PROPOSED
+  APPLIED
+  REJECTED
+  SUPERSEDED
+}
+
+enum AuditSeverity {
+  INFO
+  WARNING
+  ERROR
+}
+
+enum DeviceCodeStatus {
+  PENDING
+  APPROVED
+  DENIED
+  EXPIRED
+}
+
 model Artifact {
   id          String       @id @default(cuid())
   slug        String?      @unique
@@ -73,18 +101,18 @@ model Artifact {
   votesUp     Int          @default(0)
   votesDown   Int          @default(0)
   favorites   Int          @default(0)
-  
-  userId      String?
-  user        User?        @relation(fields: [userId], references: [id])
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
 
   forkedFromId String?
-  forkedFrom   Artifact?   @relation("ArtifactFork", fields: [forkedFromId], references: [id])
-  forks        Artifact[]  @relation("ArtifactFork")
-  
-  versions    ArtifactVersion[]
-  
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  forkedFrom   Artifact?  @relation("ArtifactFork", fields: [forkedFromId], references: [id])
+  forks        Artifact[] @relation("ArtifactFork")
+
+  versions ArtifactVersion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([visibility])
@@ -95,15 +123,15 @@ model Artifact {
 }
 
 model ArtifactVersion {
-  id          String   @id @default(cuid())
-  artifactId  String
-  artifact    Artifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
-  version     String   @default("draft")
-  uam         Json
-  compiled    Json?
-  lint        Json?
-  message     String?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  artifactId String
+  artifact   Artifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  version    String   @default("draft")
+  uam        Json
+  compiled   Json?
+  lint       Json?
+  message    String?
+  createdAt  DateTime @default(now())
 
   @@index([artifactId])
 }
@@ -116,28 +144,28 @@ enum SnippetKind {
 }
 
 model Snippet {
-  id              String       @id @default(cuid())
-  slug            String?      @unique
-  title           String
-  content         String       @default("")
-  order           Int          @default(0)
-  visibility      Visibility   @default(PRIVATE)
-  tags            String[]     @default([])
-  kind            SnippetKind  @default(FREEFORM)
-  views           Int          @default(0)
-  copies          Int          @default(0)
-  downloads       Int          @default(0)
-  votesUp         Int          @default(0)
-  votesDown       Int          @default(0)
-  favoritesCount  Int          @default(0)
-  commentsCount   Int          @default(0)
-  userId          String?
-  user            User?        @relation(fields: [userId], references: [id])
-  agentId         String?
-  agent           Agent?       @relation(fields: [agentId], references: [id])
-  documents       DocumentSnippet[]
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id             String            @id @default(cuid())
+  slug           String?           @unique
+  title          String
+  content        String            @default("")
+  order          Int               @default(0)
+  visibility     Visibility        @default(PRIVATE)
+  tags           String[]          @default([])
+  kind           SnippetKind       @default(FREEFORM)
+  views          Int               @default(0)
+  copies         Int               @default(0)
+  downloads      Int               @default(0)
+  votesUp        Int               @default(0)
+  votesDown      Int               @default(0)
+  favoritesCount Int               @default(0)
+  commentsCount  Int               @default(0)
+  userId         String?
+  user           User?             @relation(fields: [userId], references: [id])
+  agentId        String?
+  agent          Agent?            @relation(fields: [agentId], references: [id])
+  documents      DocumentSnippet[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   @@index([userId])
   @@index([agentId])
@@ -147,43 +175,43 @@ model Snippet {
 }
 
 model Template {
-  id          String       @id @default(cuid())
-  slug        String       @unique
+  id          String     @id @default(cuid())
+  slug        String     @unique
   title       String
   description String?
   body        String
-  fields      Json         @default("[]")
-  visibility  Visibility   @default(PRIVATE)
-  tags        String[]     @default([])
-  views       Int          @default(0)
-  copies      Int          @default(0)
-  downloads   Int          @default(0)
-  uses        Int          @default(0)
+  fields      Json       @default("[]")
+  visibility  Visibility @default(PRIVATE)
+  tags        String[]   @default([])
+  views       Int        @default(0)
+  copies      Int        @default(0)
+  downloads   Int        @default(0)
+  uses        Int        @default(0)
   userId      String?
-  user        User?        @relation(fields: [userId], references: [id])
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  user        User?      @relation(fields: [userId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@index([userId])
   @@index([visibility])
 }
 
 model Document {
-  id              String             @id @default(cuid())
-  slug            String             @unique
+  id              String            @id @default(cuid())
+  slug            String            @unique
   title           String
   description     String?
   renderedContent String?
-  visibility      Visibility         @default(PRIVATE)
-  tags            String[]           @default([])
-  views           Int                @default(0)
-  copies          Int                @default(0)
-  downloads       Int                @default(0)
+  visibility      Visibility        @default(PRIVATE)
+  tags            String[]          @default([])
+  views           Int               @default(0)
+  copies          Int               @default(0)
+  downloads       Int               @default(0)
   userId          String?
-  user            User?              @relation(fields: [userId], references: [id])
+  user            User?             @relation(fields: [userId], references: [id])
   snippets        DocumentSnippet[]
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   @@index([userId])
   @@index([visibility])
@@ -205,6 +233,7 @@ model Project {
   id          String     @id @default(cuid())
   name        String
   slug        String?
+  provider    String?
   description String?
   userId      String
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -214,37 +243,58 @@ model Project {
 
   @@index([userId])
   @@index([slug])
+  @@index([provider])
 }
 
 model Snapshot {
-  id        String         @id @default(cuid())
-  projectId String
-  project   Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  source    String?
-  repoRoot  String?
-  metadata  Json?
-  files     SnapshotFile[]
-  runs      Run[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id               String         @id @default(cuid())
+  projectId        String
+  project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  baseSnapshotId   String?
+  baseSnapshot     Snapshot?      @relation("SnapshotBase", fields: [baseSnapshotId], references: [id], onDelete: SetNull)
+  derivedSnapshots Snapshot[]     @relation("SnapshotBase")
+  source           String?
+  repoRoot         String?
+  manifestHash     String?
+  protocolVersion  String?
+  idempotencyKey   String?
+  status           SnapshotStatus @default(CREATED)
+  metadata         Json?
+  files            SnapshotFile[]
+  runs             Run[]
+  auditIssues      AuditIssue[]
+  patches          Patch[]
+  finalizedAt      DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
+  @@unique([projectId, idempotencyKey])
   @@index([projectId])
+  @@index([baseSnapshotId])
+  @@index([manifestHash])
 }
 
 model SnapshotFile {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   snapshotId  String
-  snapshot    Snapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  snapshot    Snapshot  @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
   path        String
   blobId      String
-  blob        Blob     @relation(fields: [blobId], references: [id])
+  blob        Blob      @relation(fields: [blobId], references: [id])
   sizeBytes   Int
   contentType String?
-  isBinary    Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  isBinary    Boolean   @default(false)
+  mode        Int?
+  mtime       DateTime?
+  orderIndex  Int       @default(0)
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
 
   @@unique([snapshotId, path])
   @@index([snapshotId])
+  @@index([snapshotId, isDeleted])
+  @@index([snapshotId, orderIndex])
   @@index([blobId])
 }
 
@@ -276,29 +326,85 @@ model Run {
   @@index([status])
 }
 
+model Patch {
+  id             String      @id @default(cuid())
+  snapshotId     String
+  snapshot       Snapshot    @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  path           String
+  baseBlobHash   String
+  patchFormat    String
+  patchBody      String
+  status         PatchStatus @default(PROPOSED)
+  idempotencyKey String?
+  createdAt      DateTime    @default(now())
+  appliedAt      DateTime?
+
+  @@unique([snapshotId, idempotencyKey])
+  @@index([snapshotId])
+  @@index([snapshotId, status])
+  @@index([snapshotId, path])
+}
+
+model AuditIssue {
+  id         String        @id @default(cuid())
+  snapshotId String
+  snapshot   Snapshot      @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  ruleId     String
+  severity   AuditSeverity
+  path       String
+  message    String
+  createdAt  DateTime      @default(now())
+
+  @@index([snapshotId])
+  @@index([severity])
+  @@index([ruleId])
+}
+
 model CliToken {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash  String   @unique
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  scopes     String[]  @default([])
   label      String?
   lastUsedAt DateTime?
   revokedAt  DateTime?
   expiresAt  DateTime?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([userId])
   @@index([revokedAt])
 }
 
+model CliDeviceCode {
+  id              String           @id @default(cuid())
+  deviceCodeHash  String           @unique
+  userCodeHash    String           @unique
+  status          DeviceCodeStatus @default(PENDING)
+  userId          String?
+  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  clientId        String?
+  deviceName      String?
+  scopes          String[]         @default([])
+  intervalSeconds Int              @default(5)
+  expiresAt       DateTime
+  confirmedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
 model Agent {
-  id          String     @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   description String?
   config      String?
   sections    Snippet[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Account {
