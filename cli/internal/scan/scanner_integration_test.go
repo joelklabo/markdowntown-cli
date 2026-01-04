@@ -20,6 +20,12 @@ import (
 
 var updateGolden = flag.Bool("update-golden", false, "update golden fixtures")
 
+func skipGlobalIntegrationOnWindows(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("global scope is not supported on Windows")
+	}
+}
+
 func TestScanIntegrationGolden(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
@@ -82,6 +88,8 @@ func TestScanIntegrationGolden(t *testing.T) {
 }
 
 func TestScanIntegrationGlobalScope(t *testing.T) {
+	skipGlobalIntegrationOnWindows(t)
+
 	repoRoot := t.TempDir()
 	writeTestFile(t, filepath.Join(repoRoot, "repo.md"), "repo")
 
@@ -121,6 +129,8 @@ func TestScanIntegrationGlobalScope(t *testing.T) {
 }
 
 func TestScanIntegrationParallelWorkers(t *testing.T) {
+	skipGlobalIntegrationOnWindows(t)
+
 	repoRoot := t.TempDir()
 	writeTestFile(t, filepath.Join(repoRoot, "repo.md"), "repo")
 
@@ -302,6 +312,8 @@ func scanOutputForGlobalWorkers(t *testing.T, repoRoot string, globalRoot string
 }
 
 func TestScanIntegrationGlobalGuardrails(t *testing.T) {
+	skipGlobalIntegrationOnWindows(t)
+
 	repoRoot := t.TempDir()
 	globalRoot := t.TempDir()
 	writeTestFile(t, filepath.Join(globalRoot, "a.md"), "a")

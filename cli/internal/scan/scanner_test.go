@@ -13,6 +13,12 @@ import (
 	"github.com/spf13/afero"
 )
 
+func skipGlobalOnWindows(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("global scope is not supported on Windows")
+	}
+}
+
 func TestScanWarnsOnPermissionDeniedDir(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("permission bits are unreliable on Windows")
@@ -190,6 +196,8 @@ func TestScanUserRootMissing(t *testing.T) {
 }
 
 func TestScanGlobalScopeOrdering(t *testing.T) {
+	skipGlobalOnWindows(t)
+
 	repoRoot := t.TempDir()
 	writeTestFile(t, filepath.Join(repoRoot, "repo.md"), "repo")
 
@@ -291,6 +299,8 @@ func TestScanGlobalScopeSkipsSpecialFiles(t *testing.T) {
 }
 
 func TestScanGlobalScopeSkipsSensitivePaths(t *testing.T) {
+	skipGlobalOnWindows(t)
+
 	repoRoot := t.TempDir()
 	globalRoot := copyFixture(t, "global-scope")
 
@@ -356,6 +366,8 @@ func TestNormalizeGlobalRelPathUnicodeNFC(t *testing.T) {
 }
 
 func TestScanGlobalScopeHonorsMaxFiles(t *testing.T) {
+	skipGlobalOnWindows(t)
+
 	repoRoot := t.TempDir()
 	globalRoot := t.TempDir()
 	writeTestFile(t, filepath.Join(globalRoot, "a.md"), "a")
@@ -402,6 +414,8 @@ func TestScanGlobalScopeHonorsMaxFiles(t *testing.T) {
 }
 
 func TestScanGlobalScopeHonorsMaxBytes(t *testing.T) {
+	skipGlobalOnWindows(t)
+
 	repoRoot := t.TempDir()
 	globalRoot := t.TempDir()
 	writeTestFile(t, filepath.Join(globalRoot, "a.md"), "1234")
@@ -621,6 +635,8 @@ func TestScanGlobalScopeSymlinkMultiHopEscape(t *testing.T) {
 }
 
 func TestScanGlobalScopeWarnsOnCircularSymlink(t *testing.T) {
+	skipGlobalOnWindows(t)
+
 	globalRoot := copyFixture(t, "global-scope")
 	loopDir := filepath.Join(globalRoot, "loop")
 	if err := os.Mkdir(loopDir, 0o700); err != nil {
@@ -651,6 +667,8 @@ func TestScanGlobalScopeWarnsOnCircularSymlink(t *testing.T) {
 }
 
 func TestScanGlobalScopeSkipsSensitivePrefixes(t *testing.T) {
+	skipGlobalOnWindows(t)
+
 	repoRoot := t.TempDir()
 	globalRoot := copyFixture(t, "global-scope")
 
