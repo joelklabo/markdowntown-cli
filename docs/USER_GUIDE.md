@@ -1,16 +1,36 @@
 # User Guide (Monorepo)
 
-This guide links the CLI and web documentation and highlights the CLI sync flow.
+This guide is the canonical entry point for Markdowntown CLI + web workflows.
 
-## CLI user guide
-- See `cli/docs/USER_GUIDE.md` for CLI commands, flags, and LSP diagnostics.
+## Web app flows
 
-## Web app user guide
-- See `apps/web/docs/USER_GUIDE.md` for Scan/Library/Translate → Workbench flows.
+### Scan → Workbench → Export
+1. From Home, click **Scan a folder** (Atlas Simulator).
+2. Pick your repo root, then review Next steps, warnings, and instruction health.
+3. Use **Open Workbench** to launch with tool + cwd prefilled.
+4. Add scopes/blocks, write instructions, and validate with **Preview** / **Lint**.
+5. Export `agents.md` or download the zip.
+
+### Library → Workbench → Export
+1. Open **Library** and select a template.
+2. Use **Open in Workbench** to edit.
+3. Export `agents.md` or download the zip.
+
+### Translate → Workbench → Export
+1. Open **Translate** from the nav.
+2. Select targets and paste Markdown or UAM JSON.
+3. Compile, review output, then **Open in Workbench**.
+
+## CLI usage
+- CLI command + schema details live in `cli/docs/scan-spec-v1.md`, `cli/docs/audit-spec-v1.md`, and `cli/docs/suggest-spec-v1.md`.
+- CLI quick reference: `cli/docs/USER_GUIDE.md`.
 
 ## CLI sync flow
 1. Run a CLI sync command to upload or reference a snapshot (see CLI docs).
 2. Open the Workbench handoff link (or `/workbench` with `cliRepoId`, `cliSnapshotId`, `cliBranch`, `cliStatus`).
-3. Review the snapshot banner, then use **Export patch** or **Copy CLI command** to pull changes back to the CLI.
+3. Review the snapshot banner, then use **Export patch** or **Copy CLI command** to pull changes back.
 
-Screenshots for the CLI sync flow live in `docs/screenshots/cli-sync/`.
+## References
+- Design system: `docs/DESIGN_SYSTEM.md`.
+- Source registry schema: `docs/source-registry.md`.
+- Screenshots: `docs/screenshots/cli-sync/`.

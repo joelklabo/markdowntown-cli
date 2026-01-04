@@ -315,7 +315,7 @@ Hash: `sha256` of the canonical JSON representation.
 
 ## References
 
-- docs/scan-spec-v1.md
+- cli/docs/scan-spec-v1.md
 - docs/USER_GUIDE.md
 - docs/architecture/scan.md
 - <https://code.visualstudio.com/docs/copilot/customization/custom-instructions>

@@ -193,7 +193,7 @@ If multiple source registries are found without an override, the command fails.
 
 Release archives include `doc-sources.json` next to the binary; keep it co-located or move it into the XDG config path.
 
-See `cli/docs/source-registry.md` for the schema and tier definitions.
+See `docs/source-registry.md` for the schema and tier definitions.
 
 ## Config + cache locations
 

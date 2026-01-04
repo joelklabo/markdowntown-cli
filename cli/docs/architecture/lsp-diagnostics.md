@@ -7,7 +7,7 @@ Define how markdowntown diagnostics should appear in VS Code. This document focu
 References:
 
 - docs/architecture/diagnostic-catalog.md
-- docs/audit-spec-v1.md
+- cli/docs/audit-spec-v1.md
 - [VS Code programmatic language features](https://code.visualstudio.com/api/language-extensions/programmatic-language-features)
 - [LSP specification 3.17](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/)
 
@@ -51,7 +51,7 @@ References:
 ### codeDescription
 
 - Provide a link to the rule documentation when available.
-- Prefer an anchor in `docs/audit-spec-v1.md` or the diagnostic catalog.
+- Prefer an anchor in `cli/docs/audit-spec-v1.md` or the diagnostic catalog.
 - Omit `codeDescription` if the rule is undocumented.
 
 ### relatedInformation
@@ -126,4 +126,4 @@ Include structured data for code actions and tests:
 ## Cross-links
 
 - Diagnostic catalog: docs/architecture/diagnostic-catalog.md
-- Audit rule catalog: docs/audit-spec-v1.md
+- Audit rule catalog: cli/docs/audit-spec-v1.md
