@@ -714,6 +714,97 @@ func TestDiagnosticsDebounceLastChange(t *testing.T) {
 	}
 }
 
+func TestDiagnosticsDebounceOutOfOrderChanges(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 2)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
+	valid := "---\ntoolId: gemini-cli\n---\n# Hello"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: valid,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	_ = waitForDiagnostics(t, diagnostics, uri)
+
+	invalid := "---\nkey: value\ninvalid: [\n---\n# Hello"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidChange, protocol.DidChangeTextDocumentParams{
+		TextDocument: protocol.VersionedTextDocumentIdentifier{
+			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+			Version:                2,
+		},
+		ContentChanges: []any{
+			protocol.TextDocumentContentChangeEvent{Text: invalid},
+		},
+	}); err != nil {
+		t.Fatalf("didChange notify failed: %v", err)
+	}
+
+	valid2 := "---\ntoolId: gemini-cli\n---\n# Updated"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidChange, protocol.DidChangeTextDocumentParams{
+		TextDocument: protocol.VersionedTextDocumentIdentifier{
+			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+			Version:                1,
+		},
+		ContentChanges: []any{
+			protocol.TextDocumentContentChangeEvent{Text: valid2},
+		},
+	}); err != nil {
+		t.Fatalf("didChange notify failed: %v", err)
+	}
+
+	final := waitForDiagnostics(t, diagnostics, uri)
+	for _, diag := range final.Diagnostics {
+		if strings.Contains(diag.Message, "Invalid YAML frontmatter") {
+			t.Fatalf("expected final diagnostics to reflect last change, got %q", diag.Message)
+		}
+	}
+
+	select {
+	case <-diagnostics:
+		t.Fatalf("expected only one diagnostics publish after debounce")
+	case <-time.After(150 * time.Millisecond):
+	}
+}
+
 func TestDiagnosticsConflict(t *testing.T) {
 	s := NewServer("0.1.0")
 	s.Debounce = 50 * time.Millisecond

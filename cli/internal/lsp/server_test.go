@@ -282,6 +282,41 @@ func TestDefinitionFallbackToAgents(t *testing.T) {
 	}
 }
 
+func TestDefinitionNonToolIDReturnsNil(t *testing.T) {
+	s := NewServer("0.1.0")
+	repoRoot := t.TempDir()
+	s.rootPath = repoRoot
+	s.fs = afero.NewCopyOnWriteFs(afero.NewOsFs(), s.overlay)
+	setRegistryEnv(t)
+
+	uri := pathToURL(filepath.Join(repoRoot, "AGENTS.md"))
+	content := "---\nscope: repo\n---\n# Hello"
+
+	if err := s.didOpen(nil, &protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen failed: %v", err)
+	}
+
+	params := &protocol.DefinitionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: 1, Character: 2},
+		},
+	}
+
+	result, err := s.definition(nil, params)
+	if err != nil {
+		t.Fatalf("definition failed: %v", err)
+	}
+	if result != nil {
+		t.Fatalf("expected nil definition, got %#v", result)
+	}
+}
+
 func TestDocumentSymbolFrontmatter(t *testing.T) {
 	s := NewServer("0.1.0")
 	path := filepath.Join(t.TempDir(), "AGENTS.md")
