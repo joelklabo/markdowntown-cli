@@ -3,6 +3,7 @@
 package scan
 
 import (
+	"errors"
 	"io"
 	"io/fs"
 	"os"
@@ -62,7 +63,8 @@ func openNoFollowAbsolute(path string) (*os.File, error) {
 		}
 		return os.NewFile(uintptr(fd), clean), nil
 	}
-	parts, err := splitPathComponents(strings.TrimPrefix(clean, string(os.PathSeparator)))
+	relPath := strings.TrimPrefix(clean, string(os.PathSeparator))
+	parts, err := splitPathComponents(relPath)
 	if err != nil {
 		return nil, err
 	}
@@ -70,8 +72,22 @@ func openNoFollowAbsolute(path string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	fd, err := openAtNoFollow(rootfd, parts)
+	defer func() {
+		_ = unix.Close(rootfd)
+	}()
+	fd, err := openAtNoFollowOpenat2(rootfd, relPath)
+	if err == nil {
+		return os.NewFile(uintptr(fd), clean), nil
+	}
+	if !errors.Is(err, errOpenat2Unavailable) {
+		return nil, err
+	}
+	fd, err = openAtNoFollow(rootfd, parts)
 	if err != nil {
+		return nil, err
+	}
+	if err := verifyFdWithinRoot(rootfd, relPath, fd); err != nil {
+		_ = unix.Close(fd)
 		return nil, err
 	}
 	return os.NewFile(uintptr(fd), clean), nil
@@ -85,8 +101,23 @@ func openNoFollowRelative(root string, parts []string, path string) (*os.File, e
 	if err != nil {
 		return nil, err
 	}
-	fd, err := openAtNoFollow(rootfd, parts)
+	defer func() {
+		_ = unix.Close(rootfd)
+	}()
+	relPath := filepath.Join(parts...)
+	fd, err := openAtNoFollowOpenat2(rootfd, relPath)
+	if err == nil {
+		return os.NewFile(uintptr(fd), path), nil
+	}
+	if !errors.Is(err, errOpenat2Unavailable) {
+		return nil, err
+	}
+	fd, err = openAtNoFollow(rootfd, parts)
 	if err != nil {
+		return nil, err
+	}
+	if err := verifyFdWithinRoot(rootfd, relPath, fd); err != nil {
+		_ = unix.Close(fd)
 		return nil, err
 	}
 	return os.NewFile(uintptr(fd), path), nil
@@ -99,7 +130,6 @@ func openAtNoFollow(dirfd int, parts []string) (int, error) {
 	}
 	for i, part := range parts {
 		if part == "" || part == "." || part == ".." {
-			_ = unix.Close(fd)
 			return -1, fs.ErrInvalid
 		}
 		flags := unix.O_RDONLY | unix.O_NOFOLLOW | unix.O_CLOEXEC
@@ -108,13 +138,35 @@ func openAtNoFollow(dirfd int, parts []string) (int, error) {
 		}
 		nextFD, err := unix.Openat(fd, part, flags, 0)
 		if err != nil {
-			_ = unix.Close(fd)
+			if fd != dirfd {
+				_ = unix.Close(fd)
+			}
 			return -1, err
 		}
-		_ = unix.Close(fd)
+		if fd != dirfd {
+			_ = unix.Close(fd)
+		}
 		fd = nextFD
 	}
 	return fd, nil
+}
+
+func verifyFdWithinRoot(rootfd int, relPath string, fd int) error {
+	if relPath == "" {
+		return fs.ErrInvalid
+	}
+	var fdStat unix.Stat_t
+	if err := unix.Fstat(fd, &fdStat); err != nil {
+		return err
+	}
+	var pathStat unix.Stat_t
+	if err := unix.Fstatat(rootfd, relPath, &pathStat, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+		return err
+	}
+	if fdStat.Dev != pathStat.Dev || fdStat.Ino != pathStat.Ino {
+		return fs.ErrInvalid
+	}
+	return nil
 }
 
 func splitPathComponents(path string) ([]string, error) {
