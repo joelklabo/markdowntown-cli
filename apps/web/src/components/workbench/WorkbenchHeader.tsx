@@ -12,12 +12,16 @@ import { Checkbox } from '@/components/ui/Checkbox';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/Sheet';
 import { COMMAND_PALETTE_OPEN_EVENT } from '@/components/CommandPalette';
 import { track } from '@/lib/analytics';
+import type { WorkbenchEntrySource } from '@/components/workbench/workbenchEntry';
+import { buildCliSnapshotCommand, formatCliSnapshotLabel, type CliSnapshotContext } from '@/lib/workbench/cliSnapshot';
 
 type WorkbenchHeaderProps = {
   session: Session | null;
+  cliSnapshotContext?: CliSnapshotContext | null;
+  entrySource?: WorkbenchEntrySource;
 };
 
-export function WorkbenchHeader({ session }: WorkbenchHeaderProps) {
+export function WorkbenchHeader({ session, cliSnapshotContext, entrySource = 'direct' }: WorkbenchHeaderProps) {
   const artifactId = useWorkbenchStore(s => s.id);
   const title = useWorkbenchStore(s => s.title);
   const autosaveStatus = useWorkbenchStore(s => s.autosaveStatus);
@@ -41,6 +45,7 @@ export function WorkbenchHeader({ session }: WorkbenchHeaderProps) {
   const [tagsFocused, setTagsFocused] = useState(false);
   const [secretDialogOpen, setSecretDialogOpen] = useState(false);
   const [secretAckChecked, setSecretAckChecked] = useState(false);
+  const [cliCopied, setCliCopied] = useState(false);
 
   useEffect(() => {
     if (tagsFocused) return;
@@ -59,6 +64,16 @@ export function WorkbenchHeader({ session }: WorkbenchHeaderProps) {
     if (visibility === 'UNLISTED') return { label: 'Unlisted', tone: 'info' as const };
     return { label: 'Draft', tone: 'warning' as const };
   }, [visibility]);
+
+  const cliCommand = useMemo(() => {
+    if (!cliSnapshotContext) return null;
+    return buildCliSnapshotCommand(cliSnapshotContext);
+  }, [cliSnapshotContext]);
+
+  const cliLabel = useMemo(() => {
+    if (!cliSnapshotContext) return null;
+    return formatCliSnapshotLabel(cliSnapshotContext);
+  }, [cliSnapshotContext]);
 
   const parseTags = (value: string) =>
     value
@@ -105,6 +120,52 @@ export function WorkbenchHeader({ session }: WorkbenchHeaderProps) {
           <Text size="caption" tone="muted">
             Build then export.
           </Text>
+          {cliSnapshotContext ? (
+            <div className="flex flex-wrap items-center gap-mdt-2">
+              <Badge tone="info" className="uppercase tracking-wide">
+                CLI snapshot
+              </Badge>
+              <Text size="caption" tone="muted">
+                {cliLabel}
+              </Text>
+              <Button
+                size="xs"
+                variant="secondary"
+                onClick={() => {
+                  const panel = document.getElementById('workbench-export-panel');
+                  if (panel) {
+                    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    panel.focus?.({ preventScroll: true });
+                  }
+                  track('workbench_cli_export_cta', { repoId: cliSnapshotContext.repoId, entrySource });
+                }}
+              >
+                Export patch
+              </Button>
+              {cliCommand ? (
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(cliCommand);
+                      setCliCopied(true);
+                      window.setTimeout(() => setCliCopied(false), 1200);
+                      track('workbench_cli_patch_copy', {
+                        repoId: cliSnapshotContext.repoId,
+                        snapshotId: cliSnapshotContext.snapshotId ?? undefined,
+                        entrySource,
+                      });
+                    } catch {
+                      // ignore clipboard failures
+                    }
+                  }}
+                >
+                  {cliCopied ? 'Copied' : 'Copy CLI command'}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-mdt-4 md:flex-row md:flex-wrap md:items-center md:justify-end">

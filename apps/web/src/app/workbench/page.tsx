@@ -2,7 +2,7 @@ import { WorkbenchPageClient } from '@/components/workbench/WorkbenchPageClient'
 import { loadWorkbenchTemplateUam } from '@/lib/atlas/load';
 import { getSession } from '@/lib/auth';
 import type { UamV1 } from '@/lib/uam/uamTypes';
-import { parseScanContext, type WorkbenchSearchParams } from '@/lib/workbench/handoff';
+import { parseScanContext, parseCliSnapshotContext, type WorkbenchSearchParams } from '@/lib/workbench/handoff';
 
 function firstString(value: string | string[] | undefined): string | null {
   if (!value) return null;
@@ -33,6 +33,7 @@ export default async function WorkbenchPage(props: { searchParams: Promise<Workb
   }
 
   const initialScanContext = parseScanContext(searchParams);
+  const initialCliSnapshotContext = parseCliSnapshotContext(searchParams);
 
   return (
     <WorkbenchPageClient
@@ -40,6 +41,7 @@ export default async function WorkbenchPage(props: { searchParams: Promise<Workb
       initialEntryHint={entry === 'translate' ? 'translate' : null}
       initialTemplateUam={initialTemplateUam}
       initialScanContext={initialScanContext}
+      initialCliSnapshotContext={initialCliSnapshotContext}
       session={session}
     />
   );

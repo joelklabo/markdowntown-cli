@@ -16,6 +16,7 @@ import { getTimeSinceSessionStartMs, track } from '@/lib/analytics';
 import type { SimulatorToolId } from '@/lib/atlas/simulators/types';
 import type { UamV1 } from '@/lib/uam/uamTypes';
 import type { WorkbenchEntrySource } from '@/components/workbench/workbenchEntry';
+import type { CliSnapshotContext } from '@/lib/workbench/cliSnapshot';
 
 type ScanContext = {
   tool: SimulatorToolId;
@@ -28,6 +29,7 @@ type WorkbenchPageClientProps = {
   initialEntryHint: 'translate' | null;
   initialTemplateUam: UamV1 | null;
   initialScanContext: ScanContext | null;
+  initialCliSnapshotContext: CliSnapshotContext | null;
   session: Session | null;
 };
 
@@ -45,6 +47,7 @@ export function WorkbenchPageClient({
   initialEntryHint,
   initialTemplateUam,
   initialScanContext,
+  initialCliSnapshotContext,
   session,
 }: WorkbenchPageClientProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -52,6 +55,7 @@ export function WorkbenchPageClient({
 
   const [mobileTab, setMobileTab] = useState<'structure' | 'editor' | 'output'>(() => {
     if (initialArtifactId || initialTemplateUam) return 'editor';
+    if (initialCliSnapshotContext) return 'editor';
     if (initialScanContext || storedScanContext) return 'output';
     if (initialEntryHint === 'translate') return 'output';
     return 'editor';
@@ -169,10 +173,19 @@ export function WorkbenchPageClient({
 
   const entrySource = useMemo<WorkbenchEntrySource>(() => {
     if (initialArtifactId || initialTemplateUam) return 'library';
+    if (initialCliSnapshotContext) return 'cli';
     if (scanContext || initialScanContext || storedScanContext) return 'scan';
     if (initialEntryHint === 'translate') return 'translate';
     return 'direct';
-  }, [initialArtifactId, initialEntryHint, initialScanContext, initialTemplateUam, scanContext, storedScanContext]);
+  }, [
+    initialArtifactId,
+    initialCliSnapshotContext,
+    initialEntryHint,
+    initialScanContext,
+    initialTemplateUam,
+    scanContext,
+    storedScanContext,
+  ]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -266,7 +279,7 @@ export function WorkbenchPageClient({
 
   return (
     <div className="flex h-[calc(100vh-64px)] min-h-0 flex-col bg-mdt-bg">
-      <WorkbenchHeader session={session} />
+      <WorkbenchHeader session={session} cliSnapshotContext={initialCliSnapshotContext} entrySource={entrySource} />
 
       {saveConflict.status === 'conflict' ? (
         <div className="border-b border-mdt-border bg-mdt-surface px-mdt-4 py-mdt-3">

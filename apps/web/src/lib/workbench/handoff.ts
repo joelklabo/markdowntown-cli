@@ -1,4 +1,5 @@
 import type { SimulatorToolId } from '@/lib/atlas/simulators/types';
+export { parseCliSnapshotContext, type CliSnapshotContext } from './cliSnapshot';
 
 type SearchParamValue = string | string[] | undefined;
 export type WorkbenchSearchParams = Record<string, SearchParamValue>;

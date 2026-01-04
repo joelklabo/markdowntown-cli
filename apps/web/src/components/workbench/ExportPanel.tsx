@@ -134,6 +134,8 @@ export function ExportPanel({ entrySource = 'direct' }: ExportPanelProps) {
     switch (entrySource) {
       case 'scan':
         return 'Scan defaults applied';
+      case 'cli':
+        return 'CLI snapshot loaded';
       case 'library':
         return 'Library item loaded';
       case 'translate':

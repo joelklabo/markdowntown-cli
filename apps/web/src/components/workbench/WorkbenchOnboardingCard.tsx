@@ -30,6 +30,11 @@ export function WorkbenchOnboardingCard({ entrySource, scanSummary }: WorkbenchO
       'Add a scope or block to refine instructions.',
       'Export agents.md when ready.',
     ],
+    cli: [
+      'Review snapshot edits and audit findings.',
+      'Export a patch for the CLI to apply.',
+      'Sync again after applying the patch.',
+    ],
     library: [
       'Review the loaded instructions.',
       'Add or edit blocks to refine the output.',
@@ -49,6 +54,7 @@ export function WorkbenchOnboardingCard({ entrySource, scanSummary }: WorkbenchO
 
   const headingBySource: Record<WorkbenchEntrySource, string> = {
     scan: 'Build your agents.md',
+    cli: 'Review CLI snapshot',
     library: 'Refine this library item',
     translate: 'Finish your translation',
     direct: 'Build your agents.md',
@@ -56,6 +62,7 @@ export function WorkbenchOnboardingCard({ entrySource, scanSummary }: WorkbenchO
 
   const labelBySource: Record<WorkbenchEntrySource, string> = {
     scan: 'Scan defaults applied',
+    cli: 'CLI snapshot loaded',
     library: 'Library item loaded',
     translate: 'Translation ready',
     direct: 'No scan context yet',
@@ -63,6 +70,7 @@ export function WorkbenchOnboardingCard({ entrySource, scanSummary }: WorkbenchO
 
   const introBySource: Record<WorkbenchEntrySource, string> = {
     scan: 'Local-only scan. Review defaults, then add blocks and export.',
+    cli: 'Snapshot edits are ready. Export a patch and apply it in the CLI.',
     library: 'Start from this library item, then export when you are ready.',
     translate: 'Review the translation, then add any missing context before exporting.',
     direct: 'Scan a folder to see what loads, then build and export.',

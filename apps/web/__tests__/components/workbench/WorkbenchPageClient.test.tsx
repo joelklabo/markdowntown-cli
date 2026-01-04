@@ -29,6 +29,7 @@ const baseProps = {
   initialEntryHint: null,
   initialTemplateUam: null,
   initialScanContext: null,
+  initialCliSnapshotContext: null,
   session: null,
 };
 
