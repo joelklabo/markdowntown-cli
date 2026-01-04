@@ -792,10 +792,9 @@ func TestDiagnosticsDebounceOutOfOrderChanges(t *testing.T) {
 	}
 
 	final := waitForDiagnostics(t, diagnostics, uri)
-	for _, diag := range final.Diagnostics {
-		if strings.Contains(diag.Message, "Invalid YAML frontmatter") {
-			t.Fatalf("expected final diagnostics to reflect last change, got %q", diag.Message)
-		}
+	diag := requireDiagnostic(t, final.Diagnostics, "MD003")
+	if !strings.Contains(diag.Message, "Invalid YAML frontmatter") {
+		t.Fatalf("expected stale update to be ignored, got %q", diag.Message)
 	}
 
 	select {

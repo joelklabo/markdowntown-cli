@@ -101,6 +101,57 @@ func TestDocumentSync(t *testing.T) {
 	}
 }
 
+func TestDidChangeIgnoresStaleVersion(t *testing.T) {
+	s := NewServer("0.1.0")
+	path := filepath.Join(t.TempDir(), "test.md")
+	uri := pathToURL(path)
+	content := "# Hello"
+
+	if err := s.didOpen(nil, &protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:     uri,
+			Text:    content,
+			Version: 2,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen failed: %v", err)
+	}
+
+	updated := "# Updated"
+	if err := s.didChange(nil, &protocol.DidChangeTextDocumentParams{
+		TextDocument: protocol.VersionedTextDocumentIdentifier{
+			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+			Version:                3,
+		},
+		ContentChanges: []any{
+			protocol.TextDocumentContentChangeEvent{Text: updated},
+		},
+	}); err != nil {
+		t.Fatalf("didChange failed: %v", err)
+	}
+
+	stale := "# Stale"
+	if err := s.didChange(nil, &protocol.DidChangeTextDocumentParams{
+		TextDocument: protocol.VersionedTextDocumentIdentifier{
+			TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+			Version:                2,
+		},
+		ContentChanges: []any{
+			protocol.TextDocumentContentChangeEvent{Text: stale},
+		},
+	}); err != nil {
+		t.Fatalf("didChange failed: %v", err)
+	}
+
+	data, err := afero.ReadFile(s.overlay, path)
+	if err != nil {
+		t.Fatalf("read overlay failed: %v", err)
+	}
+	if string(data) != updated {
+		t.Fatalf("expected stale update to be ignored, got %s", string(data))
+	}
+}
+
 func TestRunDiagnosticsWithError(t *testing.T) {
 	s := NewServer("0.1.0")
 	repoRoot := t.TempDir()

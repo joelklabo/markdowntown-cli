@@ -65,6 +65,8 @@ type Server struct {
 	// Cache state
 	cacheMu          sync.Mutex
 	frontmatterCache map[string]*scan.ParsedFrontmatter
+	versionMu        sync.Mutex
+	documentVersions map[string]protocol.Integer
 }
 
 // NewServer constructs a new LSP server.
@@ -77,6 +79,7 @@ func NewServer(version string) *Server {
 		Debounce:         0,
 		settings:         DefaultSettings(),
 		frontmatterCache: make(map[string]*scan.ParsedFrontmatter),
+		documentVersions: make(map[string]protocol.Integer),
 	}
 	s.fs = afero.NewCopyOnWriteFs(s.base, s.overlay)
 
@@ -230,6 +233,10 @@ func (s *Server) didOpen(context *glsp.Context, params *protocol.DidOpenTextDocu
 		return err
 	}
 
+	s.versionMu.Lock()
+	s.documentVersions[params.TextDocument.URI] = params.TextDocument.Version
+	s.versionMu.Unlock()
+
 	// Cache frontmatter
 	parsed, _, _ := scan.ParseFrontmatter([]byte(params.TextDocument.Text))
 	s.cacheMu.Lock()
@@ -244,6 +251,23 @@ func (s *Server) didChange(context *glsp.Context, params *protocol.DidChangeText
 	path, err := urlToPath(params.TextDocument.URI)
 	if err != nil {
 		return err
+	}
+
+	if params.TextDocument.Version != 0 {
+		s.versionMu.Lock()
+		current, ok := s.documentVersions[params.TextDocument.URI]
+		if ok && params.TextDocument.Version < current {
+			s.versionMu.Unlock()
+			commonlog.GetLogger(serverName).Infof(
+				"Ignoring stale didChange for %s: version %d < %d",
+				params.TextDocument.URI,
+				params.TextDocument.Version,
+				current,
+			)
+			return nil
+		}
+		s.documentVersions[params.TextDocument.URI] = params.TextDocument.Version
+		s.versionMu.Unlock()
 	}
 
 	currentContent := ""
@@ -291,6 +315,10 @@ func (s *Server) didClose(_ *glsp.Context, params *protocol.DidCloseTextDocument
 	s.cacheMu.Lock()
 	delete(s.frontmatterCache, params.TextDocument.URI)
 	s.cacheMu.Unlock()
+
+	s.versionMu.Lock()
+	delete(s.documentVersions, params.TextDocument.URI)
+	s.versionMu.Unlock()
 
 	return s.overlay.Remove(path)
 }
