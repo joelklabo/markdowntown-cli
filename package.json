@@ -1,0 +1,11 @@
+{
+  "name": "markdowntown-root",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "lint": "pnpm -C apps/web lint",
+    "compile": "pnpm -C apps/web compile",
+    "wasm:build": "bash cli/scripts/build-wasm.sh",
+    "wasm:smoke": "node scripts/wasm-smoke.mjs"
+  }
+}

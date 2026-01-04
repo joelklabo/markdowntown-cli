@@ -1,4 +1,4 @@
-//go:build windows
+//go:build js
 
 package scan
 
@@ -11,6 +11,5 @@ func safeStatPath(path string) (os.FileInfo, error) {
 }
 
 func safeReadFilePath(_ string, path string) ([]byte, error) {
-	// #nosec G304 -- Windows fallback; caller already validates paths.
 	return os.ReadFile(path)
 }
