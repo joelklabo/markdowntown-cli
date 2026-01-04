@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	syncpkg "sync"
 	"testing"
 )
@@ -147,5 +148,122 @@ func TestUploadSnapshotUploadsMissingBlobs(t *testing.T) {
 	}
 	if finalizeCount != 1 {
 		t.Fatalf("expected finalize to run once, got %d", finalizeCount)
+	}
+}
+
+func TestUploadSnapshotSkipsWhenNoMissingBlobs(t *testing.T) {
+	repoRoot := t.TempDir()
+	fileOne := filepath.Join(repoRoot, "alpha.txt")
+
+	if err := os.WriteFile(fileOne, []byte("alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha: %v", err)
+	}
+
+	var (
+		mu            syncpkg.Mutex
+		blobRequests  []UploadBlobRequest
+		finalizeCount int
+	)
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&UploadHandshakeRequest{})
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/blob", func(w http.ResponseWriter, r *http.Request) {
+		var req UploadBlobRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		mu.Lock()
+		blobRequests = append(blobRequests, req)
+		mu.Unlock()
+		_ = json.NewEncoder(w).Encode(UploadBlobResponse{Status: "ok", BlobID: "blob-1"})
+	})
+
+	mux.HandleFunc("/api/cli/upload/complete", func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		finalizeCount++
+		mu.Unlock()
+		_ = json.NewEncoder(w).Encode(FinalizeResponse{Status: "ready", SnapshotID: "snap-123"})
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	result, err := UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:    repoRoot,
+		ProjectName: "demo",
+		Provider:    "local",
+	})
+	if err != nil {
+		t.Fatalf("upload snapshot: %v", err)
+	}
+	if result.MissingBlobs != 0 {
+		t.Fatalf("expected 0 missing blobs, got %d", result.MissingBlobs)
+	}
+	if result.UploadedBlobs != 0 {
+		t.Fatalf("expected 0 uploaded blobs, got %d", result.UploadedBlobs)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if len(blobRequests) != 0 {
+		t.Fatalf("expected no blob uploads, got %d", len(blobRequests))
+	}
+	if finalizeCount != 1 {
+		t.Fatalf("expected finalize to run once, got %d", finalizeCount)
+	}
+}
+
+func TestUploadSnapshotMissingBlobInManifest(t *testing.T) {
+	repoRoot := t.TempDir()
+	fileOne := filepath.Join(repoRoot, "alpha.txt")
+
+	if err := os.WriteFile(fileOne, []byte("alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&UploadHandshakeRequest{})
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{"deadbeef"},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	_, err = UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:          repoRoot,
+		ProjectName:       "demo",
+		Provider:          "local",
+		UploadConcurrency: 1,
+	})
+	if err == nil || !strings.Contains(err.Error(), "missing manifest entry") {
+		t.Fatalf("expected missing manifest entry error, got %v", err)
 	}
 }

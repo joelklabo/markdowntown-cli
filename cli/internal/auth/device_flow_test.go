@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -87,5 +88,55 @@ func TestDeviceFlowPollToken(t *testing.T) {
 	}
 	if got["device_code"] != "device-code" {
 		t.Fatalf("expected device code payload")
+	}
+}
+
+func TestDeviceFlowStartError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(DeviceStartResponse{Error: "invalid_client"})
+	}))
+	t.Cleanup(server.Close)
+
+	client := NewDeviceFlowClient(server.URL, server.Client())
+	_, err := client.Start(context.Background(), DeviceStartRequest{
+		ClientID:   "client-id",
+		CliVersion: "1.0.0",
+		DeviceName: "laptop",
+		Scopes:     []string{"cli:upload"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid_client") {
+		t.Fatalf("expected invalid_client error, got %v", err)
+	}
+}
+
+func TestDeviceFlowStartIncompleteResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(DeviceStartResponse{
+			DeviceCode: "device-code",
+		})
+	}))
+	t.Cleanup(server.Close)
+
+	client := NewDeviceFlowClient(server.URL, server.Client())
+	_, err := client.Start(context.Background(), DeviceStartRequest{ClientID: "client-id"})
+	if err == nil || !strings.Contains(err.Error(), "incomplete response") {
+		t.Fatalf("expected incomplete response error, got %v", err)
+	}
+}
+
+func TestDeviceFlowPollExpiredToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(DevicePollResponse{Error: "expired_token"})
+	}))
+	t.Cleanup(server.Close)
+
+	client := NewDeviceFlowClient(server.URL, server.Client())
+	resp, err := client.Poll(context.Background(), "device-code")
+	if err != nil {
+		t.Fatalf("poll: %v", err)
+	}
+	if resp.Error != "expired_token" {
+		t.Fatalf("expected expired_token, got %q", resp.Error)
 	}
 }

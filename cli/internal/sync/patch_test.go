@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"markdowntown-cli/internal/git"
 )
 
 func TestPatchApply(t *testing.T) {
@@ -106,6 +108,79 @@ func TestPatchApply(t *testing.T) {
 	}
 	if len(results) != 1 || results[0].Status != PatchSkipped {
 		t.Fatalf("expected skipped status, got %+v", results)
+	}
+}
+
+func TestPatchApplyConflict(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := runGitCommand(repoRoot, "init"); err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			t.Skip("git not available")
+		}
+		t.Fatalf("git init: %v", err)
+	}
+	if err := runGitCommand(repoRoot, "config", "user.email", "test@example.com"); err != nil {
+		t.Fatalf("git config email: %v", err)
+	}
+	if err := runGitCommand(repoRoot, "config", "user.name", "Test User"); err != nil {
+		t.Fatalf("git config name: %v", err)
+	}
+
+	filePath := filepath.Join(repoRoot, "README.md")
+	if err := os.WriteFile(filePath, []byte("alpha\nbeta\n"), 0o600); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	if err := runGitCommand(repoRoot, "add", "README.md"); err != nil {
+		t.Fatalf("git add: %v", err)
+	}
+	if err := runGitCommand(repoRoot, "commit", "-m", "init"); err != nil {
+		t.Fatalf("git commit: %v", err)
+	}
+
+	if err := os.WriteFile(filePath, []byte("alpha\nbeta\ncharlie\n"), 0o600); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	patchText, err := runGitCommandOutput(repoRoot, "diff")
+	if err != nil {
+		t.Fatalf("git diff: %v", err)
+	}
+	if strings.TrimSpace(patchText) == "" {
+		t.Fatalf("expected non-empty patch")
+	}
+
+	if err := runGitCommand(repoRoot, "checkout", "--", "README.md"); err != nil {
+		t.Fatalf("git checkout: %v", err)
+	}
+	if err := os.WriteFile(filePath, []byte("delta\necho\n"), 0o600); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	patch := Patch{
+		ID:          "patch-conflict",
+		SnapshotID:  "snap-1",
+		Path:        "README.md",
+		PatchFormat: "unified",
+		PatchBody:   patchText,
+		Status:      "PROPOSED",
+	}
+
+	results, err := ApplyPatches(repoRoot, []Patch{patch}, ApplyOptions{DryRun: false, Force: true})
+	if err == nil {
+		t.Fatalf("expected conflict error")
+	}
+	if !errors.Is(err, git.ErrPatchConflict) {
+		t.Fatalf("expected conflict error type, got %v", err)
+	}
+	if len(results) != 1 || results[0].Status != PatchConflict {
+		t.Fatalf("expected conflict status, got %+v", results)
+	}
+	// #nosec G304 -- test reads temp file in repo fixture.
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+	if string(content) != "delta\necho\n" {
+		t.Fatalf("expected file unchanged, got %q", string(content))
 	}
 }
 
