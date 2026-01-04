@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auditLog, withAPM } from "@/lib/observability";
 import { hasDatabaseEnv } from "@/lib/prisma";
-import { rateLimit } from "@/lib/rateLimiter";
-import { logAbuseSignal } from "@/lib/reports";
+import { CLI_UPLOAD_LIMITS, rateLimit } from "@/lib/rateLimiter";
+import { logAbuseSignal, logAuditEvent } from "@/lib/reports";
 import { createUploadHandshake, requireCliToken } from "@/lib/cli/upload";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    if (!rateLimit(`cli-upload-handshake:${ip}`)) {
+    if (!rateLimit(`cli-upload-handshake:${ip}`, CLI_UPLOAD_LIMITS.handshake)) {
       logAbuseSignal({ ip, reason: "cli-upload-handshake-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
@@ -61,6 +61,10 @@ export async function POST(request: Request) {
 
     const { token, response } = await requireCliToken(request, ["cli:upload"]);
     if (response) return response;
+    if (!rateLimit(`cli-upload-handshake:user:${token.userId}`, CLI_UPLOAD_LIMITS.handshake)) {
+      logAbuseSignal({ ip, userId: token.userId, reason: "cli-upload-handshake-user-rate-limit", traceId });
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+    }
 
     const body = await request.json().catch(() => null);
     const parsed = HandshakeSchema.safeParse(body);
@@ -82,6 +86,14 @@ export async function POST(request: Request) {
         userId: token.userId,
         snapshotId: result.snapshotId,
         missingCount: result.missingBlobs.length,
+      });
+      logAuditEvent({
+        event: "cli_upload_handshake",
+        ip,
+        traceId,
+        userId: token.userId,
+        snapshotId: result.snapshotId,
+        metadata: { missingCount: result.missingBlobs.length },
       });
 
       return NextResponse.json(result);

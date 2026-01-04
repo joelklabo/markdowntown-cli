@@ -1,11 +1,12 @@
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireCliToken } from "@/lib/cli/upload";
+import { validateBlobUpload } from "@/lib/cli/validation";
 import { auditLog, withAPM } from "@/lib/observability";
 import { hasDatabaseEnv, prisma } from "@/lib/prisma";
-import { rateLimit } from "@/lib/rateLimiter";
-import { logAbuseSignal } from "@/lib/reports";
-import { requireCliToken } from "@/lib/cli/upload";
+import { CLI_UPLOAD_LIMITS, rateLimit } from "@/lib/rateLimiter";
+import { logAbuseSignal, logAuditEvent } from "@/lib/reports";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    if (!rateLimit(`cli-upload-blob:${ip}`)) {
+    if (!rateLimit(`cli-upload-blob:${ip}`, CLI_UPLOAD_LIMITS.blob)) {
       logAbuseSignal({ ip, reason: "cli-upload-blob-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
@@ -38,6 +39,10 @@ export async function POST(request: Request) {
 
     const { token, response } = await requireCliToken(request, ["cli:upload"]);
     if (response) return response;
+    if (!rateLimit(`cli-upload-blob:user:${token.userId}`, CLI_UPLOAD_LIMITS.blob)) {
+      logAbuseSignal({ ip, userId: token.userId, reason: "cli-upload-blob-user-rate-limit", traceId });
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+    }
 
     const body = await request.json().catch(() => null);
     const parsed = BlobSchema.safeParse(body);
@@ -48,6 +53,10 @@ export async function POST(request: Request) {
     const { snapshotId, sha256, sizeBytes, contentBase64, storageKey, contentType } = parsed.data;
     if (!contentBase64 && !storageKey) {
       return NextResponse.json({ error: "Missing blob content" }, { status: 400 });
+    }
+    const validationError = validateBlobUpload({ sha256, sizeBytes, contentType });
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
     const snapshot = await prisma.snapshot.findFirst({
@@ -97,6 +106,14 @@ export async function POST(request: Request) {
       sha256,
       sizeBytes,
       contentType: contentType ?? null,
+    });
+    logAuditEvent({
+      event: "cli_upload_blob",
+      ip,
+      traceId,
+      userId: token.userId,
+      snapshotId,
+      metadata: { sha256, sizeBytes, contentType: contentType ?? null },
     });
 
     return NextResponse.json({ status: "ok", blobId: updated.id });

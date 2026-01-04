@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Blob, CliToken, Prisma, Project, Snapshot } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashToken } from "@/lib/cli/tokens";
+import { validateUploadManifest } from "@/lib/cli/validation";
 import { buildUploadPlan, type UploadPlan } from "@/lib/storage/s3";
 
 export type RequireCliTokenResult =
@@ -93,6 +94,10 @@ export async function createUploadHandshake(options: {
   origin: string;
 }): Promise<UploadHandshakeResult> {
   const { userId, input, origin } = options;
+  const validationError = validateUploadManifest(input.manifest);
+  if (validationError) {
+    throw new Error(validationError);
+  }
   const manifest = normalizeManifest(input.manifest);
 
   const project = await resolveProject(userId, input);

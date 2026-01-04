@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { finalizeSnapshotUpload, requireCliToken } from "@/lib/cli/upload";
 import { auditLog, withAPM } from "@/lib/observability";
 import { hasDatabaseEnv } from "@/lib/prisma";
-import { rateLimit } from "@/lib/rateLimiter";
-import { logAbuseSignal } from "@/lib/reports";
-import { finalizeSnapshotUpload, requireCliToken } from "@/lib/cli/upload";
+import { CLI_UPLOAD_LIMITS, rateLimit } from "@/lib/rateLimiter";
+import { logAbuseSignal, logAuditEvent } from "@/lib/reports";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    if (!rateLimit(`cli-upload-complete:${ip}`)) {
+    if (!rateLimit(`cli-upload-complete:${ip}`, CLI_UPLOAD_LIMITS.complete)) {
       logAbuseSignal({ ip, reason: "cli-upload-complete-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
@@ -32,6 +32,10 @@ export async function POST(request: Request) {
 
     const { token, response } = await requireCliToken(request, ["cli:upload"]);
     if (response) return response;
+    if (!rateLimit(`cli-upload-complete:user:${token.userId}`, CLI_UPLOAD_LIMITS.complete)) {
+      logAbuseSignal({ ip, userId: token.userId, reason: "cli-upload-complete-user-rate-limit", traceId });
+      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+    }
 
     const body = await request.json().catch(() => null);
     const parsed = CompleteSchema.safeParse(body);
@@ -53,6 +57,13 @@ export async function POST(request: Request) {
       }
 
       auditLog("cli_upload_complete", {
+        ip,
+        traceId,
+        userId: token.userId,
+        snapshotId: result.snapshot.id,
+      });
+      logAuditEvent({
+        event: "cli_upload_complete",
         ip,
         traceId,
         userId: token.userId,
