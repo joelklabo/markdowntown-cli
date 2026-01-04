@@ -30,6 +30,16 @@ param pubsubSkuName string = 'Standard_S1'
 param pubsubSkuTier string = 'Standard'
 param pubsubCapacity int = 1
 
+param acrCreate bool = false
+param acrName string = ''
+@allowed([
+  'Basic'
+  'Standard'
+  'Premium'
+])
+param acrSkuName string = 'Basic'
+param acrAdminEnabled bool = false
+
 param containerAppCpu int = 1
 param containerAppMemory string = '1Gi'
 param containerAppMinReplicas int = 1
@@ -50,6 +60,8 @@ var managedEnvName = toLower('${namePrefix}-${environmentName}-env')
 var containerAppName = toLower('${namePrefix}-${environmentName}-app')
 var jobName = toLower('${namePrefix}-${environmentName}-worker')
 var logAnalyticsName = toLower('${namePrefix}-${environmentName}-logs-${substring(suffix, 0, 6)}')
+var acrNameResolved = acrName != '' ? acrName : toLower('${take(base, 12)}acr${substring(suffix, 0, 6)}')
+var acrEnabled = acrCreate || acrName != ''
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: logAnalyticsName
@@ -120,6 +132,21 @@ module pubsub 'modules/pubsub.bicep' = {
   }
 }
 
+module acr 'modules/acr.bicep' = if (acrCreate) {
+  name: 'acr'
+  params: {
+    name: acrNameResolved
+    location: location
+    tags: tags
+    skuName: acrSkuName
+    adminEnabled: acrAdminEnabled
+  }
+}
+
+resource acrScope 'Microsoft.ContainerRegistry/registries@2023-01-01' existing = if (acrEnabled) {
+  name: acrNameResolved
+}
+
 module postgres 'modules/postgres.bicep' = {
   name: 'postgres'
   params: {
@@ -140,6 +167,7 @@ var databaseUrl = 'postgresql://${postgresAdminUser}:${postgresAdminPassword}@${
 var storageKey = listKeys(resourceId('Microsoft.Storage/storageAccounts', storageName), '2023-01-01').keys[0].value
 var storageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storage.outputs.accountName};AccountKey=${storageKey};EndpointSuffix=${environment().suffixes.storage}'
 var pubsubConnectionString = listKeys(resourceId('Microsoft.SignalRService/webPubSub', pubsubName), '2021-10-01').primaryConnectionString
+var acrLoginServer = acrEnabled ? '${acrNameResolved}.azurecr.io' : ''
 
 var webSecrets = [
   {
@@ -191,7 +219,10 @@ module webApp 'modules/aca.bicep' = {
     targetPort: containerAppTargetPort
     secrets: webSecrets
     environmentVariables: webEnv
+    registryServer: acrLoginServer
+    registryIdentityId: identity.outputs.id
   }
+  dependsOn: acrEnabled ? [acrPullRole] : []
 }
 
 module workerJob 'modules/jobs.bicep' = {
@@ -207,7 +238,21 @@ module workerJob 'modules/jobs.bicep' = {
     memory: jobMemory
     secrets: webSecrets
     environmentVariables: webEnv
+    registryServer: acrLoginServer
+    registryIdentityId: identity.outputs.id
   }
+  dependsOn: acrEnabled ? [acrPullRole] : []
+}
+
+resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (acrEnabled) {
+  name: guid(acrNameResolved, identityName, 'acr-pull')
+  scope: acrScope
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+    principalId: identity.outputs.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: acrCreate ? [acr] : []
 }
 
 output managedEnvironmentId string = managedEnv.id
@@ -219,3 +264,5 @@ output pubsubName string = pubsub.outputs.name
 output keyVaultName string = keyvault.outputs.name
 output postgresServerName string = postgres.outputs.name
 output postgresDatabaseName string = postgres.outputs.databaseName
+output acrName string = acrEnabled ? acrNameResolved : ''
+output acrLoginServer string = acrEnabled ? acrLoginServer : ''

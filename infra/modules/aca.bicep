@@ -13,6 +13,8 @@ param ingressExternal bool = true
 param targetPort int = 3000
 param secrets array = []
 param environmentVariables array = []
+param registryServer string = ''
+param registryIdentityId string = ''
 
 resource app 'Microsoft.App/containerApps@2023-05-01' = {
   name: name
@@ -32,6 +34,12 @@ resource app 'Microsoft.App/containerApps@2023-05-01' = {
         targetPort: targetPort
         transport: 'auto'
       }
+      registries: registryServer == '' ? [] : [
+        {
+          server: registryServer
+          identity: registryIdentityId
+        }
+      ]
       secrets: secrets
     }
     template: {

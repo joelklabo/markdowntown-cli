@@ -11,6 +11,8 @@ param secrets array = []
 param environmentVariables array = []
 param replicaTimeout int = 1800
 param replicaRetryLimit int = 1
+param registryServer string = ''
+param registryIdentityId string = ''
 
 resource job 'Microsoft.App/jobs@2023-05-01' = {
   name: name
@@ -32,6 +34,12 @@ resource job 'Microsoft.App/jobs@2023-05-01' = {
       }
       replicaRetryLimit: replicaRetryLimit
       replicaTimeout: replicaTimeout
+      registries: registryServer == '' ? [] : [
+        {
+          server: registryServer
+          identity: registryIdentityId
+        }
+      ]
       secrets: secrets
     }
     template: {

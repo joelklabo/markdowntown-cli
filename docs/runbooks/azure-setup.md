@@ -4,6 +4,7 @@
 - Azure CLI installed and authenticated: `az login`
 - Bicep CLI installed: `az bicep install`
 - Container images published for web + worker
+- If using private images, enable ACR in `infra/parameters/dev.bicepparam` (`acrCreate` or `acrName`).
 
 ## Deploy IaC (dev)
 1) Create or select a resource group:
@@ -20,6 +21,7 @@
 - Key Vault created with RBAC enabled.
 - Storage + Web PubSub created with unique names.
 - Postgres server + database created.
+- If ACR enabled, confirm `acrLoginServer` output and push images before updating tags.
 
 ## Secrets and configuration
 - Container Apps use secrets injected by `infra/main.bicep`:
