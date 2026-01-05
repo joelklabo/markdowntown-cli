@@ -19,3 +19,21 @@ export async function getProject(userId: string, projectId: string) {
     },
   });
 }
+
+export async function getSnapshotWithRuns(userId: string, snapshotId: string) {
+  return prisma.snapshot.findFirst({
+    where: {
+      id: snapshotId,
+      project: { userId },
+    },
+    include: {
+      project: true,
+      files: {
+        orderBy: { path: "asc" },
+      },
+      runs: {
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+}
