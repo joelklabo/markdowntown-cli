@@ -57,10 +57,6 @@ export async function POST(request: Request) {
     if (!contentBase64 && !storageKey) {
       return NextResponse.json({ error: "Missing blob content" }, { status: 400 });
     }
-    const validationError = validateBlobUpload({ sha256, sizeBytes, contentType });
-    if (validationError) {
-      return NextResponse.json({ error: validationError }, { status: 400 });
-    }
 
     const snapshot = await prisma.snapshot.findFirst({
       where: { id: snapshotId, project: { userId: token.userId } },
@@ -78,6 +74,32 @@ export async function POST(request: Request) {
       const computedHash = createHash("sha256").update(content).digest("hex");
       if (computedHash !== sha256) {
         return NextResponse.json({ error: "Blob hash mismatch" }, { status: 400 });
+      }
+
+      // Validate magic number after decoding and hash verification
+      const magicValidationError = validateBlobUpload({ 
+        sha256, 
+        sizeBytes, 
+        contentType,
+        content,
+      });
+      if (magicValidationError) {
+        logAuditEvent({
+          event: "cli_upload_blob_rejected",
+          userId: token.userId,
+          ip,
+          traceId,
+          reason: "magic_number_validation_failed",
+          details: magicValidationError,
+          contentType,
+        });
+        return NextResponse.json({ error: magicValidationError }, { status: 415 });
+      }
+    } else {
+      // For storage key uploads, validate without content
+      const basicValidationError = validateBlobUpload({ sha256, sizeBytes, contentType });
+      if (basicValidationError) {
+        return NextResponse.json({ error: basicValidationError }, { status: 400 });
       }
     }
 
