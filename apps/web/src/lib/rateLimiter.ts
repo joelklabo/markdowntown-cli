@@ -18,6 +18,8 @@ export const CLI_SNAPSHOT_LIMITS = {
 type RateLimitOptions = {
   windowMs?: number;
   maxRequests?: number;
+  points?: number;
+  duration?: number;
 };
 
 const buckets = new Map<
@@ -26,8 +28,9 @@ const buckets = new Map<
 >();
 
 export function rateLimit(key: string, options: RateLimitOptions = {}) {
-  const windowMs = options.windowMs ?? WINDOW_MS;
-  const maxRequests = options.maxRequests ?? MAX_REQUESTS;
+  // Support both naming conventions: points/duration and maxRequests/windowMs
+  const windowMs = options.windowMs ?? options.duration ?? WINDOW_MS;
+  const maxRequests = options.maxRequests ?? options.points ?? MAX_REQUESTS;
   const now = Date.now();
   const bucket = buckets.get(key);
   if (

@@ -90,6 +90,10 @@ vi.mock("@/lib/cli/tokens", async () => {
   const actual = await vi.importActual<typeof import("@/lib/cli/tokens")>("@/lib/cli/tokens");
   return { ...actual, issueCliToken: issueCliTokenMock };
 });
+vi.mock("@/lib/csrf", () => ({
+  generateCsrfToken: (userId: string) => `csrf-${userId}`,
+  verifyCsrfToken: (userId: string, token: string) => token === `csrf-${userId}`,
+}));
 
 const deviceStartRoute = import("@/app/api/cli/device/start/route");
 const devicePollRoute = import("@/app/api/cli/device/poll/route");
@@ -283,12 +287,142 @@ describe("cli-device-flow API", () => {
     const res = await POST(
       new Request("http://localhost/api/cli/device/confirm", {
         method: "POST",
-        body: JSON.stringify({ user_code: userCode, approved: true }),
+        body: JSON.stringify({ user_code: userCode, approved: true, csrf_token: "csrf-user-1" }),
       })
     );
 
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.status).toBe("approved");
+  });
+
+  it("rejects missing CSRF token", async () => {
+    const userCode = generateUserCode();
+    const normalized = normalizeUserCode(userCode) ?? userCode;
+    seedDeviceCode({ userCodeHash: hashCode(normalized) });
+
+    requireSessionMock.mockResolvedValue({
+      session: { user: { id: "user-1" } },
+      response: undefined,
+    });
+
+    const { POST } = await deviceConfirmRoute;
+    const res = await POST(
+      new Request("http://localhost/api/cli/device/confirm", {
+        method: "POST",
+        body: JSON.stringify({ user_code: userCode, approved: true }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toBe("Invalid payload");
+  });
+
+  it("rejects invalid CSRF token", async () => {
+    const userCode = generateUserCode();
+    const normalized = normalizeUserCode(userCode) ?? userCode;
+    seedDeviceCode({ userCodeHash: hashCode(normalized) });
+
+    requireSessionMock.mockResolvedValue({
+      session: { user: { id: "user-1" } },
+      response: undefined,
+    });
+
+    const { POST } = await deviceConfirmRoute;
+    const res = await POST(
+      new Request("http://localhost/api/cli/device/confirm", {
+        method: "POST",
+        body: JSON.stringify({ user_code: userCode, approved: true, csrf_token: "invalid-token" }),
+      })
+    );
+
+    expect(res.status).toBe(403);
+    const json = await res.json();
+    expect(json.error).toBe("Invalid CSRF token");
+  });
+
+  it("rate-limits user code submission attempts", async () => {
+    const userCode = generateUserCode();
+    const normalized = normalizeUserCode(userCode) ?? userCode;
+    seedDeviceCode({ userCodeHash: hashCode(normalized) });
+
+    requireSessionMock.mockResolvedValue({
+      session: { user: { id: "user-1" } },
+      response: undefined,
+    });
+
+    const { POST } = await deviceConfirmRoute;
+    
+    // Make 6 requests (limit is 5 per 60s for per-code rate limit)
+    for (let i = 0; i < 6; i++) {
+      const res = await POST(
+        new Request("http://localhost/api/cli/device/confirm", {
+          method: "POST",
+          body: JSON.stringify({ user_code: userCode, approved: true, csrf_token: "csrf-user-1" }),
+        })
+      );
+      
+      if (i < 5) {
+        expect(res.status).not.toBe(429);
+      } else {
+        expect(res.status).toBe(429);
+        const json = await res.json();
+        expect(json.error).toBe("Too many attempts for this code");
+      }
+    }
+  });
+
+  it("allows idempotent re-confirmation of already approved codes", async () => {
+    const userCode = generateUserCode();
+    const normalized = normalizeUserCode(userCode) ?? userCode;
+    seedDeviceCode({
+      userCodeHash: hashCode(normalized),
+      status: "APPROVED",
+      userId: "user-1",
+    });
+
+    requireSessionMock.mockResolvedValue({
+      session: { user: { id: "user-1" } },
+      response: undefined,
+    });
+
+    const { POST } = await deviceConfirmRoute;
+    const res = await POST(
+      new Request("http://localhost/api/cli/device/confirm", {
+        method: "POST",
+        body: JSON.stringify({ user_code: userCode, approved: true, csrf_token: "csrf-user-1" }),
+      })
+    );
+
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.status).toBe("approved");
+  });
+
+  it("returns expired_token for expired device codes", async () => {
+    const userCode = generateUserCode();
+    const normalized = normalizeUserCode(userCode) ?? userCode;
+    seedDeviceCode({
+      userCodeHash: hashCode(normalized),
+      expiresAt: new Date(Date.now() - 1000),
+    });
+
+    requireSessionMock.mockResolvedValue({
+      session: { user: { id: "user-1" } },
+      response: undefined,
+    });
+
+    const { POST } = await deviceConfirmRoute;
+    const res = await POST(
+      new Request("http://localhost/api/cli/device/confirm", {
+        method: "POST",
+        body: JSON.stringify({ user_code: userCode, approved: true, csrf_token: "csrf-user-1" }),
+      })
+    );
+
+    expect(res.status).toBe(410);
+    const json = await res.json();
+    expect(json.error).toBe("expired_token");
   });
 });

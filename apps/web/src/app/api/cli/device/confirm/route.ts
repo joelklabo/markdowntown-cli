@@ -5,6 +5,7 @@ import { prisma, hasDatabaseEnv } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rateLimiter";
 import { logAbuseSignal } from "@/lib/reports";
 import { requireSession } from "@/lib/requireSession";
+import { verifyCsrfToken } from "@/lib/csrf";
 import { hashCode, normalizeUserCode, USER_CODE_LENGTH } from "@/lib/cli/deviceFlow";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 const ConfirmSchema = z.object({
   user_code: z.string().min(1).max(32),
   approved: z.boolean().optional(),
+  csrf_token: z.string().min(1),
 });
 
 function getClientIp(request: Request): string {
@@ -25,6 +27,8 @@ export async function POST(request: Request) {
   return withAPM(request, async () => {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
+    
+    // Rate limit by IP + user ID combination
     if (!rateLimit(`cli-device-confirm:${ip}:${session.user.id}`)) {
       logAbuseSignal({ ip, userId: session.user.id, reason: "cli-device-confirm-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
@@ -40,12 +44,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid payload", details: parsed.error.issues }, { status: 400 });
     }
 
+    // Verify CSRF token
+    if (!verifyCsrfToken(session.user.id, parsed.data.csrf_token)) {
+      logAbuseSignal({ ip, userId: session.user.id, reason: "cli-device-confirm-invalid-csrf", traceId });
+      return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+    }
+
     const normalizedCode = normalizeUserCode(parsed.data.user_code);
     if (!normalizedCode || normalizedCode.length !== USER_CODE_LENGTH) {
       return NextResponse.json({ error: "Invalid user code" }, { status: 400 });
     }
 
     const userCodeHash = hashCode(normalizedCode);
+    
+    // Rate limit by user code hash to prevent brute-force attacks on codes
+    if (!rateLimit(`cli-device-confirm-code:${userCodeHash}`, { points: 5, duration: 60 })) {
+      logAbuseSignal({ ip, userId: session.user.id, reason: "cli-device-confirm-code-rate-limit", traceId });
+      return NextResponse.json({ error: "Too many attempts for this code" }, { status: 429 });
+    }
+    
     const record = await prisma.cliDeviceCode.findUnique({ where: { userCodeHash } });
     if (!record) {
       logAbuseSignal({ ip, userId: session.user.id, reason: "cli-device-confirm-invalid-code", traceId });
