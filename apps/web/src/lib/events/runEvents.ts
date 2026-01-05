@@ -1,6 +1,7 @@
 import type { RunStatus, RunType } from "@prisma/client";
 import { auditLog } from "@/lib/observability";
 import { logAuditEvent } from "@/lib/reports";
+import { broadcastRunEvent } from "@/lib/pubsub/server";
 
 export type RunEventInput = {
   runId: string;
@@ -35,4 +36,6 @@ export function emitRunEvent(event: RunEventInput) {
       error: event.error ?? undefined,
     },
   });
+
+  void broadcastRunEvent(event);
 }

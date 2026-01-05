@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import { LivingCityWordmark } from "./wordmark/LivingCityWordmark";
 import { NavActiveIndicator } from "./nav/NavActiveIndicator";
+import { LivingHeader } from "./nav/LivingHeader";
 import { Button } from "./ui/Button";
 import { Container } from "./ui/Container";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "./ui/Sheet";
@@ -339,6 +340,7 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
           sticky && "sticky top-0"
         )}
       >
+        <LivingHeader />
         <div className="border-b border-mdt-border-strong bg-mdt-surface-subtle">
           <div className="w-full overflow-hidden">
             <div className="mdt-site-header-banner bg-mdt-surface-subtle">
