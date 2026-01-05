@@ -72,9 +72,12 @@ const { deviceCodes, prismaMock, issueCliTokenMock, requireSessionMock } = vi.ho
         return deviceCodes[index];
       }),
       updateMany: vi.fn(async ({ where, data }: { where: { id: string; status?: string }; data: Partial<DeviceCodeRecord> }) => {
-        const record = deviceCodes.find((item) => item.id === where.id && (!where.status || item.status === where.status));
-        if (!record) return { count: 0 };
-        Object.assign(record, data, { updatedAt: new Date() });
+        // Find first matching record where status matches (if specified)
+        const index = deviceCodes.findIndex((item) => item.id === where.id && (!where.status || item.status === where.status));
+        if (index === -1) return { count: 0 };
+        // Update and return immediately before other concurrent calls can see it
+        const updated = { ...deviceCodes[index], ...data, updatedAt: new Date() } as DeviceCodeRecord;
+        deviceCodes[index] = updated;
         return { count: 1 };
       }),
     },
@@ -254,6 +257,205 @@ describe("cli-device-flow API", () => {
     const json = await res.json();
     expect(res.status).toBe(429);
     expect(json.error).toBe("slow_down");
+  });
+
+  it("increases slow_down interval on repeated violations", async () => {
+    const deviceCode = "device-code-slow";
+    const initialInterval = 5;
+    seedDeviceCode({
+      deviceCodeHash: hashCode(deviceCode),
+      intervalSeconds: initialInterval,
+      updatedAt: new Date(),
+    });
+
+    const { POST } = await devicePollRoute;
+    
+    // First rapid poll - interval should increase from 5 to 10
+    const res1 = await POST(
+      new Request("http://localhost/api/cli/device/poll", {
+        method: "POST",
+        body: JSON.stringify({ device_code: deviceCode }),
+      })
+    );
+    
+    const json1 = await res1.json();
+    expect(res1.status).toBe(429);
+    expect(json1.error).toBe("slow_down");
+    expect(json1.interval).toBe(10);
+    
+    // Second rapid poll - interval should increase from 10 to 15
+    const res2 = await POST(
+      new Request("http://localhost/api/cli/device/poll", {
+        method: "POST",
+        body: JSON.stringify({ device_code: deviceCode }),
+      })
+    );
+    
+    const json2 = await res2.json();
+    expect(res2.status).toBe(429);
+    expect(json2.error).toBe("slow_down");
+    expect(json2.interval).toBe(15);
+  });
+
+  it("returns access_denied for denied device codes", async () => {
+    const deviceCode = "device-code-denied";
+    seedDeviceCode({
+      deviceCodeHash: hashCode(deviceCode),
+      status: "DENIED",
+    });
+
+    const { POST } = await devicePollRoute;
+    const res = await POST(
+      new Request("http://localhost/api/cli/device/poll", {
+        method: "POST",
+        body: JSON.stringify({ device_code: deviceCode }),
+      })
+    );
+
+    expect(res.status).toBe(403);
+    const json = await res.json();
+    expect(json.error).toBe("access_denied");
+  });
+
+  it("returns expired_token for expired device codes on poll", async () => {
+    const deviceCode = "device-code-expired";
+    seedDeviceCode({
+      deviceCodeHash: hashCode(deviceCode),
+      expiresAt: new Date(Date.now() - 1000),
+    });
+
+    const { POST } = await devicePollRoute;
+    const res = await POST(
+      new Request("http://localhost/api/cli/device/poll", {
+        method: "POST",
+        body: JSON.stringify({ device_code: deviceCode }),
+      })
+    );
+
+    expect(res.status).toBe(410);
+    const json = await res.json();
+    expect(json.error).toBe("expired_token");
+    
+    // Verify status was updated to EXPIRED
+    const record = deviceCodes.find(r => r.deviceCodeHash === hashCode(deviceCode));
+    expect(record?.status).toBe("EXPIRED");
+  });
+
+  it("issues single token for concurrent poll requests", async () => {
+    const deviceCode = "device-code-concurrent";
+    seedDeviceCode({
+      deviceCodeHash: hashCode(deviceCode),
+      status: "APPROVED",
+      userId: "user-1",
+    });
+
+    issueCliTokenMock.mockResolvedValue({
+      token: "concurrent-token",
+      tokenId: "token-concurrent",
+      scopes: ["cli:read"],
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    const { POST } = await devicePollRoute;
+    
+    // Simulate concurrent requests
+    const [res1, res2, res3] = await Promise.all([
+      POST(
+        new Request("http://localhost/api/cli/device/poll", {
+          method: "POST",
+          body: JSON.stringify({ device_code: deviceCode }),
+        })
+      ),
+      POST(
+        new Request("http://localhost/api/cli/device/poll", {
+          method: "POST",
+          body: JSON.stringify({ device_code: deviceCode }),
+        })
+      ),
+      POST(
+        new Request("http://localhost/api/cli/device/poll", {
+          method: "POST",
+          body: JSON.stringify({ device_code: deviceCode }),
+        })
+      ),
+    ]);
+
+    const json1 = await res1.json();
+    const json2 = await res2.json();
+    const json3 = await res3.json();
+
+    // One should succeed with token, others should get authorization_pending
+    const responses = [
+      { status: res1.status, json: json1 },
+      { status: res2.status, json: json2 },
+      { status: res3.status, json: json3 },
+    ];
+
+    const successCount = responses.filter(r => r.status === 200 && r.json.access_token).length;
+    const pendingCount = responses.filter(r => r.status === 400 && r.json.error === "authorization_pending").length;
+    const expiredCount = responses.filter(r => r.status === 410 && r.json.error === "expired_token").length;
+
+    expect(successCount).toBe(1);
+    // Other two requests either get pending (before update) or expired (after update)
+    expect(pendingCount + expiredCount).toBe(2);
+    
+    // Verify issueCliToken was called only once
+    expect(issueCliTokenMock).toHaveBeenCalledTimes(1);
+    
+    // Verify device code status is now EXPIRED
+    const record = deviceCodes.find(r => r.deviceCodeHash === hashCode(deviceCode));
+    expect(record?.status).toBe("EXPIRED");
+  });
+
+  it("allows approval right before expiration", async () => {
+    const userCode = generateUserCode();
+    const normalized = normalizeUserCode(userCode) ?? userCode;
+    const deviceCode = "device-code-last-second";
+    
+    // Set expiration to 1 second from now
+    seedDeviceCode({
+      deviceCodeHash: hashCode(deviceCode),
+      userCodeHash: hashCode(normalized),
+      expiresAt: new Date(Date.now() + 1000),
+    });
+
+    requireSessionMock.mockResolvedValue({
+      session: { user: { id: "user-1" } },
+      response: undefined,
+    });
+
+    // Approve the code
+    const { POST: confirmPOST } = await deviceConfirmRoute;
+    const confirmRes = await confirmPOST(
+      new Request("http://localhost/api/cli/device/confirm", {
+        method: "POST",
+        body: JSON.stringify({ user_code: userCode, approved: true, csrf_token: "csrf-user-1" }),
+      })
+    );
+
+    expect(confirmRes.status).toBe(200);
+    const confirmJson = await confirmRes.json();
+    expect(confirmJson.status).toBe("approved");
+
+    // Poll immediately - should issue token
+    issueCliTokenMock.mockResolvedValue({
+      token: "last-second-token",
+      tokenId: "token-last-second",
+      scopes: ["cli:read"],
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    const { POST: pollPOST } = await devicePollRoute;
+    const pollRes = await pollPOST(
+      new Request("http://localhost/api/cli/device/poll", {
+        method: "POST",
+        body: JSON.stringify({ device_code: deviceCode }),
+      })
+    );
+
+    expect(pollRes.status).toBe(200);
+    const pollJson = await pollRes.json();
+    expect(pollJson.access_token).toBe("last-second-token");
   });
 
   it("requires session for confirm", async () => {
