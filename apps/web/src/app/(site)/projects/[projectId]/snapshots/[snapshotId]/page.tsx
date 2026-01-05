@@ -7,6 +7,7 @@ import { Heading } from "@/components/ui/Heading";
 import { Text } from "@/components/ui/Text";
 import { FileTree } from "@/components/ui/FileTree";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { strings } from "@/lib/strings";

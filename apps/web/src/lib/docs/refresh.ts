@@ -80,11 +80,11 @@ export async function refreshDocumentation(config: RefreshConfig = {}): Promise<
   const [registrySource, inventorySource] = await Promise.all([
     resolveSource("registry", config.registrySource).then<ResolvedSource>(
       (value) => ({ ok: true, value }),
-      (error) => ({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+      (error): ResolvedSource => ({ ok: false, error: error instanceof Error ? error.message : String(error) }),
     ),
     resolveSource("inventory", config.inventorySource).then<ResolvedSource>(
       (value) => ({ ok: true, value }),
-      (error) => ({ ok: false, error: error instanceof Error ? error.message : String(error) }),
+      (error): ResolvedSource => ({ ok: false, error: error instanceof Error ? error.message : String(error) }),
     ),
   ]);
 

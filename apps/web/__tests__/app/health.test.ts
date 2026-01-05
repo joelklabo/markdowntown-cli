@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { GET, computeHealth } from "@/app/api/health/route";
+import { GET } from "@/app/api/health/route";
+import { computeHealth } from "@/lib/health";
 
 const originalEnv = { ...process.env };
 
