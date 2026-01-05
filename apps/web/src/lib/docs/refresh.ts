@@ -78,14 +78,12 @@ type ResolvedSource =
 export async function refreshDocumentation(config: RefreshConfig = {}): Promise<RefreshResult> {
   const timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const [registrySource, inventorySource] = await Promise.all([
-    resolveSource("registry", config.registrySource).then<ResolvedSource>(
-      (value) => ({ ok: true, value }),
-      (error): ResolvedSource => ({ ok: false, error: error instanceof Error ? error.message : String(error) }),
-    ),
-    resolveSource("inventory", config.inventorySource).then<ResolvedSource>(
-      (value) => ({ ok: true, value }),
-      (error): ResolvedSource => ({ ok: false, error: error instanceof Error ? error.message : String(error) }),
-    ),
+    resolveSource("registry", config.registrySource)
+      .then((value): ResolvedSource => ({ ok: true, value }))
+      .catch((error): ResolvedSource => ({ ok: false, error: error instanceof Error ? error.message : String(error) })),
+    resolveSource("inventory", config.inventorySource)
+      .then((value): ResolvedSource => ({ ok: true, value }))
+      .catch((error): ResolvedSource => ({ ok: false, error: error instanceof Error ? error.message : String(error) })),
   ]);
 
   const registryResult = await refreshSingle("registry", registrySource, timeoutMs, config.storeRoot);

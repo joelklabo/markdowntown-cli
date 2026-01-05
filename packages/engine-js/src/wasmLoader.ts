@@ -99,7 +99,14 @@ async function initializeEngine(options: WasmEngineOptions): Promise<WasmEngine>
 }
 
 function toArrayBuffer(buffer: Buffer): ArrayBuffer {
-  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  const sliced = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  if (sliced instanceof SharedArrayBuffer) {
+    // Convert SharedArrayBuffer to ArrayBuffer
+    const ab = new ArrayBuffer(sliced.byteLength);
+    new Uint8Array(ab).set(new Uint8Array(sliced));
+    return ab;
+  }
+  return sliced;
 }
 
 function normalizeIssues(rawIssues: any[]): any[] {
