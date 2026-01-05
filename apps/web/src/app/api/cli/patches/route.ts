@@ -7,6 +7,7 @@ import { rateLimit } from "@/lib/rateLimiter";
 import { logAbuseSignal, logAuditEvent } from "@/lib/reports";
 import { requireCliToken } from "@/lib/cli/upload";
 import { createPatch, getPatch, listPatches } from "@/lib/cli/patches";
+import { validatePatchBody } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -188,6 +189,11 @@ export async function POST(request: Request) {
     const parsed = PatchSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid payload", details: parsed.error.issues }, { status: 400 });
+    }
+
+    const validationError = validatePatchBody(parsed.data.patchBody);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 413 });
     }
 
     try {
