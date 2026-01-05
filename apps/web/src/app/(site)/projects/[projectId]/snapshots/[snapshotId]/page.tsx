@@ -49,9 +49,16 @@ export default async function SnapshotPage({
           <Heading level="h1" className="font-mono">
             Snapshot {snapshot.id.slice(0, 8)}
           </Heading>
-          <Text tone="muted" size="caption">
-            Created on {new Date(snapshot.createdAt).toLocaleString()}
-          </Text>
+          <div className="flex items-center gap-4">
+            <Button asChild variant="secondary">
+              <Link href={`/projects/${projectId}/snapshots/${snapshotId}/workspace`}>
+                Open Workspace
+              </Link>
+            </Button>
+            <Text tone="muted" size="caption">
+              Created on {new Date(snapshot.createdAt).toLocaleString()}
+            </Text>
+          </div>
         </div>
       </div>
 
