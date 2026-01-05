@@ -20,6 +20,98 @@ Define a deterministic, content-addressed sync flow that lets the CLI upload rep
 - **Snapshot**: Immutable view of a repo at a moment in time.
 - **Patch**: Diff generated from web edits, tied to a base snapshot + blob hash.
 
+## Canonical manifest hash
+
+The manifest hash provides a deterministic fingerprint of a snapshot's file list. It must be stable across CLI versions and platforms to support reliable delta uploads and conflict detection.
+
+### Hash Inputs
+The manifest hash is computed from the ordered array of `ManifestEntry` objects, each containing:
+
+| Field | Type | Format | Notes |
+| --- | --- | --- | --- |
+| `path` | string | Forward slash separators | Relative to repo root. Normalized with `filepath.ToSlash()`. |
+| `blobHash` | string | Hex-encoded SHA256 (64 chars) | Lowercase hex. |
+| `size` | int64 | Bytes | File size in bytes. |
+| `mode` | int64 | Unix permission bits | Result of `info.Mode().Perm()` (e.g., `0644` → `420`). |
+| `mtime` | int64 | Unix milliseconds | Result of `info.ModTime().UnixMilli()`. |
+| `isDeleted` | bool | Optional | Present only if `true` (omitempty). |
+
+### Canonical Encoding
+1. **Sorting**: Entries are sorted lexicographically by `path` (ascending, UTF-8 byte order).
+2. **Serialization**: The sorted array is serialized to JSON using Go's `encoding/json.Marshal()` with default settings:
+   - No custom marshal functions
+   - No pretty-printing (compact JSON)
+   - Default struct tag behavior (omitempty for `isDeleted`)
+3. **Hashing**: The JSON byte sequence is hashed with SHA256 and hex-encoded (lowercase).
+
+### Pseudo-code
+
+```text
+entries = []ManifestEntry{ ... }
+sort(entries, by=path, order=ascending)
+json = Marshal(entries)
+hash = hex(sha256(json))
+```
+
+### Example
+Given two files:
+- `README.md` (5 bytes, hash `2cf2...`, mtime `1735800245000`, mode `420`)
+- `dir/nested.txt` (5 bytes, hash `7c55...`, mtime `1735800245000`, mode `420`)
+
+Canonical JSON (whitespace added for readability, but actual JSON is compact):
+
+```json
+[
+  {
+    "path": "README.md",
+    "blobHash": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+    "size": 5,
+    "mode": 420,
+    "mtime": 1735800245000
+  },
+  {
+    "path": "dir/nested.txt",
+    "blobHash": "7c552ca5a8e87c4c5f23b3e9e2f4e6d8a1b9c0d3e4f5a6b7c8d9e0f1a2b3c4d5",
+    "size": 5,
+    "mode": 420,
+    "mtime": 1735800245000
+  }
+]
+```
+
+Manifest hash: `sha256(compact_json)` → hex-encoded result.
+
+### Edge Cases
+
+#### Empty Manifest
+- **Input**: `[]` (empty array)
+- **JSON**: `[]`
+- **Hash**: `sha256([]) = 4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`
+
+#### Deleted Files
+- **Input**: Entry with `isDeleted: true`
+- **JSON**: Includes `"isDeleted":true` field
+- **Sorting**: Deleted entries sort alongside non-deleted by `path`
+
+#### Mtime Precision
+- **CLI computes**: `ModTime().UnixMilli()` (milliseconds since epoch)
+- **Server validates**: Exact mtime match not enforced (mtimes are metadata, not part of content integrity)
+
+#### Path Normalization
+- **Windows**: Backslashes converted to forward slashes via `filepath.ToSlash()`
+- **Relative paths**: Always relative to repo root, no leading `/`
+- **Symlinks**: Not followed (skipped during manifest build)
+
+### Stability Guarantees
+- **JSON field order**: Determined by Go struct field order (stable across versions).
+- **JSON number format**: Integers are formatted as integers (no scientific notation).
+- **Hex encoding**: Always lowercase (Go's `hex.EncodeToString()` default).
+
+### Testing
+- **Golden hash test**: `manifest_test.go` includes `TestManifestCanonicalHash` which asserts a fixed manifest hash for a known file set.
+- **Round-trip test**: Serialize, hash, deserialize, re-hash → same result.
+- **Cross-platform test**: Windows/Unix path normalization produces identical hashes.
+
 ## Protocol overview
 1. **Handshake**: CLI posts a manifest and gets back the list of missing blob hashes.
 2. **Upload**: CLI uploads missing blobs (chunked or direct).

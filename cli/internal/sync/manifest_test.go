@@ -174,3 +174,97 @@ func writeFile(t *testing.T, path string, content string) {
 		t.Fatalf("write file: %v", err)
 	}
 }
+
+func TestManifestCanonicalHash(t *testing.T) {
+	repoRoot := t.TempDir()
+	initGitRepo(t, repoRoot)
+
+	fileOne := filepath.Join(repoRoot, "README.md")
+	fileTwo := filepath.Join(repoRoot, "dir", "nested.txt")
+
+	writeFile(t, fileOne, "hello")
+	writeFile(t, fileTwo, "world")
+
+	mtime := time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
+	if err := os.Chtimes(fileOne, mtime, mtime); err != nil {
+		t.Fatalf("chtimes fileOne: %v", err)
+	}
+	if err := os.Chtimes(fileTwo, mtime, mtime); err != nil {
+		t.Fatalf("chtimes fileTwo: %v", err)
+	}
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+
+	expectedEntries := []ManifestEntry{
+		{
+			Path:     "README.md",
+			BlobHash: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+			Size:     5,
+			Mode:     0o600,
+			Mtime:    mtime.UnixMilli(),
+		},
+		{
+			Path:     "dir/nested.txt",
+			BlobHash: "486ea46224d1bb4fb680f34f7c9ad96a8f24ec88be73ea8e5a6c65260e9cb8a7",
+			Size:     5,
+			Mode:     0o600,
+			Mtime:    mtime.UnixMilli(),
+		},
+	}
+
+	payload, err := json.Marshal(expectedEntries)
+	if err != nil {
+		t.Fatalf("marshal expected entries: %v", err)
+	}
+	checksum := sha256.Sum256(payload)
+	goldenHash := hex.EncodeToString(checksum[:])
+
+	if manifest.Hash != goldenHash {
+		t.Fatalf("canonical hash mismatch:\n  got:      %s\n  expected: %s\n\nThis indicates the manifest serialization has changed. Update the golden hash if intentional.",
+			manifest.Hash, goldenHash)
+	}
+
+	if len(manifest.Entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(manifest.Entries))
+	}
+
+	for i, entry := range manifest.Entries {
+		if entry.Path != expectedEntries[i].Path {
+			t.Fatalf("entry %d path mismatch: got %s, expected %s", i, entry.Path, expectedEntries[i].Path)
+		}
+		if entry.BlobHash != expectedEntries[i].BlobHash {
+			t.Fatalf("entry %d blobHash mismatch: got %s, expected %s", i, entry.BlobHash, expectedEntries[i].BlobHash)
+		}
+		if entry.Size != expectedEntries[i].Size {
+			t.Fatalf("entry %d size mismatch: got %d, expected %d", i, entry.Size, expectedEntries[i].Size)
+		}
+		if entry.Mode != expectedEntries[i].Mode {
+			t.Fatalf("entry %d mode mismatch: got %d, expected %d", i, entry.Mode, expectedEntries[i].Mode)
+		}
+		if entry.Mtime != expectedEntries[i].Mtime {
+			t.Fatalf("entry %d mtime mismatch: got %d, expected %d", i, entry.Mtime, expectedEntries[i].Mtime)
+		}
+	}
+}
+
+func TestManifestEmptyHash(t *testing.T) {
+	repoRoot := t.TempDir()
+	initGitRepo(t, repoRoot)
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+
+	if len(manifest.Entries) != 0 {
+		t.Fatalf("expected empty manifest, got %d entries", len(manifest.Entries))
+	}
+
+	goldenEmptyHash := "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+	if manifest.Hash != goldenEmptyHash {
+		t.Fatalf("empty manifest hash mismatch:\n  got:      %s\n  expected: %s", manifest.Hash, goldenEmptyHash)
+	}
+}
