@@ -20,6 +20,7 @@
 - `docs/architecture/instruction-adapters.md`: adapter design.
 - `docs/architecture/shared-logic-strategy.md`: shared core strategy.
 - `docs/architecture/monorepo-merge-plan.md`: monorepo layout + CI plan.
+- `cli/docs/architecture/lsp-diagnostics.md`: VS Code diagnostics UX guide.
 
 ## UX + design
 - `docs/DESIGN_SYSTEM.md`: canonical design system tokens + conventions.

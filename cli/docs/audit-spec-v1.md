@@ -225,6 +225,7 @@ All v1 rules are metadata-only and based on `scan` output fields. `audit` does *
 
 | Rule ID | Severity | Detection | Suggestion |
 | --- | --- | --- | --- |
+| `MD000` | error | LSP internal error or registry discovery failure | Check MARKDOWNTOWN_REGISTRY or registry settings. |
 | `MD001` | error | Conflicting configs for same `(scope, toolId, kind)` (fallback grouping), or scan conflict warnings when present. Multi-file kinds (`skills`, `prompts`) are excluded. | Keep exactly one config for the tool/kind/scope. |
 | `MD002` | warning | `configs[].scope == "repo" && configs[].gitignored == true` | Remove from `.gitignore` or relocate. |
 | `MD003` | error | `configs[].frontmatterError != ""` | Fix or remove YAML frontmatter. |
@@ -237,6 +238,7 @@ All v1 rules are metadata-only and based on `scan` output fields. `audit` does *
 | `MD010` | warning | `scanWarnings[].code in ("EACCES", "ERROR", "ENOENT")` | Fix permissions or registry paths, then re-run. |
 | `MD011` | warning | `configs[].contentSkipped == "binary"` | Replace with a text config or remove the file. |
 | `MD012` | warning | Missing required frontmatter identifier for multi-file kinds | Add a required identifier (name/title/id). |
+| `MD015` | warning | Unknown `toolId` in frontmatter (fuzzy match suggested) | Replace with a valid toolId from the registry. |
 
 ### MD001 conflict fallback
 

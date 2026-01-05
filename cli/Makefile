@@ -21,7 +21,7 @@ lint-go:
 	$(GOLANGCI_LINT) run ./...
 
 lint-md:
-	npx markdownlint-cli "**/*.md" --ignore "**/node_modules/**" --ignore .gemini --config ../.markdownlint.json
+	npx markdownlint-cli "**/*.md" --ignore "**/node_modules/**" --ignore "**/out/**" --ignore "**/.vscode-test/**" --ignore .gemini --config ../.markdownlint.json
 
 lint-yaml:
 	@if command -v yamllint > /dev/null; then \

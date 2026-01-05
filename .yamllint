@@ -3,6 +3,8 @@ ignore: |
   apps/web/.github/**
   apps/web/.beads/**
   **/node_modules/**
+  **/out/**
+  **/.vscode-test/**
 rules:
   document-start: disable
   line-length: disable

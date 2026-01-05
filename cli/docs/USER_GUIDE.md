@@ -34,6 +34,8 @@ rm "$(go env GOPATH)/bin/markdowntown"
 - Diagnostics and quick fixes: `cli/docs/architecture/lsp-diagnostics.md`.
 - VS Code integration overview: `docs/USER_GUIDE.md`.
 
+![VS Code Diagnostics](./screenshots/lsp-diagnostics/diagnostics.png)
+
 ## Related docs
 - Canonical user guide (monorepo): `docs/USER_GUIDE.md`.
 - Source registry schema: `docs/source-registry.md`.
