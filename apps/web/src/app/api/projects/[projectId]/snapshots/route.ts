@@ -89,7 +89,7 @@ export async function GET(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Snapshots unavailable" }, { status: 503 });
     }
 
-    const { token, response } = await requireCliToken(request);
+    const { token, response } = await requireCliToken(request, ["cli:read"]);
     if (response) return response;
     if (!rateLimit(`cli-snapshots:list:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.list)) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-snapshots-list-user-rate-limit", traceId });

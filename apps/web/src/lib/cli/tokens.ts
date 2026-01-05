@@ -3,8 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { MAX_CLI_TOKEN_LABEL_LENGTH } from "@/lib/validation";
 
 export const CLI_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-export const ALLOWED_CLI_SCOPES = ["cli:upload", "cli:run", "cli:patch"] as const;
-export const DEFAULT_CLI_SCOPES = [...ALLOWED_CLI_SCOPES];
+export const ALLOWED_CLI_SCOPES = ["cli:read", "cli:upload", "cli:run", "cli:patch"] as const;
+export const DEFAULT_CLI_SCOPES = ["cli:read", "cli:upload"] as const;
 
 const ALLOWED_SCOPE_SET = new Set<string>(ALLOWED_CLI_SCOPES);
 const TOKEN_BYTES = 32;
@@ -37,7 +37,7 @@ export function normalizeScopes(input?: string[] | null): { scopes: string[]; er
   }
 
   const requested = new Set(cleaned);
-  const ordered = DEFAULT_CLI_SCOPES.filter((scope) => requested.has(scope));
+  const ordered = ALLOWED_CLI_SCOPES.filter((scope) => requested.has(scope));
 
   return { scopes: ordered };
 }

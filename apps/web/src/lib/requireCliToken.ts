@@ -7,9 +7,9 @@ export type RequireCliTokenResult =
   | { token: CliToken; response?: undefined }
   | { token?: undefined; response: NextResponse };
 
-function unauthorizedResponse() {
+function unauthorizedResponse(message = "Unauthorized") {
   return NextResponse.json(
-    { error: "Unauthorized" },
+    { error: message },
     {
       status: 401,
       headers: {
@@ -33,7 +33,7 @@ export async function requireCliToken(request: Request, scopes: string[] = []): 
   }
 
   if (isCliTokenExpired(record)) {
-    return { response: NextResponse.json({ error: "Token expired" }, { status: 401 }) };
+    return { response: unauthorizedResponse("Token expired") };
   }
 
   const missing = getMissingCliScopes(record, scopes);

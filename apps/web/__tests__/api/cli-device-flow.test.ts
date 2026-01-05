@@ -30,7 +30,7 @@ describe("cli-device-flow", () => {
 });
 
 describe("cli-device-flow scopes", () => {
-  it("defaults to the full scope set", () => {
+  it("defaults to the base scope set", () => {
     expect(normalizeScopes(undefined).scopes).toEqual(DEFAULT_CLI_SCOPES);
   });
 
