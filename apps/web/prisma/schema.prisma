@@ -264,6 +264,7 @@ model Snapshot {
   runs             Run[]
   auditIssues      AuditIssue[]
   patches          Patch[]
+  workspaces       Workspace[]
   finalizedAt      DateTime?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -272,6 +273,31 @@ model Snapshot {
   @@index([projectId])
   @@index([baseSnapshotId])
   @@index([manifestHash])
+}
+
+model Workspace {
+  id         String              @id @default(cuid())
+  snapshotId String
+  snapshot   Snapshot            @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  edits      WorkspaceFileEdit[]
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@index([snapshotId])
+}
+
+model WorkspaceFileEdit {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  path        String
+  content     String
+  hash        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, path])
+  @@index([workspaceId])
 }
 
 model SnapshotFile {
