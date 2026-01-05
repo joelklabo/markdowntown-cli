@@ -1,13 +1,10 @@
-import { NextResponse } from "next/server";
-import type { Blob, CliToken, Prisma, Project, Snapshot } from "@prisma/client";
+import type { Blob, Prisma, Project, Snapshot } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { hashToken } from "@/lib/cli/tokens";
 import { validateUploadManifest } from "@/lib/cli/validation";
 import { buildUploadPlan, type UploadPlan } from "@/lib/storage/s3";
+import { requireCliToken, type RequireCliTokenResult } from "@/lib/requireCliToken";
 
-export type RequireCliTokenResult =
-  | { token: CliToken; response?: undefined }
-  | { token?: undefined; response: NextResponse };
+export type { RequireCliTokenResult };
 
 export type ManifestEntryInput = {
   path: string;
@@ -52,41 +49,7 @@ export type UploadHandshakeResult = {
   upload: UploadPlan;
 };
 
-const AUTH_SCHEME = "bearer";
-
-export async function requireCliToken(request: Request, scopes: string[] = []): Promise<RequireCliTokenResult> {
-  const header = request.headers.get("authorization");
-  const token = extractBearerToken(header);
-  if (!token) {
-    return { response: unauthorizedResponse() };
-  }
-
-  const tokenHash = hashToken(token);
-  const record = await prisma.cliToken.findUnique({ where: { tokenHash } });
-  if (!record || record.revokedAt) {
-    return { response: unauthorizedResponse() };
-  }
-
-  if (record.expiresAt && record.expiresAt.getTime() <= Date.now()) {
-    return { response: NextResponse.json({ error: "Token expired" }, { status: 401 }) };
-  }
-
-  if (scopes.length > 0) {
-    const required = new Set(scopes);
-    const allowed = record.scopes ?? [];
-    const missing = Array.from(required).filter((scope) => !allowed.includes(scope));
-    if (missing.length > 0) {
-      return { response: NextResponse.json({ error: "Missing scopes", missing }, { status: 403 }) };
-    }
-  }
-
-  await prisma.cliToken.update({
-    where: { id: record.id },
-    data: { lastUsedAt: new Date() },
-  });
-
-  return { token: record };
-}
+export { requireCliToken };
 
 export async function createUploadHandshake(options: {
   userId: string;
@@ -157,18 +120,6 @@ export async function finalizeSnapshotUpload(options: {
   });
 
   return { missingBlobs, snapshot: updated };
-}
-
-function extractBearerToken(header: string | null): string | null {
-  if (!header) return null;
-  const [scheme, value] = header.split(" ");
-  if (!scheme || !value) return null;
-  if (scheme.toLowerCase() !== AUTH_SCHEME) return null;
-  return value.trim();
-}
-
-function unauthorizedResponse(): NextResponse {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 
 function normalizeManifest(entries: ManifestEntryInput[]): ManifestEntry[] {

@@ -7,6 +7,12 @@ export const CLI_UPLOAD_LIMITS = {
   complete: { windowMs: WINDOW_MS, maxRequests: 60 },
 };
 
+export const CLI_SNAPSHOT_LIMITS = {
+  list: { windowMs: WINDOW_MS, maxRequests: 120 },
+  create: { windowMs: WINDOW_MS, maxRequests: 30 },
+  files: { windowMs: WINDOW_MS, maxRequests: 240 },
+};
+
 type RateLimitOptions = {
   windowMs?: number;
   maxRequests?: number;

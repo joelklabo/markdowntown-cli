@@ -5,10 +5,25 @@ import { MAX_BLOB_BYTES, MAX_SNAPSHOT_FILES, MAX_SNAPSHOT_FILE_BYTES, MAX_SNAPSH
 const SHA256_REGEX = /^[a-f0-9]{64}$/i;
 const MIME_TYPE_REGEX = /^[\w!#$&^_.+-]+\/[\w!#$&^_.+-]+$/;
 
+// Extensions that are typically not useful for this application or potentially harmful if served directly
+const BLOCKED_EXTENSIONS = new Set([
+  ".exe",
+  ".dll",
+  ".so",
+  ".dylib",
+  ".bin",
+  ".iso",
+  ".img",
+  ".dmg",
+  ".jar", // Java archives
+  ".class", // Java bytecode
+]);
+
 export type BlobValidationInput = {
   sha256: string;
   sizeBytes: number;
   contentType?: string | null;
+  path?: string | null;
 };
 
 export function validateUploadManifest(entries: ManifestEntryInput[]): string | null {
@@ -21,6 +36,11 @@ export function validateUploadManifest(entries: ManifestEntryInput[]): string | 
     const pathError = validateUploadPath(entry.path);
     if (pathError) {
       return pathError;
+    }
+
+    const extError = validateExtension(entry.path);
+    if (extError) {
+      return extError;
     }
 
     const hashError = validateBlobHash(entry.blobHash);
@@ -65,6 +85,11 @@ export function validateBlobUpload(input: BlobValidationInput): string | null {
     return contentTypeError;
   }
 
+  if (input.path) {
+    const extError = validateExtension(input.path);
+    if (extError) return extError;
+  }
+
   return null;
 }
 
@@ -91,6 +116,14 @@ function validateUploadPath(value: string): string | null {
     return "Path traversal detected";
   }
 
+  return null;
+}
+
+function validateExtension(filePath: string): string | null {
+  const ext = path.extname(filePath).toLowerCase();
+  if (BLOCKED_EXTENSIONS.has(ext)) {
+    return `File extension not allowed: ${ext}`;
+  }
   return null;
 }
 

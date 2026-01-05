@@ -31,12 +31,23 @@ describe("cli-upload-security", () => {
   it("rejects oversized files in the manifest", () => {
     const error = validateUploadManifest([
       {
-        path: "large.bin",
+        path: "large.txt",
         blobHash: VALID_HASH,
         sizeBytes: MAX_SNAPSHOT_FILE_BYTES + 1,
       },
     ]);
     expect(error).toMatch(/too large/i);
+  });
+
+  it("rejects blocked file extensions", () => {
+    const error = validateUploadManifest([
+      {
+        path: "malware.exe",
+        blobHash: VALID_HASH,
+        sizeBytes: 100,
+      },
+    ]);
+    expect(error).toMatch(/extension not allowed/i);
   });
 
   it("rejects oversized blob uploads", () => {
