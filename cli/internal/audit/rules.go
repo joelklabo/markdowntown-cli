@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"markdowntown-cli/internal/engine"
 	"markdowntown-cli/internal/scan"
 )
 
@@ -73,7 +72,11 @@ func DefaultRules() []Rule {
 
 // RunRules executes the provided rules and returns the aggregated issues.
 func RunRules(ctx Context, rules []Rule) []Issue {
-	return engine.Run(ctx, rules)
+	var issues []Issue
+	for _, rule := range rules {
+		issues = append(issues, rule.Evaluate(ctx)...)
+	}
+	return issues
 }
 
 func ruleConflict(ctx Context) []Issue {
