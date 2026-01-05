@@ -3,8 +3,14 @@
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "scripts": {
-    "lint": "pnpm -C apps/web lint",
+    "dev": "node scripts/dev-all.mjs",
+    "dev:web": "pnpm -C apps/web dev",
+    "dev:worker": "node scripts/dev-worker.mjs",
+    "dev:wasm": "node scripts/watch-wasm.mjs",
+    "lint": "pnpm -C apps/web lint && cd cli && make lint",
     "compile": "pnpm -C apps/web compile",
+    "test": "pnpm -C apps/web test && cd cli && make test",
+    "test:all": "pnpm -C apps/web test && cd cli && make test",
     "wasm:build": "bash cli/scripts/build-wasm.sh",
     "wasm:smoke": "node scripts/wasm-smoke.mjs"
   }

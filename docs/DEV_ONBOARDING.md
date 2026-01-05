@@ -16,6 +16,14 @@ pnpm install
 cd cli && go mod download
 ```
 
+## Unified commands (Recommended)
+Run these from the repo root:
+```bash
+pnpm dev        # Start web, worker, and WASM watcher
+pnpm lint       # Lint both web and CLI
+pnpm test       # Run all tests (web and CLI)
+```
+
 ## Web app (apps/web)
 ```bash
 pnpm -C apps/web dev
