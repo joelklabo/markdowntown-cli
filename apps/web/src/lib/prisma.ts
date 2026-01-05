@@ -33,3 +33,5 @@ export type {
   CliToken,
   CliDeviceCode,
 } from "@prisma/client";
+
+export { RunStatus, RunType } from "@prisma/client";
