@@ -18,7 +18,7 @@ export async function GET(request: Request, context: RouteContext) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    if (!rateLimit(`cli-snapshots:detail:${ip}`, CLI_SNAPSHOT_LIMITS.list)) {
+    if (!(await rateLimit(`cli-snapshots:detail:${ip}`, CLI_SNAPSHOT_LIMITS.list))) {
       logAbuseSignal({ ip, reason: "cli-snapshots-detail-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
@@ -29,7 +29,7 @@ export async function GET(request: Request, context: RouteContext) {
 
     const { token, response } = await requireCliToken(request, ["cli:read"]);
     if (response) return response;
-    if (!rateLimit(`cli-snapshots:detail:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.list)) {
+    if (!(await rateLimit(`cli-snapshots:detail:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.list))) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-snapshots-detail-user-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }

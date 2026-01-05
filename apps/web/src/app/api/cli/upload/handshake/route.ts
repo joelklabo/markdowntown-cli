@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    const limitResponse = checkRateLimit(`cli-upload-handshake:${ip}`, CLI_UPLOAD_LIMITS.handshake);
+    const limitResponse = await checkRateLimit(`cli-upload-handshake:${ip}`, CLI_UPLOAD_LIMITS.handshake);
     if (limitResponse) {
       logAbuseSignal({ ip, reason: "cli-upload-handshake-rate-limit", traceId });
       return limitResponse;
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     const { token, response } = await requireCliToken(request, ["cli:upload"]);
     if (response) return response;
 
-    const userLimitResponse = checkRateLimit(`cli-upload-handshake:user:${token.userId}`, CLI_UPLOAD_LIMITS.handshake);
+    const userLimitResponse = await checkRateLimit(`cli-upload-handshake:user:${token.userId}`, CLI_UPLOAD_LIMITS.handshake);
     if (userLimitResponse) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-upload-handshake-user-rate-limit", traceId });
       return userLimitResponse;

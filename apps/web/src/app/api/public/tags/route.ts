@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withAPM(request, async () => {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    if (!rateLimit(`public-tags:${ip}`)) {
+    if (!(await rateLimit(`public-tags:${ip}`))) {
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
     const start = performance.now();

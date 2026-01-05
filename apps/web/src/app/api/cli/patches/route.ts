@@ -77,7 +77,7 @@ export async function GET(request: Request) {
   return withAPM(request, async () => {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
-    if (!rateLimit(`cli-patches:${ip}`)) {
+    if (!(await rateLimit(`cli-patches:${ip}`))) {
       logAbuseSignal({ ip, reason: "cli-patches-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
@@ -88,7 +88,7 @@ export async function GET(request: Request) {
 
     const { token, response } = await requireCliToken(request, ["cli:patch"]);
     if (response) return response;
-    if (!rateLimit(`cli-patches:user:${token.userId}`)) {
+    if (!(await rateLimit(`cli-patches:user:${token.userId}`))) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-patches-user-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
@@ -139,7 +139,7 @@ export async function POST(request: Request) {
   return withAPM(request, async () => {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
-    if (!rateLimit(`cli-patches:${ip}`)) {
+    if (!(await rateLimit(`cli-patches:${ip}`))) {
       logAbuseSignal({ ip, reason: "cli-patches-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
 
     const { token, response } = await requireCliToken(request, ["cli:patch"]);
     if (response) return response;
-    if (!rateLimit(`cli-patches:user:${token.userId}`)) {
+    if (!(await rateLimit(`cli-patches:user:${token.userId}`))) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-patches-user-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }

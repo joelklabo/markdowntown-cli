@@ -17,7 +17,7 @@ function clampLimit(value: number): number {
 export async function GET(request: Request) {
   return withAPM(request, async () => {
     const ip = getClientIp(request);
-    if (!rateLimit(`atlas-search:${ip}`)) {
+    if (!(await rateLimit(`atlas-search:${ip}`))) {
       return NextResponse.json({ items: [], error: "Rate limit exceeded" }, { status: 429 });
     }
 

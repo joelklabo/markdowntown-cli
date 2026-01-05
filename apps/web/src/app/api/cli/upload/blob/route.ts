@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    const limitResponse = checkRateLimit(`cli-upload-blob:${ip}`, CLI_UPLOAD_LIMITS.blob);
+    const limitResponse = await checkRateLimit(`cli-upload-blob:${ip}`, CLI_UPLOAD_LIMITS.blob);
     if (limitResponse) {
       logAbuseSignal({ ip, reason: "cli-upload-blob-rate-limit", traceId });
       return limitResponse;
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     const { token, response } = await requireCliToken(request, ["cli:upload"]);
     if (response) return response;
 
-    const userLimitResponse = checkRateLimit(`cli-upload-blob:user:${token.userId}`, CLI_UPLOAD_LIMITS.blob);
+    const userLimitResponse = await checkRateLimit(`cli-upload-blob:user:${token.userId}`, CLI_UPLOAD_LIMITS.blob);
     if (userLimitResponse) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-upload-blob-user-rate-limit", traceId });
       return userLimitResponse;

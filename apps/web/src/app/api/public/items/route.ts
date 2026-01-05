@@ -30,7 +30,7 @@ function parseHasScopes(input: string | null): boolean | undefined {
 export async function GET(request: Request) {
   return withAPM(request, async () => {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    if (!rateLimit(`public-items:${ip}`)) {
+    if (!(await rateLimit(`public-items:${ip}`))) {
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
     const start = performance.now();

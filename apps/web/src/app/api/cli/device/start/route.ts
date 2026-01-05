@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   return withAPM(request, async () => {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
-    if (!rateLimit(`cli-device-start:${ip}`)) {
+    if (!(await rateLimit(`cli-device-start:${ip}`))) {
       logAbuseSignal({ ip, reason: "cli-device-start-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }

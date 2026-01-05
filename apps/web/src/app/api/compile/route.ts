@@ -23,7 +23,7 @@ function getClientIp(request: Request): string {
 export async function POST(request: Request) {
   return withAPM(request, async () => {
     const ip = getClientIp(request);
-    if (!rateLimit(`compile:${ip}`)) {
+    if (!(await rateLimit(`compile:${ip}`))) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
     }
 

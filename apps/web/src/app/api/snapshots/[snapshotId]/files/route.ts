@@ -86,7 +86,7 @@ export async function GET(request: Request, context: RouteContext) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    if (!rateLimit(`cli-snapshots-files:get:${ip}`, CLI_SNAPSHOT_LIMITS.list)) {
+    if (!(await rateLimit(`cli-snapshots-files:get:${ip}`, CLI_SNAPSHOT_LIMITS.list))) {
       logAbuseSignal({ ip, reason: "cli-snapshots-files-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
@@ -97,7 +97,7 @@ export async function GET(request: Request, context: RouteContext) {
 
     const { token, response } = await requireCliToken(request, ["cli:read"]);
     if (response) return response;
-    if (!rateLimit(`cli-snapshots-files:get:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.list)) {
+    if (!(await rateLimit(`cli-snapshots-files:get:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.list))) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-snapshots-files-user-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
@@ -160,7 +160,7 @@ export async function POST(request: Request, context: RouteContext) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    if (!rateLimit(`cli-snapshots-files:post:${ip}`, CLI_SNAPSHOT_LIMITS.files)) {
+    if (!(await rateLimit(`cli-snapshots-files:post:${ip}`, CLI_SNAPSHOT_LIMITS.files))) {
       logAbuseSignal({ ip, reason: "cli-snapshots-files-upload-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
@@ -171,7 +171,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     const { token, response } = await requireCliToken(request, ["cli:upload"]);
     if (response) return response;
-    if (!rateLimit(`cli-snapshots-files:post:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.files)) {
+    if (!(await rateLimit(`cli-snapshots-files:post:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.files))) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-snapshots-files-upload-user-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }

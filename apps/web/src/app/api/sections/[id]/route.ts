@@ -34,7 +34,7 @@ export async function PUT(request: Request, context: RouteContext) {
   if (!session) return response;
 
   const ip = request.headers.get("x-forwarded-for") ?? "unknown";
-  if (!rateLimit(`put:${ip}`)) {
+  if (!(await rateLimit(`put:${ip}`))) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
@@ -106,7 +106,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   if (!session) return response;
 
   const ip = (await _request)?.headers?.get("x-forwarded-for") ?? "unknown";
-  if (!rateLimit(`del:${ip}`)) {
+  if (!(await rateLimit(`del:${ip}`))) {
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
