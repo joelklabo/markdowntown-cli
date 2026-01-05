@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NextResponse } from "next/server";
 
 type WorkspaceRecord = {
   id: string;
@@ -26,6 +25,7 @@ vi.mock("@/lib/requireSession", () => ({ requireSession: requireSessionMock }));
 
 const prismaMock = {
   snapshot: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     findFirst: vi.fn(async ({ where }: any) => {
       // Allow access if userId is "user-1"
       if (where.project?.userId === "user-1") {
@@ -45,6 +45,7 @@ const prismaMock = {
       workspaces.push(record);
       return record;
     }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     findFirst: vi.fn(async ({ where }: any) => {
       // Check ownership
       if (where.snapshot?.project?.userId === "user-1") {
@@ -54,6 +55,7 @@ const prismaMock = {
     }),
   },
   workspaceFileEdit: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     upsert: vi.fn(async ({ create, update, where }: any) => {
       const existingIndex = workspaceFileEdits.findIndex(
         (e) =>
