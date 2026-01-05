@@ -7,7 +7,7 @@ import { rateLimit } from "@/lib/rateLimiter";
 import { logAbuseSignal, logAuditEvent } from "@/lib/reports";
 import { requireCliToken } from "@/lib/cli/upload";
 import { createPatch, getPatch, listPatches } from "@/lib/cli/patches";
-import { validatePatchBody } from "@/lib/validation";
+import { MAX_PATCH_BODY_BYTES } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -185,15 +185,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
 
+    const contentLength = Number.parseInt(request.headers.get("content-length") || "0", 10);
+    if (contentLength > MAX_PATCH_BODY_BYTES * 1.5) { // Allow some overhead for JSON wrapping
+      return NextResponse.json(
+        { error: `Payload too large (max ${MAX_PATCH_BODY_BYTES} bytes)` },
+        { status: 413 }
+      );
+    }
+
     const body = await request.json().catch(() => null);
     const parsed = PatchSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid payload", details: parsed.error.issues }, { status: 400 });
     }
 
-    const validationError = validatePatchBody(parsed.data.patchBody);
-    if (validationError) {
-      return NextResponse.json({ error: validationError }, { status: 413 });
+    if (parsed.data.patchBody.length > MAX_PATCH_BODY_BYTES) {
+      return NextResponse.json(
+        { error: `Patch body exceeds size limit (max ${MAX_PATCH_BODY_BYTES} bytes)` },
+        { status: 413 }
+      );
     }
 
     try {

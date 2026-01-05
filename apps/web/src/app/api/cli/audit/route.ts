@@ -7,32 +7,20 @@ import { rateLimit } from "@/lib/rateLimiter";
 import { logAbuseSignal, logAuditEvent } from "@/lib/reports";
 import { requireCliToken } from "@/lib/cli/upload";
 import { listAuditIssues, storeAuditIssues } from "@/lib/audit/store";
+import { MAX_AUDIT_ISSUES_PER_UPLOAD, MAX_AUDIT_MESSAGE_LENGTH, MAX_AUDIT_PAYLOAD_BYTES } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
-
-type AuditIssueResponse = {
-  id: string;
-  snapshotId: string;
-  ruleId: string;
-  severity: AuditSeverity;
-  path: string;
-  message: string;
-  createdAt: Date;
-};
-
-type AuditListResponse = { issues: AuditIssueResponse[]; nextCursor: string | null };
-type AuditErrorResponse = { error: string; details?: unknown };
 
 const IssueSchema = z.object({
   ruleId: z.string().min(1).max(160),
   severity: z.enum(["INFO", "WARNING", "ERROR"]),
   path: z.string().min(1).max(4096),
-  message: z.string().min(1).max(2000),
+  message: z.string().min(1).max(MAX_AUDIT_MESSAGE_LENGTH),
 });
 
 const AuditSchema = z.object({
   snapshotId: z.string().min(1),
-  issues: z.array(IssueSchema).max(5000).default([]),
+  issues: z.array(IssueSchema).max(MAX_AUDIT_ISSUES_PER_UPLOAD).default([]),
 });
 
 function getClientIp(request: Request): string {
@@ -119,6 +107,11 @@ export async function POST(request: Request) {
     if (!(await rateLimit(`cli-audit:user:${token.userId}`))) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-audit-user-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+    }
+
+    const contentLength = Number.parseInt(request.headers.get("content-length") || "0", 10);
+    if (contentLength > MAX_AUDIT_PAYLOAD_BYTES) {
+      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
     }
 
     const body = await request.json().catch(() => null);

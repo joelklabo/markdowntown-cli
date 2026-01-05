@@ -144,4 +144,54 @@ describe("cli-audit API", () => {
     expect(res.status).toBe(200);
     expect(json.stored).toBe(1);
   });
+
+  it("enforces audit issue count limit", async () => {
+    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
+
+    const issues = Array.from({ length: 5001 }, (_, i) => ({
+      ruleId: `rule-${i}`,
+      severity: "WARNING",
+      path: `file-${i}.txt`,
+      message: "msg",
+    }));
+
+    const { POST } = await auditRoute;
+    const res = await POST(
+      new Request("http://localhost/api/cli/audit", {
+        method: "POST",
+        body: JSON.stringify({
+          snapshotId: "snap-1",
+          issues,
+        }),
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toMatch(/invalid payload/i);
+  });
+
+  it("enforces audit issue message length limit", async () => {
+    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
+
+    const { POST } = await auditRoute;
+    const res = await POST(
+      new Request("http://localhost/api/cli/audit", {
+        method: "POST",
+        body: JSON.stringify({
+          snapshotId: "snap-1",
+          issues: [{
+            ruleId: "rule-1",
+            severity: "ERROR",
+            path: "f1.txt",
+            message: "a".repeat(2001),
+          }],
+        }),
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toMatch(/invalid payload/i);
+  });
 });

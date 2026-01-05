@@ -247,6 +247,28 @@ describe("cli-patches API", () => {
     expect(json.patch.id).toBe("patch-1");
   });
 
+  it("rejects oversized patch bodies", async () => {
+    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
+
+    const { POST } = await patchesRoute;
+    const res = await POST(
+      new Request("http://localhost/api/cli/patches", {
+        method: "POST",
+        body: JSON.stringify({
+          snapshotId: "snap-1",
+          path: "README.md",
+          baseBlobHash: VALID_HASH,
+          patchFormat: "unified",
+          patchBody: "a".repeat(1024 * 1024 + 1),
+        }),
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(413);
+    expect(json.error).toMatch(/exceeds size limit/i);
+  });
+
   it("surfaces patch create errors", async () => {
     requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
     createPatchMock.mockRejectedValue(new Error("Patch create failed"));
