@@ -10,7 +10,13 @@ cd "$ROOT"
 
 mkdir -p "$OUT_DIR"
 
-GOOS=js GOARCH=wasm CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "$OUT_DIR/$WASM_NAME" ./cmd/engine-wasm
+# Build with size optimization flags (-s removes symbol table, -w removes DWARF debug info)
+GOOS=js GOARCH=wasm CGO_ENABLED=0 go build \
+  -trimpath \
+  -buildvcs=false \
+  -ldflags="-s -w" \
+  -o "$OUT_DIR/$WASM_NAME" \
+  ./cmd/engine-wasm
 
 GOROOT="$(go env GOROOT)"
 WASM_EXEC_PATH="$GOROOT/lib/wasm/wasm_exec.js"
@@ -25,5 +31,17 @@ cp "$WASM_EXEC_PATH" "$OUT_DIR/wasm_exec.js"
 
 size_bytes=$(wc -c < "$OUT_DIR/$WASM_NAME" | tr -d ' ')
 size_kb=$((size_bytes / 1024))
+size_mb=$(awk "BEGIN {printf \"%.2f\", $size_bytes / 1024 / 1024}")
 
-printf "Built %s (%s KB)\n" "$OUT_DIR/$WASM_NAME" "$size_kb"
+printf "Built %s (%s KB, %s MB)\n" "$OUT_DIR/$WASM_NAME" "$size_kb" "$size_mb"
+
+# Warn if size exceeds budget
+SIZE_BUDGET_KB=7168  # 7 MB warning threshold
+SIZE_LIMIT_KB=8192   # 8 MB hard limit
+if [ "$size_kb" -gt "$SIZE_LIMIT_KB" ]; then
+  echo "ERROR: WASM size ($size_kb KB) exceeds hard limit ($SIZE_LIMIT_KB KB)" >&2
+  exit 1
+elif [ "$size_kb" -gt "$SIZE_BUDGET_KB" ]; then
+  echo "WARNING: WASM size ($size_kb KB) exceeds budget ($SIZE_BUDGET_KB KB)" >&2
+fi
+
