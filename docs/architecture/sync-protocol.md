@@ -95,4 +95,5 @@ Define a deterministic, content-addressed sync flow that lets the CLI upload rep
 - Refresh auth tokens on long uploads; upload tokens should be short-lived.
 
 ## Related docs
-- Data model: `docs/architecture/cli-sync-data-model.md`.
+- Data model: `docs/architecture/cli-sync-data-model.md`
+- State machine: `docs/architecture/sync-state-machine.md`
