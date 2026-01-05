@@ -140,3 +140,65 @@ func TestDeviceFlowPollExpiredToken(t *testing.T) {
 		t.Fatalf("expected expired_token, got %q", resp.Error)
 	}
 }
+
+func TestDeviceFlowPollAuthorizationPending(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(DevicePollResponse{Error: "authorization_pending"})
+	}))
+	t.Cleanup(server.Close)
+
+	client := NewDeviceFlowClient(server.URL, server.Client())
+	resp, err := client.Poll(context.Background(), "device-code")
+	if err != nil {
+		t.Fatalf("poll: %v", err)
+	}
+	if resp.Error != "authorization_pending" {
+		t.Fatalf("expected authorization_pending, got %q", resp.Error)
+	}
+}
+
+func TestDeviceFlowPollSlowDown(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		_ = json.NewEncoder(w).Encode(DevicePollResponse{
+			Error:    "slow_down",
+			Interval: 15,
+		})
+	}))
+	t.Cleanup(server.Close)
+
+	client := NewDeviceFlowClient(server.URL, server.Client())
+	resp, err := client.Poll(context.Background(), "device-code")
+	if err != nil {
+		t.Fatalf("poll: %v", err)
+	}
+	if resp.Error != "slow_down" {
+		t.Fatalf("expected slow_down, got %q", resp.Error)
+	}
+	if resp.Interval != 15 {
+		t.Fatalf("expected interval 15, got %d", resp.Interval)
+	}
+}
+
+func TestDeviceFlowPollSlowDownMissingInterval(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		_ = json.NewEncoder(w).Encode(DevicePollResponse{Error: "slow_down"})
+	}))
+	t.Cleanup(server.Close)
+
+	client := NewDeviceFlowClient(server.URL, server.Client())
+	resp, err := client.Poll(context.Background(), "device-code")
+	if err != nil {
+		t.Fatalf("poll: %v", err)
+	}
+	if resp.Error != "slow_down" {
+		t.Fatalf("expected slow_down, got %q", resp.Error)
+	}
+	// Interval should be 0 when missing
+	if resp.Interval != 0 {
+		t.Fatalf("expected interval 0 when missing, got %d", resp.Interval)
+	}
+}
+

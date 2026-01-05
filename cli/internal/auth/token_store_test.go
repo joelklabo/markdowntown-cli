@@ -1,0 +1,130 @@
+package auth
+
+import (
+	"errors"
+	"markdowntown-cli/internal/config"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
+func TestFileTokenStoreSaveAndLoad(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tempDir, ".config"))
+
+	store := NewFileTokenStore()
+
+	token := "test-token-123"
+	expiresAt := time.Now().Add(24 * time.Hour)
+	baseURL := "https://markdowntown.app"
+
+	if err := store.Save(token, expiresAt, baseURL); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	record, err := store.Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if record.AccessToken != token {
+		t.Errorf("expected token %q, got %q", token, record.AccessToken)
+	}
+	if record.BaseURL != baseURL {
+		t.Errorf("expected baseURL %q, got %q", baseURL, record.BaseURL)
+	}
+	if record.ExpiresAt.Unix() != expiresAt.Unix() {
+		t.Errorf("expected expiresAt %v, got %v", expiresAt, record.ExpiresAt)
+	}
+}
+
+func TestFileTokenStoreLoadMissing(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tempDir, ".config"))
+
+	store := NewFileTokenStore()
+
+	_, err := store.Load()
+	if err == nil {
+		t.Fatal("expected error when loading missing token")
+	}
+	if !errors.Is(err, config.ErrAuthNotFound) {
+		t.Errorf("expected ErrAuthNotFound, got %v", err)
+	}
+}
+
+func TestFileTokenStoreDelete(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tempDir, ".config"))
+
+	store := NewFileTokenStore()
+
+	token := "test-token-456"
+	expiresAt := time.Now().Add(24 * time.Hour)
+	baseURL := "https://markdowntown.app"
+
+	if err := store.Save(token, expiresAt, baseURL); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	if err := store.Delete(); err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+
+	_, err := store.Load()
+	if err == nil {
+		t.Fatal("expected error after delete")
+	}
+	if !errors.Is(err, config.ErrAuthNotFound) {
+		t.Errorf("expected ErrAuthNotFound after delete, got %v", err)
+	}
+}
+
+func TestFileTokenStoreDeleteMissing(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tempDir, ".config"))
+
+	store := NewFileTokenStore()
+
+	// Delete should succeed even if no token exists
+	if err := store.Delete(); err != nil {
+		t.Fatalf("Delete of missing token failed: %v", err)
+	}
+}
+
+func TestFileTokenStoreFilePermissionError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("skipping test when running as root")
+	}
+
+	tempDir := t.TempDir()
+	t.Setenv("HOME", tempDir)
+	configDir := filepath.Join(tempDir, ".config", "markdowntown")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatalf("failed to create config dir: %v", err)
+	}
+
+	// Create read-only directory
+	if err := os.Chmod(configDir, 0o555); err != nil {
+		t.Fatalf("failed to set read-only: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(configDir, 0o755)
+	})
+
+	store := NewFileTokenStore()
+
+	token := "test-token-789"
+	expiresAt := time.Now().Add(24 * time.Hour)
+	baseURL := "https://markdowntown.app"
+
+	err := store.Save(token, expiresAt, baseURL)
+	if err == nil {
+		t.Fatal("expected error when saving to read-only directory")
+	}
+}
