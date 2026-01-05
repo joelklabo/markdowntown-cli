@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { ManifestEntryInput } from "@/lib/cli/upload";
-import { MAX_SNAPSHOT_FILES, MAX_SNAPSHOT_FILE_BYTES, MAX_SNAPSHOT_TOTAL_BYTES } from "@/lib/validation";
+import { MAX_BLOB_BYTES, MAX_SNAPSHOT_FILES, MAX_SNAPSHOT_FILE_BYTES, MAX_SNAPSHOT_TOTAL_BYTES } from "@/lib/validation";
 
 const SHA256_REGEX = /^[a-f0-9]{64}$/i;
 const MIME_TYPE_REGEX = /^[\w!#$&^_.+-]+\/[\w!#$&^_.+-]+$/;
@@ -56,8 +56,8 @@ export function validateBlobUpload(input: BlobValidationInput): string | null {
     return hashError;
   }
 
-  if (input.sizeBytes > MAX_SNAPSHOT_FILE_BYTES) {
-    return `Blob exceeds size limit (max ${MAX_SNAPSHOT_FILE_BYTES} bytes)`;
+  if (input.sizeBytes > MAX_BLOB_BYTES) {
+    return `Blob exceeds size limit (max ${MAX_BLOB_BYTES} bytes)`;
   }
 
   const contentTypeError = validateContentType(input.contentType);

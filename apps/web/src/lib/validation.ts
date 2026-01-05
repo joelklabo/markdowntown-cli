@@ -4,6 +4,7 @@ export const MAX_PROJECT_NAME_LENGTH = 120;
 export const MAX_SNAPSHOT_FILES = 5_000;
 export const MAX_SNAPSHOT_TOTAL_BYTES = 50 * 1024 * 1024;
 export const MAX_SNAPSHOT_FILE_BYTES = 5 * 1024 * 1024;
+export const MAX_BLOB_BYTES = MAX_SNAPSHOT_FILE_BYTES;
 export const MAX_CLI_TOKEN_LABEL_LENGTH = 80;
 
 export function validateSectionPayload(title: string | null, content: string) {
