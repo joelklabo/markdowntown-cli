@@ -10,6 +10,22 @@ import { createPatch, getPatch, listPatches } from "@/lib/cli/patches";
 
 export const dynamic = "force-dynamic";
 
+type SerializedPatch = {
+  id: string;
+  snapshotId: string;
+  path: string;
+  baseBlobHash: string;
+  patchFormat: string;
+  status: PatchStatus;
+  createdAt: Date;
+  appliedAt: Date | null;
+  patchBody?: string;
+};
+
+type PatchListResponse = { patches: SerializedPatch[]; nextCursor: string | null };
+type PatchResponse = { patch: SerializedPatch };
+type PatchErrorResponse = { error: string; details?: unknown };
+
 const PatchSchema = z.object({
   snapshotId: z.string().min(1),
   path: z.string().min(1).max(4096),
@@ -44,18 +60,21 @@ function wantsBody(value: string | null) {
   return normalized === "1" || normalized === "true" || normalized === "yes";
 }
 
-function serializePatch(patch: {
-  id: string;
-  snapshotId: string;
-  path: string;
-  baseBlobHash: string;
-  patchFormat: string;
-  patchBody: string;
-  status: PatchStatus;
-  createdAt: Date;
-  appliedAt: Date | null;
-}, includeBody: boolean) {
-  const payload = {
+function serializePatch(
+  patch: {
+    id: string;
+    snapshotId: string;
+    path: string;
+    baseBlobHash: string;
+    patchFormat: string;
+    patchBody: string;
+    status: PatchStatus;
+    createdAt: Date;
+    appliedAt: Date | null;
+  },
+  includeBody: boolean,
+): SerializedPatch {
+  const payload: SerializedPatch = {
     id: patch.id,
     snapshotId: patch.snapshotId,
     path: patch.path,
@@ -64,7 +83,7 @@ function serializePatch(patch: {
     status: patch.status,
     createdAt: patch.createdAt,
     appliedAt: patch.appliedAt,
-  } as Record<string, unknown>;
+  };
 
   if (includeBody) {
     payload.patchBody = patch.patchBody;
@@ -79,18 +98,18 @@ export async function GET(request: Request) {
     const traceId = request.headers.get("x-trace-id") ?? undefined;
     if (!(await rateLimit(`cli-patches:${ip}`))) {
       logAbuseSignal({ ip, reason: "cli-patches-rate-limit", traceId });
-      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+      return NextResponse.json<PatchErrorResponse>({ error: "Rate limit exceeded" }, { status: 429 });
     }
 
     if (!hasDatabaseEnv) {
-      return NextResponse.json({ error: "CLI patches unavailable" }, { status: 503 });
+      return NextResponse.json<PatchErrorResponse>({ error: "CLI patches unavailable" }, { status: 503 });
     }
 
     const { token, response } = await requireCliToken(request, ["cli:patch"]);
     if (response) return response;
     if (!(await rateLimit(`cli-patches:user:${token.userId}`))) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-patches-user-rate-limit", traceId });
-      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+      return NextResponse.json<PatchErrorResponse>({ error: "Rate limit exceeded" }, { status: 429 });
     }
 
     const url = new URL(request.url);
@@ -99,18 +118,23 @@ export async function GET(request: Request) {
     const includeBody = wantsBody(url.searchParams.get("includeBody"));
     const format = url.searchParams.get("format");
     const status = parsePatchStatus(url.searchParams.get("status"));
+    const limitParam = url.searchParams.get("limit");
+    const cursor = url.searchParams.get("cursor") ?? undefined;
+
+    const parsedLimit = limitParam ? Number.parseInt(limitParam, 10) : NaN;
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 100) : 50;
 
     if (!snapshotId && !patchId) {
-      return NextResponse.json({ error: "Missing snapshotId or patchId" }, { status: 400 });
+      return NextResponse.json<PatchErrorResponse>({ error: "Missing snapshotId or patchId" }, { status: 400 });
     }
     if (url.searchParams.get("status") && !status) {
-      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+      return NextResponse.json<PatchErrorResponse>({ error: "Invalid status" }, { status: 400 });
     }
 
     if (patchId) {
       const patch = await getPatch({ userId: token.userId, patchId });
       if (!patch) {
-        return NextResponse.json({ error: "Patch not found" }, { status: 404 });
+        return NextResponse.json<PatchErrorResponse>({ error: "Patch not found" }, { status: 404 });
       }
 
       if (wantsRaw(format)) {
@@ -120,17 +144,22 @@ export async function GET(request: Request) {
         });
       }
 
-      return NextResponse.json({ patch: serializePatch(patch, true) });
+      return NextResponse.json<PatchResponse>({ patch: serializePatch(patch, true) });
     }
 
     const patches = await listPatches({
       userId: token.userId,
       snapshotId: snapshotId ?? "",
       status,
+      limit,
+      cursor,
     });
 
-    return NextResponse.json({
+    const nextCursor: string | null = patches.length === limit ? patches[patches.length - 1].id : null;
+
+    return NextResponse.json<PatchListResponse>({
       patches: patches.map((patch) => serializePatch(patch, includeBody)),
+      nextCursor,
     });
   });
 }

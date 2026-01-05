@@ -21,6 +21,8 @@ export type PatchQuery = {
   userId: string;
   snapshotId: string;
   status?: PatchStatus;
+  limit?: number;
+  cursor?: string | null;
 };
 
 export type PatchFetch = {
@@ -166,13 +168,17 @@ export async function createPatch(options: { userId: string; input: PatchInput }
 }
 
 export async function listPatches(options: PatchQuery): Promise<Patch[]> {
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
   return prisma.patch.findMany({
     where: {
       snapshotId: options.snapshotId,
       status: options.status,
       snapshot: { project: { userId: options.userId } },
     },
-    orderBy: { createdAt: "asc" },
+    take: limit,
+    skip: options.cursor ? 1 : 0,
+    cursor: options.cursor ? { id: options.cursor } : undefined,
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
 }
 

@@ -10,6 +10,19 @@ import { listAuditIssues, storeAuditIssues } from "@/lib/audit/store";
 
 export const dynamic = "force-dynamic";
 
+type AuditIssueResponse = {
+  id: string;
+  snapshotId: string;
+  ruleId: string;
+  severity: AuditSeverity;
+  path: string;
+  message: string;
+  createdAt: Date;
+};
+
+type AuditListResponse = { issues: AuditIssueResponse[]; nextCursor: string | null };
+type AuditErrorResponse = { error: string; details?: unknown };
+
 const IssueSchema = z.object({
   ruleId: z.string().min(1).max(160),
   severity: z.enum(["INFO", "WARNING", "ERROR"]),
@@ -41,38 +54,50 @@ export async function GET(request: Request) {
     const traceId = request.headers.get("x-trace-id") ?? undefined;
     if (!(await rateLimit(`cli-audit:${ip}`))) {
       logAbuseSignal({ ip, reason: "cli-audit-rate-limit", traceId });
-      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+      return NextResponse.json<AuditErrorResponse>({ error: "Rate limit exceeded" }, { status: 429 });
     }
 
     if (!hasDatabaseEnv) {
-      return NextResponse.json({ error: "CLI audit unavailable" }, { status: 503 });
+      return NextResponse.json<AuditErrorResponse>({ error: "CLI audit unavailable" }, { status: 503 });
     }
 
     const { token, response } = await requireCliToken(request, ["cli:run"]);
     if (response) return response;
     if (!(await rateLimit(`cli-audit:user:${token.userId}`))) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-audit-user-rate-limit", traceId });
-      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+      return NextResponse.json<AuditErrorResponse>({ error: "Rate limit exceeded" }, { status: 429 });
     }
 
     const url = new URL(request.url);
     const snapshotId = url.searchParams.get("snapshotId");
     if (!snapshotId) {
-      return NextResponse.json({ error: "Missing snapshotId" }, { status: 400 });
+      return NextResponse.json<AuditErrorResponse>({ error: "Missing snapshotId" }, { status: 400 });
     }
 
     const severity = parseSeverity(url.searchParams.get("severity"));
     if (url.searchParams.get("severity") && !severity) {
-      return NextResponse.json({ error: "Invalid severity" }, { status: 400 });
+      return NextResponse.json<AuditErrorResponse>({ error: "Invalid severity" }, { status: 400 });
     }
+
+    const limitParam = url.searchParams.get("limit");
+    const cursor = url.searchParams.get("cursor") ?? undefined;
+    const parsedLimit = limitParam ? Number.parseInt(limitParam, 10) : NaN;
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 500) : 100;
 
     const issues = await listAuditIssues({
       userId: token.userId,
       snapshotId,
       severity,
+      limit,
+      cursor,
     });
 
-    return NextResponse.json({ issues });
+    const nextCursor: string | null = issues.length === limit ? issues[issues.length - 1].id : null;
+
+    return NextResponse.json<AuditListResponse>({
+      issues,
+      nextCursor,
+    });
   });
 }
 

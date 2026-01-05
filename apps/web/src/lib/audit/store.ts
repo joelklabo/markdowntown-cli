@@ -82,13 +82,19 @@ export async function listAuditIssues(options: {
   userId: string;
   snapshotId: string;
   severity?: AuditSeverity;
+  limit?: number;
+  cursor?: string | null;
 }): Promise<AuditIssue[]> {
+  const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
   return prisma.auditIssue.findMany({
     where: {
       snapshotId: options.snapshotId,
       severity: options.severity,
       snapshot: { project: { userId: options.userId } },
     },
-    orderBy: [{ severity: "desc" }, { path: "asc" }],
+    take: limit,
+    skip: options.cursor ? 1 : 0,
+    cursor: options.cursor ? { id: options.cursor } : undefined,
+    orderBy: [{ severity: "desc" }, { path: "asc" }, { id: "asc" }],
   });
 }
