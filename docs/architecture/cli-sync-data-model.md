@@ -117,3 +117,16 @@ Indexes:
 - Snapshot: `created` → `uploading` → `ready` or `failed`.
 - Patch: `proposed` → `applied` or `rejected` (or `superseded`).
 - AuditIssue: `open`/`dismissed`/`resolved` (status stored in UI layer if needed).
+
+## CLI local storage
+The CLI maintains local storage for offline operation and queue management:
+- **Location:** `~/.markdowntown/sync/sync.db` (SQLite)
+- **Schema:** Includes `local_snapshots`, `blob_upload_queue`, `patch_queue`, `sync_metadata`
+- **Versioning:** Schema version is tracked and migrated on CLI updates
+- **Persistence:** Queue state, retry counts, and dirty flags are persisted; manifests and hashes are recomputed
+
+See `docs/architecture/cli-sync-local-storage.md` for detailed schema and migration strategy.
+
+## Related docs
+- Protocol: `docs/architecture/sync-protocol.md`
+- Local storage: `docs/architecture/cli-sync-local-storage.md`

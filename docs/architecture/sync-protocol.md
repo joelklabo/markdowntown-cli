@@ -59,6 +59,13 @@ Define a deterministic, content-addressed sync flow that lets the CLI upload rep
 - Patch application is idempotent per `patchId`; duplicate apply requests are ignored.
 - Upload retries are safe because blob hashes are immutable.
 
+## Offline queueing
+- CLI maintains a local upload queue for blobs that cannot be uploaded immediately (offline or transient errors).
+- Queue is persisted in local SQLite database with retry backoff (exponential: 1s, 2s, 4s, ... max 5m).
+- Patches from server are queued locally and applied when base hashes match.
+- Queue size limits prevent unbounded growth during long offline periods (10 snapshots, 10k blobs, 5 GB total).
+- See `docs/architecture/cli-sync-local-storage.md` for detailed queue behavior and retry strategy.
+
 ## Deletions (tombstones)
 - Manifest entries may include `isDeleted: true` to represent file removals.
 - Server stores tombstones so deleted paths do not “resurrect” on delta sync.
@@ -97,3 +104,4 @@ Define a deterministic, content-addressed sync flow that lets the CLI upload rep
 ## Related docs
 - Data model: `docs/architecture/cli-sync-data-model.md`
 - State machine: `docs/architecture/sync-state-machine.md`
+- Local storage: `docs/architecture/cli-sync-local-storage.md`
