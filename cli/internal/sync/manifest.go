@@ -85,7 +85,12 @@ func normalizeRepoRoot(repoRoot string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return abs, nil
+	// Resolve symlinks to match git's behavior (e.g., /var -> /private/var on macOS)
+	resolved, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return "", err
+	}
+	return resolved, nil
 }
 
 type fileRecord struct {
@@ -160,12 +165,18 @@ func filterGitIgnored(repoRoot string, records []fileRecord, includeGitIgnored b
 		return records, nil
 	}
 
-	check, err := hasGitDir(repoRoot)
+	gitRoot, err := git.Root(repoRoot)
 	if err != nil {
+		if errors.Is(err, git.ErrGitNotFound) {
+			// No git installed - include all files
+			return records, nil
+		}
+		// Check if error message indicates not a git repo
+		if err != nil && (strings.Contains(err.Error(), "not a git repository") || strings.Contains(err.Error(), "fatal:")) {
+			// Not a git repo - include all files
+			return records, nil
+		}
 		return nil, err
-	}
-	if !check {
-		return records, nil
 	}
 
 	paths := make([]string, len(records))
@@ -173,7 +184,7 @@ func filterGitIgnored(repoRoot string, records []fileRecord, includeGitIgnored b
 		paths[i] = record.absPath
 	}
 
-	ignored, err := git.CheckIgnore(repoRoot, paths)
+	ignored, err := git.CheckIgnore(gitRoot, paths)
 	if err != nil {
 		if errors.Is(err, git.ErrGitNotFound) {
 			return records, nil
@@ -189,17 +200,6 @@ func filterGitIgnored(repoRoot string, records []fileRecord, includeGitIgnored b
 		filtered = append(filtered, record)
 	}
 	return filtered, nil
-}
-
-func hasGitDir(repoRoot string) (bool, error) {
-	_, err := os.Stat(filepath.Join(repoRoot, ".git"))
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
 }
 
 func buildEntries(records []fileRecord) ([]ManifestEntry, error) {

@@ -70,6 +70,8 @@ func TestManifestSkipsGitIgnored(t *testing.T) {
 	initGitRepo(t, repoRoot)
 
 	writeFile(t, filepath.Join(repoRoot, ".gitignore"), "ignored.txt\n")
+	gitCommitAll(t, repoRoot, "Add gitignore")
+
 	writeFile(t, filepath.Join(repoRoot, "ignored.txt"), "skip")
 	writeFile(t, filepath.Join(repoRoot, "keep.txt"), "keep")
 
@@ -266,5 +268,104 @@ func TestManifestEmptyHash(t *testing.T) {
 	goldenEmptyHash := "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
 	if manifest.Hash != goldenEmptyHash {
 		t.Fatalf("empty manifest hash mismatch:\n  got:      %s\n  expected: %s", manifest.Hash, goldenEmptyHash)
+	}
+}
+
+func TestManifestNestedRepoRoot(t *testing.T) {
+	repoRoot := t.TempDir()
+	initGitRepo(t, repoRoot)
+
+	writeFile(t, filepath.Join(repoRoot, ".gitignore"), "ignored.txt\n")
+	gitCommitAll(t, repoRoot, "Add gitignore")
+
+	writeFile(t, filepath.Join(repoRoot, "ignored.txt"), "skip")
+	writeFile(t, filepath.Join(repoRoot, "keep.txt"), "keep")
+
+	subdir := filepath.Join(repoRoot, "subdir")
+	writeFile(t, filepath.Join(subdir, "nested.txt"), "nested")
+	writeFile(t, filepath.Join(subdir, "ignored.txt"), "also-skip")
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: subdir})
+	if err != nil {
+		t.Fatalf("build manifest from subdir: %v", err)
+	}
+
+	if !hasEntry(manifest.Entries, "nested.txt") {
+		t.Fatalf("expected nested.txt to be included")
+	}
+
+	if hasEntry(manifest.Entries, "ignored.txt") {
+		t.Fatalf("expected ignored.txt to be excluded by parent .gitignore")
+	}
+}
+
+func TestManifestNonGitDirectory(t *testing.T) {
+	repoRoot := t.TempDir()
+
+	writeFile(t, filepath.Join(repoRoot, "file.txt"), "content")
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest in non-git dir: %v", err)
+	}
+
+	if !hasEntry(manifest.Entries, "file.txt") {
+		t.Fatalf("expected file.txt to be included (no gitignore in non-git dir)")
+	}
+}
+
+func TestManifestGitWorktree(t *testing.T) {
+	mainRepo := t.TempDir()
+	initGitRepo(t, mainRepo)
+
+	writeFile(t, filepath.Join(mainRepo, ".gitignore"), "ignored.txt\n")
+	writeFile(t, filepath.Join(mainRepo, "main.txt"), "main")
+	gitCommitAll(t, mainRepo, "initial")
+
+	worktreeDir := t.TempDir()
+	// #nosec G204 -- git command with controlled arguments in test
+	cmd := exec.Command("git", "worktree", "add", worktreeDir, "HEAD")
+	cmd.Dir = mainRepo
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git worktree add failed: %v: %s", err, string(output))
+	}
+
+	writeFile(t, filepath.Join(worktreeDir, "ignored.txt"), "skip")
+	writeFile(t, filepath.Join(worktreeDir, "keep.txt"), "keep")
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: worktreeDir})
+	if err != nil {
+		t.Fatalf("build manifest from worktree: %v", err)
+	}
+
+	if hasEntry(manifest.Entries, "ignored.txt") {
+		t.Fatalf("expected ignored.txt to be excluded in worktree")
+	}
+	if !hasEntry(manifest.Entries, "keep.txt") {
+		t.Fatalf("expected keep.txt to be included in worktree")
+	}
+}
+
+func gitCommitAll(t *testing.T, dir string, message string) {
+	t.Helper()
+
+	cmd := exec.Command("git", "add", ".")
+	cmd.Dir = dir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git add failed: %v: %s", err, string(output))
+	}
+
+	cmd = exec.Command("git", "commit", "-m", message)
+	cmd.Dir = dir
+	cmd.Env = []string{
+		"GIT_AUTHOR_NAME=test",
+		"GIT_AUTHOR_EMAIL=test@example.com",
+		"GIT_COMMITTER_NAME=test",
+		"GIT_COMMITTER_EMAIL=test@example.com",
+		"PATH=" + os.Getenv("PATH"),
+		"HOME=" + os.Getenv("HOME"),
+	}
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git commit failed: %v: %s", err, string(output))
 	}
 }
