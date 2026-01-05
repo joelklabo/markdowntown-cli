@@ -391,16 +391,17 @@ model AuditIssue {
 }
 
 model CliToken {
-  id         String    @id @default(cuid())
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash  String    @unique
-  scopes     String[]  @default([])
-  label      String?
-  lastUsedAt DateTime?
-  revokedAt  DateTime?
-  expiresAt  DateTime?
-  createdAt  DateTime  @default(now())
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  tokenPrefix String    // First 8 chars for display (e.g., "AbCdEfGh...")
+  scopes      String[]  @default([])
+  label       String?
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
 
   @@index([userId])
   @@index([revokedAt])

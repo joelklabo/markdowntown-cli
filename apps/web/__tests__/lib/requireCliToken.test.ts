@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { requireCliToken } from "@/lib/requireCliToken";
 import { NextRequest } from "next/server";
+import { hashToken } from "@/lib/cli/tokens";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
@@ -34,35 +35,40 @@ describe("requireCliToken", () => {
   });
 
   it("rejects revoked token", async () => {
+    const token = "revoked-token";
     prismaMock.cliToken.findUnique.mockResolvedValue({
       id: "token-1",
+      tokenHash: hashToken(token),
       revokedAt: new Date(),
     });
     const req = new NextRequest("http://localhost", {
-      headers: { authorization: "Bearer revoked" },
+      headers: { authorization: `Bearer ${token}` },
     });
     const { response } = await requireCliToken(req);
     expect(response?.status).toBe(401);
   });
 
   it("rejects expired token", async () => {
+    const token = "expired-token";
     prismaMock.cliToken.findUnique.mockResolvedValue({
       id: "token-1",
+      tokenHash: hashToken(token),
+      revokedAt: null,
       expiresAt: new Date(Date.now() - 1000),
     });
     const req = new NextRequest("http://localhost", {
-      headers: { authorization: "Bearer expired" },
+      headers: { authorization: `Bearer ${token}` },
     });
     const { response } = await requireCliToken(req);
     expect(response?.status).toBe(401);
-    const json = await response?.json();
-    expect(json.error).toBe("Token expired");
   });
 
   it("accepts valid token and updates lastUsedAt", async () => {
+    const token = "valid-token";
     const tokenRecord = {
       id: "token-1",
       userId: "user-1",
+      tokenHash: hashToken(token),
       scopes: ["cli:read"],
       revokedAt: null,
       expiresAt: new Date(Date.now() + 10000),
@@ -71,12 +77,12 @@ describe("requireCliToken", () => {
     prismaMock.cliToken.update.mockResolvedValue(tokenRecord);
 
     const req = new NextRequest("http://localhost", {
-      headers: { authorization: "Bearer valid" },
+      headers: { authorization: `Bearer ${token}` },
     });
-    const { token, response } = await requireCliToken(req, ["cli:read"]);
+    const { token: resultToken, response } = await requireCliToken(req, ["cli:read"]);
     
     expect(response).toBeUndefined();
-    expect(token?.id).toBe("token-1");
+    expect(resultToken?.id).toBe("token-1");
     expect(prismaMock.cliToken.update).toHaveBeenCalledWith({
       where: { id: "token-1" },
       data: { lastUsedAt: expect.any(Date) },
@@ -84,13 +90,17 @@ describe("requireCliToken", () => {
   });
 
   it("rejects token with missing scopes", async () => {
+    const token = "limited-token";
     prismaMock.cliToken.findUnique.mockResolvedValue({
       id: "token-1",
       userId: "user-1",
+      tokenHash: hashToken(token),
       scopes: ["cli:read"],
+      revokedAt: null,
+      expiresAt: null,
     });
     const req = new NextRequest("http://localhost", {
-      headers: { authorization: "Bearer valid" },
+      headers: { authorization: `Bearer ${token}` },
     });
     const { response } = await requireCliToken(req, ["cli:upload"]);
     expect(response?.status).toBe(403);

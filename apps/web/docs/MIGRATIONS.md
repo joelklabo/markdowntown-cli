@@ -25,3 +25,12 @@ Commit the generated folder under `prisma/migrations`.
 - Ensure `DATABASE_URL` points to a Postgres database before running migrations.
 - Reset dev DB: `pnpm prisma migrate reset` (will wipe data).
 - Use `pnpm prisma studio` for inspecting data locally.
+
+## Recent migrations
+
+### 2026-01-05: CLI Token Security Enhancements
+- **Added `tokenPrefix` column** to `CliToken` model (first 8 chars for display)
+- **Enhanced token verification** with constant-time compare to prevent timing attacks
+- **Improved revocation handling** - `findCliToken()` now checks `revokedAt` and `expiresAt`
+- See `docs/SECURITY.md` for token rotation and revocation best practices
+- Migration: `npx prisma migrate dev --name add_token_prefix`

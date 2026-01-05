@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { MAX_CLI_TOKEN_LABEL_LENGTH } from "@/lib/validation";
 
@@ -8,6 +8,7 @@ export const DEFAULT_CLI_SCOPES = ["cli:read", "cli:upload"] as const;
 
 const ALLOWED_SCOPE_SET = new Set<string>(ALLOWED_CLI_SCOPES);
 const TOKEN_BYTES = 32;
+const TOKEN_PREFIX_LENGTH = 8;
 
 type CliTokenClient = Pick<typeof prisma, "cliToken">;
 
@@ -46,8 +47,26 @@ export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+/**
+ * Constant-time comparison of two token hashes.
+ * Prevents timing attacks when verifying tokens.
+ */
+export function verifyTokenHash(token: string, storedHash: string): boolean {
+  const tokenHash = hashToken(token);
+  try {
+    return timingSafeEqual(Buffer.from(tokenHash), Buffer.from(storedHash));
+  } catch {
+    // Length mismatch or invalid encoding - not equal
+    return false;
+  }
+}
+
 export function generateToken(): string {
   return randomBytes(TOKEN_BYTES).toString("base64url");
+}
+
+export function extractTokenPrefix(token: string): string {
+  return token.slice(0, TOKEN_PREFIX_LENGTH);
 }
 
 function normalizeLabel(label?: string | null): string | undefined {
@@ -68,6 +87,7 @@ export async function issueCliToken(options: {
   const { userId, scopes, label, client, expiresAt } = options;
   const token = generateToken();
   const tokenHash = hashToken(token);
+  const tokenPrefix = extractTokenPrefix(token);
   const effectiveExpiresAt = expiresAt ?? new Date(Date.now() + CLI_TOKEN_TTL_MS);
   const db = client ?? prisma;
 
@@ -75,6 +95,7 @@ export async function issueCliToken(options: {
     data: {
       userId,
       tokenHash,
+      tokenPrefix,
       scopes,
       label: normalizeLabel(label),
       expiresAt: effectiveExpiresAt,
