@@ -6,11 +6,16 @@ settings:
 
 importers:
 
+  .: {}
+
   apps/web:
     dependencies:
       '@hello-pangea/dnd':
         specifier: ^16.5.0
         version: 16.6.0(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@markdowntown/engine-js':
+        specifier: workspace:*
+        version: link:../../packages/engine-js
       '@mdx-js/mdx':
         specifier: ^3.1.1
         version: 3.1.1
@@ -201,6 +206,8 @@ importers:
       vitest:
         specifier: ^4.0.14
         version: 4.0.14(@opentelemetry/api@1.9.0)(@types/node@20.19.25)(jiti@2.6.1)(jsdom@25.0.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2)
+
+  packages/engine-js: {}
 
 packages:
 

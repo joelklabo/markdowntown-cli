@@ -41,6 +41,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  transpilePackages: ["@markdowntown/engine-js"],
   images: {
     remotePatterns: [
       {
