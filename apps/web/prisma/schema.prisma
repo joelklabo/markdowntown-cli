@@ -280,6 +280,7 @@ model Workspace {
   snapshotId String
   snapshot   Snapshot            @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
   edits      WorkspaceFileEdit[]
+  runs       Run[]
   createdAt  DateTime            @default(now())
   updatedAt  DateTime            @updatedAt
 
@@ -338,6 +339,8 @@ model Run {
   id         String    @id @default(cuid())
   snapshotId String
   snapshot   Snapshot  @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   type       RunType
   status     RunStatus @default(QUEUED)
   input      Json?
@@ -348,6 +351,7 @@ model Run {
   finishedAt DateTime?
 
   @@index([snapshotId])
+  @@index([workspaceId])
   @@index([type])
   @@index([status])
 }
