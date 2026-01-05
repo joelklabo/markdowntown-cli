@@ -281,6 +281,13 @@ type apiErrorResponse struct {
 }
 
 func parseAPIError(status int, body []byte) error {
+	if status == http.StatusUnauthorized {
+		return &APIError{Status: status, Message: "authentication failed; your session may have expired. Please run 'markdowntown login' to re-authenticate."}
+	}
+	if status == http.StatusForbidden {
+		return &APIError{Status: status, Message: "access denied; you do not have permission to perform this action. Check your project access or run 'markdowntown login' if your session has changed."}
+	}
+
 	var parsed apiErrorResponse
 	if len(body) > 0 && json.Unmarshal(body, &parsed) == nil {
 		if len(parsed.MissingBlobs) > 0 {
@@ -290,6 +297,7 @@ func parseAPIError(status int, body []byte) error {
 			return &APIError{Status: status, Message: parsed.Error}
 		}
 	}
+
 	message := strings.TrimSpace(string(body))
 	if message == "" {
 		message = http.StatusText(status)

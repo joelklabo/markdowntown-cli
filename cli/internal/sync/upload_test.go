@@ -733,6 +733,104 @@ func TestParseRetryAfterHTTPDate(t *testing.T) {
 	}
 }
 
+func TestUploadHandles401AuthExpiry(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoRoot, "alpha.txt"), []byte("alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha: %v", err)
+	}
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	missingHash := manifest.Entries[0].BlobHash
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{missingHash},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/blob", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	_, err = UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:    repoRoot,
+		ProjectName: "demo",
+	})
+	if err == nil {
+		t.Fatal("expected unauthorized error")
+	}
+	if !strings.Contains(err.Error(), "authentication failed") || !strings.Contains(err.Error(), "markdowntown login") {
+		t.Fatalf("expected actionable guidance in error, got %v", err)
+	}
+}
+
+func TestUploadHandles403Forbidden(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoRoot, "alpha.txt"), []byte("alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha: %v", err)
+	}
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	missingHash := manifest.Entries[0].BlobHash
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{missingHash},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/blob", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "forbidden"})
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	_, err = UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:    repoRoot,
+		ProjectName: "demo",
+	})
+	if err == nil {
+		t.Fatal("expected forbidden error")
+	}
+	if !strings.Contains(err.Error(), "access denied") || !strings.Contains(err.Error(), "markdowntown login") {
+		t.Fatalf("expected actionable guidance in error, got %v", err)
+	}
+}
+
 func TestBackoffDelayUsesRandomJitter(t *testing.T) {
 	expectedBase := 500 * time.Millisecond * 2
 	delays := make(map[time.Duration]struct{})
