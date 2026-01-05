@@ -4,12 +4,16 @@ package sync
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math"
+	"math/big"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -185,24 +189,59 @@ func (c *Client) Handshake(ctx context.Context, req UploadHandshakeRequest) (Upl
 
 // UploadBlob registers blob content using the provided endpoint.
 func (c *Client) UploadBlob(ctx context.Context, endpoint string, req UploadBlobRequest) error {
-	status, body, err := c.postJSON(ctx, endpoint, req)
-	if err != nil {
-		return err
-	}
-	if status >= http.StatusBadRequest {
-		return parseAPIError(status, body)
-	}
-	if len(body) == 0 {
+	return c.uploadBlobWithRetry(ctx, endpoint, req, 3)
+}
+
+func (c *Client) uploadBlobWithRetry(ctx context.Context, endpoint string, req UploadBlobRequest, maxRetries int) error {
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+		}
+
+		status, body, retryAfter, err := c.postJSONWithRetry(ctx, endpoint, req)
+		if err != nil {
+			lastErr = err
+			if !isRetryable(err, status) {
+				return err
+			}
+			delay := backoffDelay(attempt, retryAfter)
+			if err := sleepWithContext(ctx, delay); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if status >= http.StatusBadRequest {
+			lastErr = parseAPIError(status, body)
+			if !isRetryableStatus(status) {
+				return lastErr
+			}
+			delay := backoffDelay(attempt, retryAfter)
+			if err := sleepWithContext(ctx, delay); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if len(body) == 0 {
+			return nil
+		}
+		var resp UploadBlobResponse
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return err
+		}
+		if resp.Error != "" {
+			return &APIError{Status: status, Message: resp.Error}
+		}
 		return nil
 	}
-	var resp UploadBlobResponse
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return err
+	if lastErr != nil {
+		return lastErr
 	}
-	if resp.Error != "" {
-		return &APIError{Status: status, Message: resp.Error}
-	}
-	return nil
+	return errors.New("upload failed after retries")
 }
 
 // Finalize marks the snapshot as ready after uploads complete.
@@ -329,4 +368,127 @@ func formatAuthHeader(tokenType, token string) string {
 		scheme = "Bearer"
 	}
 	return fmt.Sprintf("%s %s", scheme, token)
+}
+
+func isRetryableStatus(status int) bool {
+	return status == http.StatusTooManyRequests ||
+		status == http.StatusRequestTimeout ||
+		status == http.StatusInternalServerError ||
+		status == http.StatusBadGateway ||
+		status == http.StatusServiceUnavailable ||
+		status == http.StatusGatewayTimeout
+}
+
+func isRetryable(err error, status int) bool {
+	if err == nil {
+		return false
+	}
+	if strings.Contains(err.Error(), "timeout") || strings.Contains(err.Error(), "connection") {
+		return true
+	}
+	return isRetryableStatus(status)
+}
+
+func backoffDelay(attempt int, retryAfter int) time.Duration {
+	if retryAfter > 0 {
+		maxRetryAfter := 30
+		if retryAfter > maxRetryAfter {
+			retryAfter = maxRetryAfter
+		}
+		return time.Duration(retryAfter) * time.Second
+	}
+	base := 500 * time.Millisecond
+	var shift uint
+	if attempt > 0 {
+		shift = uint(attempt)
+	}
+	// Cap shift to avoid overflow
+	if shift > 30 {
+		shift = 30
+	}
+	delay := base * (1 << shift)
+	maxDelay := 10 * time.Second
+	if delay > maxDelay {
+		delay = maxDelay
+	}
+	jitter := randomJitter(100 * time.Millisecond)
+	return delay + jitter
+}
+
+func sleepWithContext(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func (c *Client) postJSONWithRetry(ctx context.Context, endpoint string, payload any) (int, []byte, int, error) {
+	urlStr, err := c.resolveEndpoint(endpoint)
+	if err != nil {
+		return 0, nil, 0, err
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return 0, nil, 0, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, urlStr, bytes.NewReader(body))
+	if err != nil {
+		return 0, nil, 0, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", fmt.Sprintf("markdowntown-cli/%s", version.ToolVersion))
+	if token := strings.TrimSpace(c.Token); token != "" {
+		req.Header.Set("Authorization", formatAuthHeader(c.TokenType, token))
+	}
+
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		return 0, nil, 0, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp.StatusCode, nil, 0, err
+	}
+
+	retryAfter := parseRetryAfter(resp.Header.Get("Retry-After"))
+	return resp.StatusCode, data, retryAfter, nil
+}
+
+func parseRetryAfter(header string) int {
+	if header == "" {
+		return 0
+	}
+	if seconds, err := strconv.Atoi(header); err == nil && seconds > 0 {
+		return seconds
+	}
+	if t, err := http.ParseTime(header); err == nil {
+		seconds := int(math.Ceil(time.Until(t).Seconds()))
+		if seconds > 0 {
+			return seconds
+		}
+	}
+	return 0
+}
+
+func randomJitter(maxDuration time.Duration) time.Duration {
+	if maxDuration <= 0 {
+		return 0
+	}
+	n, err := rand.Int(rand.Reader, big.NewInt(maxDuration.Nanoseconds()))
+	if err != nil {
+		return 0
+	}
+	return time.Duration(n.Int64())
 }
