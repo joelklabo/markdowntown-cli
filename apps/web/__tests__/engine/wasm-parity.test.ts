@@ -86,7 +86,7 @@ async function readFilesRecursive(dir: string, root = dir): Promise<FixtureFile[
   return results;
 }
 
-function normalizeIssues(rawIssues: any[], repoRoot: string): NormalizedIssue[] {
+function normalizeIssues(rawIssues: unknown[], repoRoot: string): NormalizedIssue[] {
   const normalizePath = (value: string): string => {
     const normalized = value.replace(/\\/g, "/");
     const withoutRoot = normalized.startsWith(repoRoot) ? normalized.slice(repoRoot.length) : normalized;
@@ -97,20 +97,20 @@ function normalizeIssues(rawIssues: any[], repoRoot: string): NormalizedIssue[] 
     return `./${trimmed}`;
   };
 
-  const normalizePaths = (paths: any[]): NormalizedPath[] =>
+  const normalizePaths = (paths: unknown[]): NormalizedPath[] =>
     (paths ?? [])
-      .map((entry) => ({
-        path: normalizePath(String(entry?.path ?? "")),
-        scope: entry?.scope ? String(entry.scope) : undefined,
-        redacted: entry?.redacted ?? false,
+      .map((entry: unknown) => ({
+        path: normalizePath(String((entry as Record<string, unknown>)?.path ?? "")),
+        scope: (entry as Record<string, unknown>)?.scope ? String((entry as Record<string, unknown>).scope) : undefined,
+        redacted: (entry as Record<string, unknown>)?.redacted ?? false,
       }))
       .sort((left, right) => left.path.localeCompare(right.path));
 
-  const normalizeTools = (tools: any[]): Array<{ toolId: string; kind: string }> =>
+  const normalizeTools = (tools: unknown[]): Array<{ toolId: string; kind: string }> =>
     (tools ?? [])
-      .map((tool) => ({
-        toolId: String(tool?.toolId ?? ""),
-        kind: String(tool?.kind ?? ""),
+      .map((tool: unknown) => ({
+        toolId: String((tool as Record<string, unknown>)?.toolId ?? ""),
+        kind: String((tool as Record<string, unknown>)?.kind ?? ""),
       }))
       .sort((left, right) => {
         if (left.toolId !== right.toolId) {
