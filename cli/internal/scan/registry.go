@@ -36,6 +36,19 @@ var (
 func LoadRegistry() (Registry, string, error) {
 	path, err := ResolveRegistryPath()
 	if err != nil {
+		if errors.Is(err, ErrRegistryNotFound) {
+			var reg Registry
+			if jsonErr := json.Unmarshal([]byte(DefaultRegistryJSON), &reg); jsonErr != nil {
+				return Registry{}, "", fmt.Errorf("parse default registry: %w", jsonErr)
+			}
+			// Load custom patterns if present (optional overlay on default)
+			customReg, customPath, customErr := LoadCustomPatterns()
+			if customErr == nil && len(customReg.Patterns) > 0 {
+				reg = MergeRegistries(reg, customReg)
+				return reg, customPath, nil
+			}
+			return reg, "(default)", nil
+		}
 		return Registry{}, "", err
 	}
 

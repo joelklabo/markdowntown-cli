@@ -13,4 +13,4 @@ cli/vscode-extension/out/
 cli/vscode-extension/.vscode-test/
 cli/vscode-extension/test-results/
 cli/vscode-extension/playwright-report/
-markdowntown
+/markdowntown

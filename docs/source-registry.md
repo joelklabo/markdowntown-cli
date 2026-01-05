@@ -62,3 +62,11 @@ Suggested cache layout:
 - Snapshots: `$XDG_DATA_HOME/markdowntown/suggest/snapshots/*.body`
 
 These caches are populated during fetches and used in `--offline` mode.
+
+## Refresh pipeline
+
+- Refresh entrypoints: `scripts/docs/refresh.ts`, `POST /api/docs/refresh`, or the scheduled job defined in `infra/modules/jobs-doc-refresh.bicep`.
+- The pipeline fetches the registry from `DOC_REGISTRY_URL`/`DOC_REGISTRY_PATH` (defaults to `cli/data/doc-sources.json` if present) and validates HTTPS URLs, allowlist hosts, and refresh cadences before publishing.
+- Last-good snapshots are stored under `.cache/docs/registry/last-good.json` (configurable via `DOC_STORE_PATH`) and are served when a refresh attempt fails to keep the CLI/Web flows fail-stale.
+- Corrupt or oversized payloads are rejected; validation mirrors the CLI registry rules (unique IDs, HTTPS only, host allowlist enforcement).
+- Operational guidance and alerting steps live in `docs/runbooks/docs-refresh.md`.

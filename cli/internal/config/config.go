@@ -103,3 +103,15 @@ func LoadAuth() (AuthRecord, error) {
 
 	return record, nil
 }
+
+// RemoveAuth deletes the auth file.
+func RemoveAuth(path string) error {
+	err := os.Remove(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ErrAuthNotFound
+		}
+		return err
+	}
+	return nil
+}

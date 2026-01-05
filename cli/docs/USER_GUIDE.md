@@ -30,6 +30,12 @@ rm "$(go env GOPATH)/bin/markdowntown"
 - `markdowntown audit` → see `cli/docs/audit-spec-v1.md` for flags and schema.
 - `markdowntown suggest` → see `cli/docs/suggest-spec-v1.md` for flags and schema.
 
+## Authentication
+
+- `markdowntown login --token <token>` stores an app-issued token locally; use `--token-stdin` to avoid shell history (e.g., `cat token.txt | markdowntown login --token-stdin`).
+- Running `markdowntown login` without a token starts device flow and prints a verification URL/code; pass `--base-url` (or set `MARKDOWNTOWN_BASE_URL`) for self-hosted targets.
+- Tokens are saved to `$XDG_CONFIG_HOME/markdowntown/auth.json` (0600) with the base URL so `sync`/`pull` reuse the same host.
+
 ## VS Code LSP diagnostics
 - Diagnostics and quick fixes: `cli/docs/architecture/lsp-diagnostics.md`.
 - VS Code integration overview: `docs/USER_GUIDE.md`.

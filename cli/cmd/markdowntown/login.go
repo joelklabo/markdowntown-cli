@@ -21,11 +21,13 @@ Usage:
   markdowntown login [flags]
 
 Flags:
-  --base-url <url>      Base URL for the web app (default https://markdowntown.app)
-  --scopes <list>       Comma-separated scopes (default: cli:upload,cli:run,cli:patch)
-  --client-id <id>      Client ID identifier
-  --device-name <name>  Device label for the approval prompt
-  -h, --help            Show help
+   --base-url <url>      Base URL for the web app (default https://markdowntown.app)
+   --token <value>       Use an app-issued token (skips device flow)
+   --token-stdin         Read token from stdin (skips device flow)
+   --scopes <list>       Comma-separated scopes (default: cli:upload,cli:run,cli:patch)
+   --client-id <id>      Client ID identifier
+   --device-name <name>  Device label for the approval prompt
+   -h, --help            Show help
 `
 
 const (
@@ -44,9 +46,14 @@ func runLoginWithIO(stdout, stderr io.Writer, args []string) error {
 	var scopesRaw string
 	var deviceName string
 	var clientID string
+	var token string
+	var tokenFromStdin bool
 	var help bool
+	tokenFlagSet := false
 
 	flags.StringVar(&baseURL, "base-url", "", "base url")
+	flags.StringVar(&token, "token", "", "token")
+	flags.BoolVar(&tokenFromStdin, "token-stdin", false, "token from stdin")
 	flags.StringVar(&scopesRaw, "scopes", "", "scopes")
 	flags.StringVar(&deviceName, "device-name", "", "device name")
 	flags.StringVar(&clientID, "client-id", "", "client id")
@@ -56,6 +63,11 @@ func runLoginWithIO(stdout, stderr io.Writer, args []string) error {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
+	flags.Visit(func(f *flag.Flag) {
+		if f.Name == "token" {
+			tokenFlagSet = true
+		}
+	})
 	if help {
 		_, _ = fmt.Fprint(stdout, loginUsage)
 		return nil
@@ -64,9 +76,34 @@ func runLoginWithIO(stdout, stderr io.Writer, args []string) error {
 		return fmt.Errorf("unexpected arguments: %s", strings.Join(flags.Args(), " "))
 	}
 
+	if token == "-" {
+		tokenFromStdin = true
+		token = ""
+	}
+	if tokenFromStdin && token != "" {
+		return errors.New("--token and --token-stdin cannot be combined")
+	}
+	if tokenFromStdin {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return err
+		}
+		token = strings.TrimSpace(string(data))
+	}
+	token = strings.TrimSpace(token)
+	if tokenFromStdin && token == "" {
+		return errors.New("no token provided via stdin")
+	}
+	manualToken := tokenFromStdin || tokenFlagSet
+
 	resolvedBaseURL, err := auth.ResolveBaseURL(baseURL)
 	if err != nil {
 		return err
+	}
+	scopes := parseScopes(scopesRaw)
+
+	if manualToken {
+		return saveManualToken(stdout, stderr, token, scopes, resolvedBaseURL)
 	}
 
 	if strings.TrimSpace(deviceName) == "" {
@@ -75,7 +112,6 @@ func runLoginWithIO(stdout, stderr io.Writer, args []string) error {
 		}
 	}
 
-	scopes := parseScopes(scopesRaw)
 	client := auth.NewDeviceFlowClient(resolvedBaseURL, nil)
 
 	start, err := client.Start(context.Background(), auth.DeviceStartRequest{
@@ -188,4 +224,26 @@ func authFileHint() string {
 		return "local file"
 	}
 	return path
+}
+
+func saveManualToken(stdout, stderr io.Writer, token string, scopes []string, baseURL string) error {
+	if token == "" {
+		return errors.New("token must not be empty")
+	}
+	record := config.AuthRecord{
+		AccessToken: token,
+		TokenType:   "Bearer",
+		Scopes:      scopes,
+		CreatedAt:   time.Now(),
+		BaseURL:     baseURL,
+	}
+	result, err := auth.SaveAuth(record)
+	if err != nil {
+		return err
+	}
+	if result.Warning != nil {
+		_, _ = fmt.Fprintf(stderr, "Keyring unavailable (%v); token stored at %s.\n", result.Warning, authFileHint())
+	}
+	_, _ = fmt.Fprintf(stdout, "Token stored in %s.\n", result.Location)
+	return nil
 }

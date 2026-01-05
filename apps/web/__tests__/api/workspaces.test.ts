@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 
 type WorkspaceRecord = {
   id: string;
@@ -102,7 +103,7 @@ describe("workspaces API", () => {
     });
     const { POST } = await workspacesRoute;
     const res = await POST(
-      new Request("http://localhost/api/workspaces", {
+      new NextRequest("http://localhost/api/workspaces", {
         method: "POST",
         body: JSON.stringify({ snapshotId: "snap-1" }),
       })
@@ -134,7 +135,7 @@ describe("workspaces API", () => {
     const ctx = { params: Promise.resolve({ workspaceId }) };
 
     const res = await POST(
-      new Request(`http://localhost/api/workspaces/${workspaceId}/files`, {
+      new NextRequest(`http://localhost/api/workspaces/${workspaceId}/files`, {
         method: "POST",
         body: JSON.stringify({ path: "README.md", content: "Hello" }),
       }),
@@ -148,7 +149,7 @@ describe("workspaces API", () => {
 
     // Update
     const res2 = await POST(
-      new Request(`http://localhost/api/workspaces/${workspaceId}/files`, {
+      new NextRequest(`http://localhost/api/workspaces/${workspaceId}/files`, {
         method: "POST",
         body: JSON.stringify({ path: "README.md", content: "Hello World" }),
       }),

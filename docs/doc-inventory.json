@@ -1,0 +1,24 @@
+{
+  "version": "2026-01-01",
+  "updatedAt": "2026-01-04T00:00:00Z",
+  "documents": [
+    {
+      "id": "user-guide",
+      "title": "User Guide",
+      "url": "https://github.com/markdowntown/markdowntown-cli/blob/main/docs/USER_GUIDE.md",
+      "tags": ["guide", "cli", "web"]
+    },
+    {
+      "id": "design-system",
+      "title": "Design System",
+      "url": "https://github.com/markdowntown/markdowntown-cli/blob/main/docs/DESIGN_SYSTEM.md",
+      "tags": ["design", "ui"]
+    },
+    {
+      "id": "source-registry",
+      "title": "Source Registry Spec",
+      "url": "https://github.com/markdowntown/markdowntown-cli/blob/main/docs/source-registry.md",
+      "tags": ["registry", "spec"]
+    }
+  ]
+}

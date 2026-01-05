@@ -20,7 +20,10 @@ import { cn, focusRing, interactiveBase } from "@/lib/cn";
 import { featureFlags } from "@/lib/flags";
 
 const links = [
-  { href: "/projects", label: "Projects" },
+  { href: "/library", label: "Library" },
+  { href: "/workbench", label: "Workbench" },
+  { href: "/translate", label: "Translate" },
+  { href: "/scan", label: "Scan" },
   { href: "/docs", label: "Docs" },
 ];
 
@@ -375,7 +378,6 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
                 <Link
                   key={link.href}
                   href={link.href}
-                  title={link.title}
                   className={cn(
                     "rounded-mdt-md px-mdt-3 py-mdt-2",
                     interactiveBase,

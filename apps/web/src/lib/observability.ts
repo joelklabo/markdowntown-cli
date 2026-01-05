@@ -6,6 +6,33 @@ const nowMs = () => Number(process.hrtime.bigint()) / 1_000_000;
 
 type Handler = () => Promise<NextResponse> | NextResponse;
 
+type StructuredLog = {
+  event: string;
+  traceId: string;
+  durationMs?: number;
+  path?: string;
+  method?: string;
+  status?: number;
+  message?: string;
+  [key: string]: unknown;
+};
+
+function logInfo(payload: StructuredLog) {
+  try {
+    console.info(payload.event, payload);
+  } catch {
+    // ignore console failures
+  }
+}
+
+function logError(payload: StructuredLog) {
+  try {
+    console.error(payload.event, payload);
+  } catch {
+    // ignore console failures
+  }
+}
+
 export async function withAPM(request: Request, handler: Handler): Promise<NextResponse> {
   const traceId = request.headers.get("x-trace-id") ?? randomUUID();
   const path = (() => {
@@ -21,7 +48,13 @@ export async function withAPM(request: Request, handler: Handler): Promise<NextR
     response = await handler();
   } catch (err) {
     const duration = nowMs() - start;
-    console.error("api_error", { path, traceId, durationMs: Number(duration.toFixed(1)), message: err });
+    logError({
+      event: "api_error",
+      path,
+      traceId,
+      durationMs: Number(duration.toFixed(1)),
+      message: err instanceof Error ? err.message : String(err),
+    });
     throw err;
   }
 
@@ -29,11 +62,13 @@ export async function withAPM(request: Request, handler: Handler): Promise<NextR
   const headers = response.headers;
 
   headers.set("x-trace-id", traceId);
+  headers.set("x-request-id", traceId);
   const existingTiming = headers.get("Server-Timing");
   const totalTiming = `total;dur=${duration.toFixed(1)};desc=${traceId}`;
   headers.set("Server-Timing", existingTiming ? `${existingTiming}, ${totalTiming}` : totalTiming);
 
-  console.info("api_request", {
+  logInfo({
+    event: "api_request",
     path,
     method: request.method,
     status: response.status,
@@ -44,18 +79,14 @@ export async function withAPM(request: Request, handler: Handler): Promise<NextR
   return response;
 }
 
-export function auditLog(event: string, data: Record<string, unknown>) {
-  try {
-    console.info(event, data);
-  } catch {
-    // ignore console failures
-  }
+export function auditLog(event: string, data: Record<string, unknown>, traceId?: string) {
+  logInfo({ event, traceId: traceId ?? "unknown", ...data });
 
   try {
     Sentry.addBreadcrumb({
       category: "api",
       message: event,
-      data,
+      data: { ...data, traceId },
       level: "info",
     });
   } catch {

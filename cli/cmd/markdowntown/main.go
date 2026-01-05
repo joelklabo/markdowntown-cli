@@ -29,7 +29,7 @@ const rootUsage = `markdowntown
 
 Usage:
   markdowntown                     # Show help (no default command)
-  markdowntown login               # Authenticate via device flow
+  markdowntown login               # Authenticate via token or device flow
   markdowntown sync upload [flags] # Upload snapshot to the web app
   markdowntown pull [flags]        # Pull and apply patches from the web app
   markdowntown scan [flags]        # Scan for AI config files

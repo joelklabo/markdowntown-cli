@@ -59,6 +59,7 @@ var identityName = toLower('${namePrefix}-${environmentName}-mi-${substring(suff
 var managedEnvName = toLower('${namePrefix}-${environmentName}-env')
 var containerAppName = toLower('${namePrefix}-${environmentName}-app')
 var jobName = toLower('${namePrefix}-${environmentName}-worker')
+var appInsightsName = toLower('${namePrefix}-${environmentName}-appi-${substring(suffix, 0, 6)}')
 var logAnalyticsName = toLower('${namePrefix}-${environmentName}-logs-${substring(suffix, 0, 6)}')
 var acrNameResolved = acrName != '' ? acrName : toLower('${take(base, 12)}acr${substring(suffix, 0, 6)}')
 var acrEnabled = acrCreate || acrName != ''
@@ -118,6 +119,16 @@ module keyvault 'modules/keyvault.bicep' = {
     tags: tags
     principalId: identity.outputs.principalId
     secrets: keyVaultSecrets
+  }
+}
+
+module monitoring 'modules/monitoring.bicep' = {
+  name: 'monitoring'
+  params: {
+    name: appInsightsName
+    location: location
+    tags: tags
+    logAnalyticsId: logAnalytics.id
   }
 }
 
@@ -210,6 +221,14 @@ var webEnv = [
   {
     name: 'NODE_ENV'
     value: environmentName
+  }
+  {
+    name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+    value: monitoring.outputs.connectionString
+  }
+  {
+    name: 'WORKER_IMAGE'
+    value: workerImage
   }
 ]
 

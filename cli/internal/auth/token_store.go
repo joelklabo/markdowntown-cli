@@ -1,63 +1,47 @@
 package auth
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
-
 	"markdowntown-cli/internal/config"
-
-	"github.com/zalando/go-keyring"
+	"time"
 )
 
-const (
-	keyringService = "markdowntown"
-	keyringUser    = "cli-token"
-)
-
-// StoreResult captures where the auth record was stored.
-type StoreResult struct {
-	Location string
-	Warning  error
+// TokenStore defines the interface for managing CLI tokens.
+type TokenStore interface {
+	Save(token string, expiresAt time.Time, baseURL string) error
+	Load() (config.AuthRecord, error)
+	Delete() error
 }
 
-// SaveAuth stores the auth record in the OS keyring, falling back to disk.
-func SaveAuth(record config.AuthRecord) (StoreResult, error) {
-	payload, err := json.Marshal(record)
+type fileTokenStore struct{}
+
+// NewFileTokenStore creates a new token store based on the config file.
+func NewFileTokenStore() TokenStore {
+	return &fileTokenStore{}
+}
+
+func (s *fileTokenStore) Save(token string, expiresAt time.Time, baseURL string) error {
+	record := config.AuthRecord{
+		AccessToken: token,
+		ExpiresAt:   expiresAt,
+		CreatedAt:   time.Now(),
+		BaseURL:     baseURL,
+	}
+	return config.SaveAuth(record)
+}
+
+func (s *fileTokenStore) Load() (config.AuthRecord, error) {
+	return config.LoadAuth()
+}
+
+func (s *fileTokenStore) Delete() error {
+	path, err := config.AuthPath()
 	if err != nil {
-		return StoreResult{}, err
+		return err
 	}
-
-	keyringErr := keyring.Set(keyringService, keyringUser, string(payload))
-	if keyringErr == nil {
-		return StoreResult{Location: "keyring"}, nil
+	err = config.RemoveAuth(path)
+	if err != nil && !errors.Is(err, config.ErrAuthNotFound) {
+		return err
 	}
-
-	if fileErr := config.SaveAuth(record); fileErr != nil {
-		return StoreResult{}, fmt.Errorf("keyring error: %v; file error: %w", keyringErr, fileErr)
-	}
-	return StoreResult{Location: "file", Warning: keyringErr}, nil
-}
-
-// LoadAuth loads the auth record from keyring or disk.
-func LoadAuth() (config.AuthRecord, string, error) {
-	secret, err := keyring.Get(keyringService, keyringUser)
-	if err == nil {
-		var record config.AuthRecord
-		if err := json.Unmarshal([]byte(secret), &record); err != nil {
-			return config.AuthRecord{}, "keyring", err
-		}
-		return record, "keyring", nil
-	}
-
-	fileRecord, fileErr := config.LoadAuth()
-	if fileErr == nil {
-		return fileRecord, "file", nil
-	}
-
-	if errors.Is(err, keyring.ErrNotFound) && errors.Is(fileErr, config.ErrAuthNotFound) {
-		return config.AuthRecord{}, "", config.ErrAuthNotFound
-	}
-
-	return config.AuthRecord{}, "", fmt.Errorf("auth lookup failed (keyring: %v; file: %w)", err, fileErr)
+	return nil
 }

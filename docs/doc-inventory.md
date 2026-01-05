@@ -1,34 +1,19 @@
 # Documentation Inventory
 
-## User documentation
-- `README.md`: repo overview and entry point.
-- `docs/USER_GUIDE.md`: canonical user guide for CLI + web flows.
-- `docs/DEV_ONBOARDING.md`: developer setup and local workflow.
+The canonical machine-readable inventory lives in `docs/doc-inventory.json` and is refreshed by the docs freshness pipeline (`scripts/docs/refresh.ts` or `POST /api/docs/refresh`). Last-good snapshots are stored under `.cache/docs/inventory/last-good.json` (override with `DOC_STORE_PATH`). See `docs/runbooks/docs-refresh.md` for operational steps and alerting.
 
-## Specifications (CLI SSOT)
-- `cli/docs/scan-spec-v1.md`: scan output schema + behavior.
-- `cli/docs/audit-spec-v1.md`: audit output schema + behavior.
-- `cli/docs/suggest-spec-v1.md`: suggest output schema + behavior.
-- `docs/source-registry.md`: source registry schema for suggest/audit.
+## Schema
 
-## Architecture
-- `docs/architecture/scan.md`: scan architecture.
-- `docs/architecture/audit.md`: audit architecture.
-- `docs/architecture/suggest.md`: suggest architecture.
-- `docs/architecture/registry.md`: registry loader architecture.
-- `docs/architecture/security.md`: security considerations.
-- `docs/architecture/instruction-adapters.md`: adapter design.
-- `docs/architecture/shared-logic-strategy.md`: shared core strategy.
-- `docs/architecture/monorepo-merge-plan.md`: monorepo layout + CI plan.
-- `cli/docs/architecture/lsp-diagnostics.md`: VS Code diagnostics UX guide.
+- `version` (string): inventory schema version.
+- `updatedAt` (string, optional): ISO timestamp of the latest refresh.
+- `documents` (array):
+  - `id` (string, unique)
+  - `title` (string)
+  - `url` (https URL to the authoritative document)
+  - `client` (string, optional)
+  - `tags` (string[], optional)
+  - `checksum` (string, optional; content hash if available)
 
-## UX + design
-- `docs/DESIGN_SYSTEM.md`: canonical design system tokens + conventions.
-- `docs/design/`: UI patterns, palette guidance, component recipes.
+## Seed inventory
 
-## Merge plans + QA
-- `docs/merge/markdowntown-monorepo-merge-plan.md`: merge plan entry point.
-- `docs/qa/monorepo-merge-smoke.md`: merge smoke checklist + evidence.
-
-## Archived
-- `docs/markdowntown-cli-scan-configs-plan.md`: superseded scan-only v1 plan.
+`docs/doc-inventory.json` seeds the pipeline with user guides, design system docs, and the source registry spec. Extend this file when adding new canonical docs; the refresh job will validate IDs/URLs and publish the latest JSON snapshot for consumers.

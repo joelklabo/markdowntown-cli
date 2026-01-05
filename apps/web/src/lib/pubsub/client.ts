@@ -27,9 +27,9 @@ class RealtimeClient {
   }
 
   private connect() {
-    if (typeof window === "undefined") return;
-    
-    this.eventSource = new EventSource("/api/events");
+    if (typeof window === "undefined" || typeof window.EventSource === "undefined") return;
+
+    this.eventSource = new window.EventSource("/api/events");
     this.eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
