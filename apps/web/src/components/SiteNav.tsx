@@ -19,6 +19,7 @@ import { cn, focusRing, interactiveBase } from "@/lib/cn";
 import { featureFlags } from "@/lib/flags";
 
 const links = [
+  { href: "/projects", label: "Projects" },
   { href: "/atlas/simulator", label: "Scan" },
   { href: "/workbench", label: "Workbench", title: "Build agents.md in Workbench" },
   { href: "/library", label: "Library" },
@@ -308,6 +309,7 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
     | { label: string; icon: BottomNavIcon; type: "search" };
 
   const bottomNavItems: BottomNavItem[] = [
+    { href: "/projects", label: "Projects", icon: LibraryIcon, type: "link" },
     { href: "/atlas/simulator", label: "Scan", icon: AtlasIcon, type: "link" },
     { href: "/workbench", label: "Workbench", icon: WorkbenchIcon, type: "link" },
     { href: "/library", label: "Library", icon: LibraryIcon, type: "link" },

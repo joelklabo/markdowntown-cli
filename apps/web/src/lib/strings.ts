@@ -23,4 +23,18 @@ export const strings = {
     loadSample: "Load a sample to see how it’s structured.",
     reorder: "Drag to reorder; arrow keys to nudge.",
   },
+  projects: {
+    title: "Projects",
+    new: "New Project",
+    empty: "No projects found. Create one to get started.",
+    view: "View",
+    snapshots: "Snapshots",
+  },
+  snapshots: {
+    title: "Snapshots",
+    upload: "Upload Snapshot",
+    empty: "No snapshots found.",
+    view: "View",
+    files: "Files",
+  },
 };
