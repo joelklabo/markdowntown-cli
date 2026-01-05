@@ -1,5 +1,6 @@
 import * as assert from "node:assert";
 import * as vscode from "vscode";
+import { assertDiagnosticMetadata } from "./helpers";
 
 // Messages include the YAML parser detail, so match the prefix plus rule ID.
 const frontmatterErrorMessage = "Invalid YAML frontmatter";
@@ -33,14 +34,18 @@ suite("markdowntown LSP overlay", () => {
         )
     );
 
-    assert.ok(
-      diagnostics.find(
-        (item) =>
-          item.source === "markdowntown" &&
-          item.message.startsWith(frontmatterErrorMessage) &&
-          diagnosticCode(item) === frontmatterRuleId
-      )
+    const diag = diagnostics.find(
+      (item) =>
+        item.source === "markdowntown" &&
+        item.message.startsWith(frontmatterErrorMessage) &&
+        diagnosticCode(item) === frontmatterRuleId
     );
+    assert.ok(diag);
+
+    // Verify metadata
+    assertDiagnosticMetadata(diag, {
+      codeDescription: "audit-spec-v1.md"
+    });
   });
 });
 

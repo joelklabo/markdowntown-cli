@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as fs from "node:fs";
+import * as assert from "node:assert";
 
 const testLogPath = process.env.MARKDOWNTOWN_TEST_LOG;
 
@@ -8,6 +9,39 @@ export function logTest(message: string): void {
     return;
   }
   fs.appendFileSync(testLogPath, `${message}\n`);
+}
+
+export function assertDiagnosticMetadata(
+  diagnostic: vscode.Diagnostic,
+  expected: {
+    codeDescription?: string;
+    tags?: vscode.DiagnosticTag[];
+    relatedInformation?: boolean;
+  }
+): void {
+  if (expected.codeDescription) {
+    const code = diagnostic.code;
+    assert.ok(
+      typeof code === "object" && code !== null && "target" in code,
+      "Diagnostic code missing target (codeDescription)"
+    );
+    // Cast to any to access target safely or use type guard if possible
+    const target = (code as { target: vscode.Uri }).target;
+    assert.ok(target, "Diagnostic code target is undefined");
+    assert.ok(
+      target.toString().includes(expected.codeDescription),
+      `Expected codeDescription to include ${expected.codeDescription}, got ${target.toString()}`
+    );
+  }
+  if (expected.tags) {
+    assert.deepStrictEqual(diagnostic.tags, expected.tags, "Diagnostic tags mismatch");
+  }
+  if (expected.relatedInformation) {
+    assert.ok(
+      diagnostic.relatedInformation && diagnostic.relatedInformation.length > 0,
+      "Diagnostic missing relatedInformation"
+    );
+  }
 }
 
 export async function activateExtension(): Promise<void> {

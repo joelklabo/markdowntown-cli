@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import * as fs from "node:fs";
 import Mocha from "mocha";
 
 export function run(): Promise<void> {
@@ -8,7 +9,12 @@ export function run(): Promise<void> {
     timeout: 20000,
   });
 
-  mocha.addFile(path.resolve(__dirname, "lsp-overlay.test.js"));
+  const files = fs.readdirSync(__dirname);
+  files.forEach((f) => {
+    if (f.endsWith(".test.js")) {
+      mocha.addFile(path.resolve(__dirname, f));
+    }
+  });
 
   return new Promise((resolve, reject) => {
     mocha.run((failures) => {
