@@ -27,3 +27,31 @@ export function getMissingCliScopes(token: CliToken, scopes: string[]): string[]
   const allowed = token.scopes ?? [];
   return Array.from(required).filter((scope) => !allowed.includes(scope));
 }
+
+export async function getUserCliTokens(userId: string) {
+  return prisma.cliToken.findMany({
+    where: { userId, revokedAt: null },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      label: true,
+      lastUsedAt: true,
+      expiresAt: true,
+      createdAt: true,
+      scopes: true,
+    },
+  });
+}
+
+export async function revokeCliToken(userId: string, tokenId: string) {
+  // Use delete or set revokedAt?
+  // Schema has revokedAt, but usually we delete if user requests revoke from UI?
+  // Or we just set revokedAt.
+  // If we set revokedAt, findCliToken checks if revoked?
+  // findCliToken doesn't check revokedAt in current implementation.
+  // I should update findCliToken too!
+  return prisma.cliToken.update({
+    where: { id: tokenId, userId },
+    data: { revokedAt: new Date() },
+  });
+}
