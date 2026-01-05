@@ -1,6 +1,7 @@
 import { MAX_BLOB_BYTES } from "@/lib/validation";
 import { hasDatabaseEnv, prisma } from "@/lib/prisma";
 import type { BlobStore, BlobStorePutInput, BlobStorePutResult } from "@/lib/storage/blobStore";
+import { shouldWriteBlob } from "@/lib/storage/blobStore";
 
 export function isDbBlobStoreConfigured(): boolean {
   return hasDatabaseEnv;
@@ -20,6 +21,9 @@ export function createDbBlobStore(): BlobStore {
       const existing = await prisma.blob.findUnique({ where: { sha256: input.sha256 } });
       if (existing && existing.sizeBytes !== input.sizeBytes) {
         throw new Error("Blob size mismatch");
+      }
+      if (existing && !shouldWriteBlob(existing)) {
+        return { storageKey: existing.storageKey };
       }
 
       const updated = await prisma.blob.upsert({

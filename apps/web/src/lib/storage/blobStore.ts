@@ -15,6 +15,15 @@ export type BlobStore = {
   deleteBlob(sha256: string): Promise<void>;
 };
 
+export type ExistingBlobState = {
+  content: Buffer | null;
+  storageKey: string | null;
+} | null;
+
+export function shouldWriteBlob(existing: ExistingBlobState): boolean {
+  return !existing || (!existing.content && !existing.storageKey);
+}
+
 const STORAGE_PREFIX = "cli/blobs";
 
 export function storageKeyForHash(hash: string): string {
