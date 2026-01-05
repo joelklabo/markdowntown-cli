@@ -29,6 +29,26 @@ rm "$(go env GOPATH)/bin/markdowntown"
 - `markdowntown scan` → see `cli/docs/scan-spec-v1.md` for flags and schema.
 - `markdowntown audit` → see `cli/docs/audit-spec-v1.md` for flags and schema.
 - `markdowntown suggest` → see `cli/docs/suggest-spec-v1.md` for flags and schema.
+- `markdowntown upload` → Uploads a snapshot of the repo along with scan results to the web app.
+
+  **Upload Flags:**
+
+  | Flag | Default | Description |
+  | --- | --- | --- |
+  | `--repo <path>` | (git root) | Repo path |
+  | `--project <name>` | (repo dir) | Project name |
+  | `--project-slug <slug>` | (optional) | Project slug |
+  | `--project-id <id>` | (optional) | Existing project ID |
+  | `--provider <name>` | `local` | Provider label |
+  | `--base-url <url>` | (login/env) | Base URL for the web app |
+  | `--base-snapshot <id>` | (optional) | Base snapshot ID for delta uploads |
+  | `--include-git-ignored` | `false` | Include git-ignored files |
+  | `--max-files <n>` | `0` | Preflight max files (0 = unlimited) |
+  | `--max-bytes <n>` | `0` | Preflight max total bytes (0 = unlimited) |
+  | `--max-file-bytes <n>` | `0` | Preflight max single file size (0 = unlimited) |
+  | `--upload-concurrency <n>` | `4` | Parallel blob uploads |
+  | `--scan-workers <n>` | `0` | Parallel scan workers (0 = auto) |
+  | `--quiet` | `false` | Reduce progress output |
 
 ## Authentication
 

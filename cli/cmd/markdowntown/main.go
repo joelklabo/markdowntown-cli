@@ -31,6 +31,7 @@ Usage:
   markdowntown                     # Show help (no default command)
   markdowntown login               # Authenticate via token or device flow
   markdowntown logout              # Clear stored authentication credentials
+  markdowntown upload [flags]      # Upload snapshot with scan results
   markdowntown sync upload [flags] # Upload snapshot to the web app
   markdowntown pull [flags]        # Pull and apply patches from the web app
   markdowntown scan [flags]        # Scan for AI config files
@@ -146,6 +147,11 @@ func main() {
 		return
 	case "logout":
 		if err := runLogout(args[1:]); err != nil {
+			exitWithError(err)
+		}
+		return
+	case "upload":
+		if err := runUpload(args[1:]); err != nil {
 			exitWithError(err)
 		}
 		return
