@@ -22,6 +22,7 @@
 | CLI determinism | PASS | `configs[].path` ordering identical across rerun. |
 | Web dev server boot | PASS | `GET /` returned 200; no runtime errors. |
 | Playwright console/network check | PASS | No console errors/warnings; status 200. |
+| Playwright interaction smoke | PASS | Landing page CTA tests (desktop + mobile). |
 | Web unit tests | PASS | `pnpm --filter ./apps/web test:unit`. |
 | CLI tests | PASS | `cd cli && make test`. |
 
@@ -48,8 +49,28 @@
   - Chrome DevTools MCP was unavailable (`Transport closed` on connect). Used Playwright fallback for console/network checks.
   - Playwright console check: no console errors/warnings; page response status 200.
 
+## Playwright interaction smoke (2026-01-05)
+- Test: `__tests__/e2e/landing-primary-flow.test.ts`
+- Command:
+  ```bash
+  cd apps/web
+  E2E_BASE_URL=http://localhost:3000 E2E_SCREENSHOT_PATH=docs/screenshots/monorepo-smoke/cta-click.png \
+    pnpm test:e2e __tests__/e2e/landing-primary-flow.test.ts
+  ```
+- Results:
+  - ✓ Desktop: CTA hierarchy + nav destinations (10518ms)
+  - ✓ Mobile: core CTA still visible (1101ms)
+  - All tests passed, no console errors/warnings
+  - Screenshot captured at `docs/screenshots/monorepo-smoke/cta-click.png`
+- Validated:
+  - Primary CTA hierarchy on landing page (Scan > Workbench ordering)
+  - Navigation links visible (Scan, Workbench, Library, Translate, Docs)
+  - Responsive mobile layout with core CTAs visible
+  - Asset loading successful (no network failures)
+
 ## Evidence
 - Screenshot: `docs/screenshots/monorepo-smoke/web-home.png`
+- Screenshot: `docs/screenshots/monorepo-smoke/cta-click.png` (Playwright landing page capture)
 - Playwright console check:
   - `cd apps/web && node -e "const { chromium } = require('playwright'); ..."` (no console/page errors, status 200)
 - CLI scan output saved to `/tmp/monorepo-scan.json` and `/tmp/monorepo-scan-2.json`.
@@ -57,3 +78,4 @@
 ## Tests run
 - `pnpm --filter ./apps/web test:unit`
 - `cd cli && make test`
+- `E2E_BASE_URL=http://localhost:3000 pnpm test:e2e __tests__/e2e/landing-primary-flow.test.ts` (2 tests passed)
