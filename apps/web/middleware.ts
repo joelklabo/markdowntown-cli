@@ -21,6 +21,13 @@ function traceIdFromCrypto(): string {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // Legacy redirects
+  const legacyRoutes = ["/workbench", "/library", "/translate", "/atlas", "/browse", "/builder"];
+  if (legacyRoutes.some(route => pathname.startsWith(route))) {
+    return NextResponse.redirect(new URL("/projects", req.url));
+  }
+
   const traceId = req.headers.get("x-trace-id") ?? traceIdFromCrypto();
 
   const requestHeaders = new Headers(req.headers);
@@ -54,5 +61,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/:path*"],
+  matcher: ["/api/:path*", "/workbench/:path*", "/library/:path*", "/translate/:path*", "/atlas/:path*", "/browse/:path*", "/builder/:path*"],
 };

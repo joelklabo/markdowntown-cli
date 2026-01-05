@@ -2,24 +2,14 @@
 
 This guide is the canonical entry point for Markdowntown CLI + web workflows.
 
-## Web app flows
+## Web app flow
 
-### Scan → Workbench → Export
-1. From Home, click **Scan a folder** (Atlas Simulator).
-2. Pick your repo root, then review Next steps, warnings, and instruction health.
-3. Use **Open Workbench** to launch with tool + cwd prefilled.
-4. Add scopes/blocks, write instructions, and validate with **Preview** / **Lint**.
-5. Export `agents.md` or download the zip.
-
-### Library → Workbench → Export
-1. Open **Library** and select a template.
-2. Use **Open in Workbench** to edit.
-3. Export `agents.md` or download the zip.
-
-### Translate → Workbench → Export
-1. Open **Translate** from the nav.
-2. Select targets and paste Markdown or UAM JSON.
-3. Compile, review output, then **Open in Workbench**.
+### Project → Snapshot → Run → Workspace
+1. From Home or **Projects**, select an existing project or upload a new snapshot via CLI.
+2. In the project dashboard, select a **Snapshot** to view its files and instruction health.
+3. Start an **Audit** or **Suggest** run to analyze your instructions.
+4. Open a **Workspace** to review results and make edits.
+5. Export patches or apply changes back to your local repository via CLI.
 
 ## CLI usage
 - CLI command + schema details live in `cli/docs/scan-spec-v1.md`, `cli/docs/audit-spec-v1.md`, and `cli/docs/suggest-spec-v1.md`.
@@ -46,7 +36,7 @@ The markdowntown VS Code extension provides real-time diagnostics and quick fixe
 
 ## CLI sync flow
 1. Run a CLI sync command to upload or reference a snapshot (see CLI docs).
-2. Open the Workbench handoff link (or `/workbench` with `cliRepoId`, `cliSnapshotId`, `cliBranch`, `cliStatus`).
+2. Open the Workbench handoff link (now integrated into the Workspace flow).
 3. Review the snapshot banner, then use **Export patch** or **Copy CLI command** to pull changes back.
 
 ## References

@@ -13,7 +13,7 @@ import { Sheet, SheetClose, SheetContent, SheetTitle } from "./ui/Sheet";
 import { ThemeToggle } from "./ThemeToggle";
 import { DensityToggle } from "./DensityToggle";
 import { COMMAND_PALETTE_OPEN_EVENT } from "./CommandPalette";
-import { AtlasIcon, LibraryIcon, MenuIcon, SearchIcon, TranslateIcon, WorkbenchIcon, type NavIconProps } from "./icons/NavIcons";
+import { LibraryIcon, MenuIcon, SearchIcon, type NavIconProps } from "./icons/NavIcons";
 import { emitCityWordmarkEvent } from "./wordmark/sim/bridge";
 import { track } from "@/lib/analytics";
 import { cn, focusRing, interactiveBase } from "@/lib/cn";
@@ -21,10 +21,6 @@ import { featureFlags } from "@/lib/flags";
 
 const links = [
   { href: "/projects", label: "Projects" },
-  { href: "/atlas/simulator", label: "Scan" },
-  { href: "/workbench", label: "Workbench", title: "Build agents.md in Workbench" },
-  { href: "/library", label: "Library" },
-  { href: "/translate", label: "Translate" },
   { href: "/docs", label: "Docs" },
 ];
 
@@ -46,7 +42,6 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
   const headerRef = useRef<HTMLElement | null>(null);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-  const ctaHref = "/atlas/simulator";
 
   function openCommandPalette(origin: string) {
     track("command_palette_entry_click", { origin });
@@ -311,18 +306,11 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
 
   const bottomNavItems: BottomNavItem[] = [
     { href: "/projects", label: "Projects", icon: LibraryIcon, type: "link" },
-    { href: "/atlas/simulator", label: "Scan", icon: AtlasIcon, type: "link" },
-    { href: "/workbench", label: "Workbench", icon: WorkbenchIcon, type: "link" },
-    { href: "/library", label: "Library", icon: LibraryIcon, type: "link" },
-    { href: "/translate", label: "Translate", icon: TranslateIcon, type: "link" },
     { href: "/docs", label: "Docs", icon: MenuIcon, type: "link" },
   ];
 
   const quickFilters: Array<{ label: string; params: Record<string, string> }> = [
-    { label: "Trending", params: { sort: "trending" } },
-    { label: "Snippets", params: { type: "snippet" } },
-    { label: "Templates", params: { type: "template" } },
-    { label: "agents.md", params: { type: "file" } },
+    { label: "Recent", params: { sort: "recent" } },
   ];
 
   const overflowLinks: Array<{ href: string; label: string; external?: boolean }> = [
@@ -481,13 +469,12 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
                   </Button>
                   <Button size="xs" className="whitespace-nowrap" asChild>
                     <Link
-                      href={ctaHref}
+                      href="/projects"
                       onClick={() => {
-                        track("nav_click", { href: ctaHref, cta: "scan_folder", placement: "desktop" });
-                        emitCityWordmarkEvent({ type: "upload", kind: "file" });
+                        track("nav_click", { href: "/projects", cta: "projects", placement: "desktop" });
                       }}
                     >
-                      Scan a folder
+                      Projects
                     </Link>
                   </Button>
                 </div>
