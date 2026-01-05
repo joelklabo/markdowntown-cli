@@ -17,6 +17,8 @@ export default defineConfig({
     ],
     fileParallelism: false,
     maxWorkers: 1,
+    testTimeout: 60000,
     // Run a single spec via: npm run test:e2e -- <SpecName>
+    // Note: monorepo-flow.test.ts requires a pre-built CLI binary and running web server.
   },
 });
