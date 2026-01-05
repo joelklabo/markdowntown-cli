@@ -4,7 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { SnapshotStatus } from "@prisma/client";
 import { auditLog, withAPM } from "@/lib/observability";
 import { hasDatabaseEnv, prisma } from "@/lib/prisma";
-import { CLI_SNAPSHOT_LIMITS, rateLimit } from "@/lib/rateLimiter";
+import { CLI_SNAPSHOT_LIMITS, checkRateLimit } from "@/lib/rateLimiter";
 import { logAbuseSignal, logAuditEvent } from "@/lib/reports";
 import { requireCliToken } from "@/lib/requireCliToken";
 import { MAX_SNAPSHOT_METADATA_BYTES } from "@/lib/validation";
@@ -80,9 +80,10 @@ export async function GET(request: Request, context: RouteContext) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    if (!rateLimit(`cli-snapshots:list:${ip}`, CLI_SNAPSHOT_LIMITS.list)) {
+    const limitResponse = checkRateLimit(`cli-snapshots:list:${ip}`, CLI_SNAPSHOT_LIMITS.list);
+    if (limitResponse) {
       logAbuseSignal({ ip, reason: "cli-snapshots-list-rate-limit", traceId });
-      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+      return limitResponse;
     }
 
     if (!hasDatabaseEnv) {
@@ -91,9 +92,11 @@ export async function GET(request: Request, context: RouteContext) {
 
     const { token, response } = await requireCliToken(request, ["cli:read"]);
     if (response) return response;
-    if (!rateLimit(`cli-snapshots:list:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.list)) {
+
+    const userLimitResponse = checkRateLimit(`cli-snapshots:list:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.list);
+    if (userLimitResponse) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-snapshots-list-user-rate-limit", traceId });
-      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+      return userLimitResponse;
     }
 
     const { projectId } = await context.params;
@@ -151,9 +154,10 @@ export async function POST(request: Request, context: RouteContext) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    if (!rateLimit(`cli-snapshots:create:${ip}`, CLI_SNAPSHOT_LIMITS.create)) {
+    const limitResponse = checkRateLimit(`cli-snapshots:create:${ip}`, CLI_SNAPSHOT_LIMITS.create);
+    if (limitResponse) {
       logAbuseSignal({ ip, reason: "cli-snapshots-create-rate-limit", traceId });
-      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+      return limitResponse;
     }
 
     if (!hasDatabaseEnv) {
@@ -162,9 +166,11 @@ export async function POST(request: Request, context: RouteContext) {
 
     const { token, response } = await requireCliToken(request, ["cli:upload"]);
     if (response) return response;
-    if (!rateLimit(`cli-snapshots:create:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.create)) {
+
+    const userLimitResponse = checkRateLimit(`cli-snapshots:create:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.create);
+    if (userLimitResponse) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-snapshots-create-user-rate-limit", traceId });
-      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+      return userLimitResponse;
     }
 
     const body = await request.json().catch(() => null);

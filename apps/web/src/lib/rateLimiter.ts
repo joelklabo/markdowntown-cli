@@ -1,3 +1,5 @@
+import { NextResponse } from "next/server";
+
 const WINDOW_MS = 60 * 1000; // 1 minute
 const MAX_REQUESTS = 30;
 
@@ -18,20 +20,69 @@ type RateLimitOptions = {
   maxRequests?: number;
 };
 
-const buckets = new Map<string, { count: number; expires: number; windowMs: number; maxRequests: number }>();
+const buckets = new Map<
+  string,
+  { count: number; expires: number; windowMs: number; maxRequests: number }
+>();
 
 export function rateLimit(key: string, options: RateLimitOptions = {}) {
   const windowMs = options.windowMs ?? WINDOW_MS;
   const maxRequests = options.maxRequests ?? MAX_REQUESTS;
   const now = Date.now();
   const bucket = buckets.get(key);
-  if (bucket && bucket.expires > now && bucket.windowMs === windowMs && bucket.maxRequests === maxRequests) {
+  if (
+    bucket &&
+    bucket.expires > now &&
+    bucket.windowMs === windowMs &&
+    bucket.maxRequests === maxRequests
+  ) {
     bucket.count += 1;
-    if (bucket.count > maxRequests) return false;
-    return true;
+    return bucket.count <= maxRequests;
   }
-  buckets.set(key, { count: 1, expires: now + windowMs, windowMs, maxRequests });
+  buckets.set(key, {
+    count: 1,
+    expires: now + windowMs,
+    windowMs,
+    maxRequests,
+  });
   return true;
+}
+
+export function checkRateLimit(key: string, options: RateLimitOptions = {}) {
+  const windowMs = options.windowMs ?? WINDOW_MS;
+  const maxRequests = options.maxRequests ?? MAX_REQUESTS;
+  const now = Date.now();
+  const bucket = buckets.get(key);
+
+  if (
+    bucket &&
+    bucket.expires > now &&
+    bucket.windowMs === windowMs &&
+    bucket.maxRequests === maxRequests
+  ) {
+    bucket.count += 1;
+    if (bucket.count > maxRequests) {
+      const retryAfter = Math.ceil((bucket.expires - now) / 1000);
+      return NextResponse.json(
+        { error: "Too many requests" },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(retryAfter),
+          },
+        }
+      );
+    }
+    return null;
+  }
+
+  buckets.set(key, {
+    count: 1,
+    expires: now + windowMs,
+    windowMs,
+    maxRequests,
+  });
+  return null;
 }
 
 export function resetRateLimitStore() {

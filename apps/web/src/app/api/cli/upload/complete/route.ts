@@ -3,7 +3,7 @@ import { z } from "zod";
 import { finalizeSnapshotUpload, requireCliToken } from "@/lib/cli/upload";
 import { auditLog, withAPM } from "@/lib/observability";
 import { hasDatabaseEnv } from "@/lib/prisma";
-import { CLI_UPLOAD_LIMITS, rateLimit } from "@/lib/rateLimiter";
+import { CLI_UPLOAD_LIMITS, checkRateLimit } from "@/lib/rateLimiter";
 import { logAbuseSignal, logAuditEvent } from "@/lib/reports";
 
 export const dynamic = "force-dynamic";
@@ -21,9 +21,10 @@ export async function POST(request: Request) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    if (!rateLimit(`cli-upload-complete:${ip}`, CLI_UPLOAD_LIMITS.complete)) {
+    const limitResponse = checkRateLimit(`cli-upload-complete:${ip}`, CLI_UPLOAD_LIMITS.complete);
+    if (limitResponse) {
       logAbuseSignal({ ip, reason: "cli-upload-complete-rate-limit", traceId });
-      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+      return limitResponse;
     }
 
     if (!hasDatabaseEnv) {
@@ -32,9 +33,11 @@ export async function POST(request: Request) {
 
     const { token, response } = await requireCliToken(request, ["cli:upload"]);
     if (response) return response;
-    if (!rateLimit(`cli-upload-complete:user:${token.userId}`, CLI_UPLOAD_LIMITS.complete)) {
+
+    const userLimitResponse = checkRateLimit(`cli-upload-complete:user:${token.userId}`, CLI_UPLOAD_LIMITS.complete);
+    if (userLimitResponse) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-upload-complete-user-rate-limit", traceId });
-      return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+      return userLimitResponse;
     }
 
     const body = await request.json().catch(() => null);
