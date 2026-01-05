@@ -47,6 +47,7 @@ export function WorkspaceContainer({
       <WorkspaceToolbar
         projectId={projectId}
         snapshotId={snapshotId}
+        workspaceId={initialData.workspace.id}
         projectName={projectName}
         onRerun={handleRerun}
         isRerunning={isRerunning}

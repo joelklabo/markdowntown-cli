@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/Button";
 import { Heading } from "@/components/ui/Heading";
 import Link from "next/link";
 import { strings } from "@/lib/strings";
+import { ExportButton } from "./ExportButton";
 
 interface WorkspaceToolbarProps {
   projectId: string;
   snapshotId: string;
+  workspaceId: string;
   projectName: string;
   onRerun: () => Promise<void>;
   isRerunning: boolean;
@@ -16,6 +18,7 @@ interface WorkspaceToolbarProps {
 export function WorkspaceToolbar({
   projectId,
   snapshotId,
+  workspaceId,
   projectName,
   onRerun,
   isRerunning,
@@ -41,6 +44,7 @@ export function WorkspaceToolbar({
       <div className="flex justify-between items-center">
         <Heading level="h1">Editor Workspace</Heading>
         <div className="flex gap-2">
+          <ExportButton workspaceId={workspaceId} />
           <Button
             variant="secondary"
             size="sm"
