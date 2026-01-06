@@ -8,7 +8,7 @@ Provide a Language Server Protocol (LSP) server backed by markdowntown-cli scan 
 
 - **Shared core**: `internal/scan` + `internal/audit` reused by the LSP via `afero.Fs`; core logic avoids stdout.
 - **Overlay FS**: `afero.NewCopyOnWriteFs` (MemMap + OS) to support unsaved buffers.
-- **Diagnostics**: debounced on `didOpen`/`didChange`, respects client capabilities (tags, codeDescription, related info) and settings (rule filters, severity overrides, redaction, evidence).
+- **Diagnostics**: debounced on `didOpen`/`didChange`, respects client capabilities (tags, codeDescription, related info) and settings (rule filters, severity overrides, redaction, evidence). Severity overrides apply after rule evaluation but before filtering.
 - **Hover**: toolId hover shows registry notes + docs.
 - **Definition**: toolId jumps to the registry entry in `ai-config-patterns.json` or fallback to repo `AGENTS.md`.
 - **Completion**: toolId suggestions from the registry.
@@ -55,6 +55,13 @@ Provide a Language Server Protocol (LSP) server backed by markdowntown-cli scan 
 - Key settings:
   - `markdowntown.serverPath`
   - `markdowntown.registryPath`
-  - `markdowntown.diagnostics.*` (enabled, delayMs, rulesEnabled, rulesDisabled, severityOverrides, includeRelatedInfo, includeEvidence, redactPaths)
+  - `markdowntown.diagnostics.enabled` (bool): enable/disable diagnostics
+  - `markdowntown.diagnostics.delayMs` (int): debounce delay
+  - `markdowntown.diagnostics.rulesEnabled` (string[]): allowlist of rule IDs
+  - `markdowntown.diagnostics.rulesDisabled` (string[]): blocklist of rule IDs
+  - `markdowntown.diagnostics.severityOverrides` (map[string]string): rule ID → severity (error/warning/info/hint)
+  - `markdowntown.diagnostics.includeRelatedInfo` (bool): include related information
+  - `markdowntown.diagnostics.includeEvidence` (bool): include evidence in diagnostics
+  - `markdowntown.diagnostics.redactPaths` (string): redaction mode (never/relative/full)
 - Output channel captures stderr; stdout must remain JSON-RPC only.
 - Activation languages: markdown, json, yaml, toml, instructions.

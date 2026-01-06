@@ -31,6 +31,46 @@ References:
 - **Info**: guidance and best practices.
 - **Hint**: low-urgency or optional guidance.
 
+### Severity overrides
+
+Severity overrides allow users to customize diagnostic severity on a per-rule basis via LSP settings.
+
+**How they work:**
+
+1. Rules are evaluated with their default severity (defined in `internal/audit`).
+2. After evaluation, if a `severityOverride` is configured for the rule ID, the diagnostic severity is replaced.
+3. Rule matching is case-insensitive (e.g., `md003` matches `MD003`).
+4. Overrides only affect diagnostics; they don't change rule evaluation or filtering logic.
+
+**Precedence:**
+
+- Overrides are applied after rules are evaluated but before filtering by `rulesEnabled`/`rulesDisabled`.
+- If a rule is disabled via `rulesDisabled`, no diagnostic is published (override is irrelevant).
+- If `rulesEnabled` is set and doesn't include the rule, no diagnostic is published (override is irrelevant).
+
+**Example VS Code configuration:**
+
+```json
+{
+  "markdowntown.diagnostics.severityOverrides": {
+    "MD003": "warning",
+    "MD007": "info",
+    "MD012": "hint"
+  }
+}
+```
+
+**Valid severity values:**
+
+- `"error"`, `"warning"`, `"info"`, `"hint"`
+- Invalid values are logged as warnings and ignored.
+
+**Limitations:**
+
+- Severity overrides only affect diagnostic display; they don't change rule behavior or suggestions.
+- Unknown rule IDs are accepted but have no effect (the rule must exist and produce a diagnostic).
+- Overrides persist until configuration changes via `workspace/didChangeConfiguration`.
+
 ### Ranges and indexing
 
 - LSP ranges are 0-based line and character offsets (UTF-16 code units).
