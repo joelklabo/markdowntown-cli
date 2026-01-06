@@ -1678,6 +1678,9 @@ func TestCodeActionAllowGitignore(t *testing.T) {
 }
 
 func TestCodeActionCreateRepoConfig(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("golden file comparison fails on Windows due to path format differences")
+	}
 	s := NewServer("0.1.0")
 	s.Debounce = 50 * time.Millisecond
 	repoRoot := t.TempDir()

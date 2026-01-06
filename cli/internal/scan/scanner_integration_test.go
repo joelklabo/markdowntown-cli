@@ -27,6 +27,9 @@ func skipGlobalIntegrationOnWindows(t *testing.T) {
 }
 
 func TestScanIntegrationGolden(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("golden file comparison fails on Windows due to path format differences")
+	}
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
 	}

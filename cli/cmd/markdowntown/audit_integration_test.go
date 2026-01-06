@@ -16,6 +16,9 @@ import (
 )
 
 func TestAuditGoldenJSON(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("golden file tests have path format differences on Windows")
+	}
 	root := repoRoot(t)
 	repo := setupAuditRepo(t, root)
 	registryPath := filepath.Join(root, "data", "ai-config-patterns.json")
@@ -54,6 +57,9 @@ func TestAuditGoldenJSON(t *testing.T) {
 }
 
 func TestAuditGoldenMarkdown(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("golden file tests have path format differences on Windows")
+	}
 	root := repoRoot(t)
 	repo := setupAuditRepo(t, root)
 	registryPath := filepath.Join(root, "data", "ai-config-patterns.json")

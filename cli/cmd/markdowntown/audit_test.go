@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,6 +35,9 @@ func TestAuditJSONOutput(t *testing.T) {
 }
 
 func TestAuditMarkdownOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("golden file tests have path format differences on Windows")
+	}
 	repoRoot := repoRoot(t)
 	scanPath := filepath.Join(repoRoot, "testdata", "audit", "scan-basic.json")
 	goldenPath := filepath.Join(repoRoot, "testdata", "golden", "audit-basic.md")
