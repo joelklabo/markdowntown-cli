@@ -21,6 +21,7 @@ Run these from the repo root:
 ```bash
 pnpm dev        # Start web, worker, and WASM watcher
 pnpm lint       # Lint both web and CLI
+pnpm lint:md    # Lint markdown files (README.md, docs/)
 pnpm test       # Run all tests (web and CLI)
 ```
 
