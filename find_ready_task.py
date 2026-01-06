@@ -63,7 +63,7 @@ def main():
         
         if status == 'in_progress':
             in_progress_issues.append(issue)
-        elif status not in ['closed', 'done', 'cancelled']:
+        elif status not in ['closed', 'done', 'cancelled', '--status']:
              # Check if blocked
              if not is_blocked(issue, issues):
                  ready_issues.append(issue)
