@@ -519,6 +519,180 @@ func TestDocumentSymbolNoFrontmatter(t *testing.T) {
 	}
 }
 
+func TestDocumentSymbolMalformedFrontmatter(t *testing.T) {
+	s := NewServer("0.1.0")
+	path := filepath.Join(t.TempDir(), "AGENTS.md")
+	uri := pathToURL(path)
+
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name:    "unclosed frontmatter",
+			content: "---\ntoolId: gemini-cli\n# No closing delimiter",
+		},
+		{
+			name:    "invalid YAML",
+			content: "---\nkey: [unclosed\n---\n",
+		},
+		{
+			name:    "only opening delimiter",
+			content: "---\n",
+		},
+		{
+			name:    "empty frontmatter",
+			content: "---\n---\n# Content",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := s.didOpen(nil, &protocol.DidOpenTextDocumentParams{
+				TextDocument: protocol.TextDocumentItem{
+					URI:  uri,
+					Text: tt.content,
+				},
+			}); err != nil {
+				t.Fatalf("didOpen failed: %v", err)
+			}
+
+			// Should not panic
+			result, err := s.documentSymbol(nil, &protocol.DocumentSymbolParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			})
+			if err != nil {
+				t.Fatalf("documentSymbol failed: %v", err)
+			}
+
+			// For malformed frontmatter, we expect either nil or empty symbols
+			// The exact behavior depends on frontmatter parsing, but it should not panic
+			if result != nil {
+				symbols, ok := result.([]protocol.DocumentSymbol)
+				if ok && len(symbols) > 0 {
+					// If symbols are returned, verify they don't have invalid ranges
+					for _, sym := range symbols {
+						if sym.Range.End.Line < sym.Range.Start.Line {
+							t.Fatalf("invalid symbol range (end before start): %+v", sym.Range)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestDocumentSymbolCRLFLineEndings(t *testing.T) {
+	s := NewServer("0.1.0")
+	path := filepath.Join(t.TempDir(), "AGENTS.md")
+	uri := pathToURL(path)
+	content := "---\r\ntoolId: gemini-cli\r\nscope: repo\r\n---\r\n# Hello"
+
+	if err := s.didOpen(nil, &protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen failed: %v", err)
+	}
+
+	result, err := s.documentSymbol(nil, &protocol.DocumentSymbolParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	})
+	if err != nil {
+		t.Fatalf("documentSymbol failed: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected document symbols for CRLF content")
+	}
+
+	symbols, ok := result.([]protocol.DocumentSymbol)
+	if !ok {
+		t.Fatalf("expected []DocumentSymbol, got %#v", result)
+	}
+	if len(symbols) != 1 {
+		t.Fatalf("expected root symbol, got %#v", symbols)
+	}
+
+	root := symbols[0]
+	if root.Name != "Frontmatter" {
+		t.Fatalf("expected Frontmatter root, got %q", root.Name)
+	}
+
+	// Verify toolId symbol exists and has valid ranges
+	toolSymbol, ok := findDocumentSymbol(root.Children, "toolId")
+	if !ok {
+		t.Fatalf("expected toolId symbol in CRLF content")
+	}
+
+	// Ranges should be stable regardless of line ending style
+	if toolSymbol.Range.Start.Line != 1 {
+		t.Fatalf("unexpected toolId line in CRLF content: %d", toolSymbol.Range.Start.Line)
+	}
+}
+
+func TestDocumentSymbolMultibyteCharacters(t *testing.T) {
+	s := NewServer("0.1.0")
+	path := filepath.Join(t.TempDir(), "AGENTS.md")
+	uri := pathToURL(path)
+	// 🚀 is 4 bytes in UTF-8, 2 code units in UTF-16
+	content := strings.Join([]string{
+		"---",
+		"toolId: 🚀-cli",
+		"description: Test emoji 🎉",
+		"---",
+		"# Hello",
+	}, "\n")
+
+	if err := s.didOpen(nil, &protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen failed: %v", err)
+	}
+
+	result, err := s.documentSymbol(nil, &protocol.DocumentSymbolParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	})
+	if err != nil {
+		t.Fatalf("documentSymbol failed: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected document symbols for multibyte content")
+	}
+
+	symbols, ok := result.([]protocol.DocumentSymbol)
+	if !ok {
+		t.Fatalf("expected []DocumentSymbol, got %#v", result)
+	}
+	if len(symbols) != 1 {
+		t.Fatalf("expected root symbol, got %#v", symbols)
+	}
+
+	root := symbols[0]
+	toolSymbol, ok := findDocumentSymbol(root.Children, "toolId")
+	if !ok {
+		t.Fatalf("expected toolId symbol with emoji")
+	}
+
+	// Verify ranges are valid (UTF-16 code units)
+	// The exact character offsets depend on UTF-16 encoding, but ranges should be ordered correctly
+	if toolSymbol.Range.End.Character < toolSymbol.Range.Start.Character {
+		t.Fatalf("invalid UTF-16 range for emoji value (end before start): %+v", toolSymbol.Range)
+	}
+
+	descSymbol, ok := findDocumentSymbol(root.Children, "description")
+	if !ok {
+		t.Fatalf("expected description symbol with emoji")
+	}
+	if descSymbol.Range.End.Character < descSymbol.Range.Start.Character {
+		t.Fatalf("invalid UTF-16 range for emoji in description (end before start): %+v", descSymbol.Range)
+	}
+}
+
 func TestDiagnosticCodeDescriptionSanitize(t *testing.T) {
 	desc := diagnosticCodeDescription("https://example.com/docs")
 	if desc == nil || desc.HRef != "https://example.com/docs" {
