@@ -191,6 +191,7 @@ module acr 'modules/acr.bicep' = if (acrCreate) {
     tags: tags
     skuName: acrSkuName
     adminEnabled: acrAdminEnabled
+    workspaceId: logAnalytics.id
   }
 }
 

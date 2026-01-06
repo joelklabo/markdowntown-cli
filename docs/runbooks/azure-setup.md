@@ -80,3 +80,15 @@ param endpointsSubnetAddressPrefix = '10.1.2.0/24'
 1. Check private endpoints created: `az network private-endpoint list -g <rg>`
 2. Check DNS zones linked: `az network private-dns zone list -g <rg>`
 3. Verify Container App uses VNet: `az containerapp env show -g <rg> -n <env> --query properties.vnetConfiguration`
+
+## Observability
+
+### Log Analytics and Application Insights
+- A shared Log Analytics workspace is created for container logs, metrics, and ACR diagnostics.
+- Application Insights is provisioned and its connection string is automatically injected into the web app and worker.
+
+### ACR Diagnostics
+- If `acrCreate` is enabled, diagnostic settings are automatically configured to stream:
+  - **Audit Logs**: `ContainerRegistryRepositoryEvents` and `ContainerRegistryLoginEvents`.
+  - **Metrics**: `AllMetrics`.
+- Logs are available in the Log Analytics workspace under the `ContainerRegistryRepositoryEvents` and `ContainerRegistryLoginEvents` tables.

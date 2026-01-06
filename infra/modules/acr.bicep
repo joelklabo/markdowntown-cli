@@ -8,6 +8,7 @@ param tags object = {}
 ])
 param skuName string = 'Basic'
 param adminEnabled bool = false
+param workspaceId string = ''
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01' = {
   name: name
@@ -18,6 +19,30 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-01-01' = {
   }
   properties: {
     adminUserEnabled: adminEnabled
+  }
+}
+
+resource diagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (!empty(workspaceId)) {
+  name: '${acr.name}-diagnostics'
+  scope: acr
+  properties: {
+    workspaceId: workspaceId
+    logs: [
+      {
+        category: 'ContainerRegistryRepositoryEvents'
+        enabled: true
+      }
+      {
+        category: 'ContainerRegistryLoginEvents'
+        enabled: true
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ]
   }
 }
 
