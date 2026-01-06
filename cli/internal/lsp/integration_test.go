@@ -881,6 +881,90 @@ func TestDiagnosticsDidCloseCancelsDebounce(t *testing.T) {
 	}
 }
 
+func TestDiagnosticsSettingsChangeRefresh(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 5)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
+	invalid := "---\nkey: value\ninvalid: [\n---\n# Hello"
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: invalid,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	// Get initial diagnostics with MD003 for invalid frontmatter
+	initial := waitForDiagnostics(t, diagnostics, uri)
+	_ = requireDiagnostic(t, initial.Diagnostics, "MD003")
+
+	// Send workspace/didChangeConfiguration to disable MD003
+	if err := clientRPC.Notify(ctx, protocol.MethodWorkspaceDidChangeConfiguration, protocol.DidChangeConfigurationParams{
+		Settings: map[string]any{
+			"markdowntown": map[string]any{
+				"diagnostics": map[string]any{
+					"rulesDisabled": []string{"MD003"},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("didChangeConfiguration notify failed: %v", err)
+	}
+
+	// Wait for diagnostics refresh after settings change
+	refreshed := waitForDiagnostics(t, diagnostics, uri)
+
+	// Verify MD003 is no longer in diagnostics
+	for _, diag := range refreshed.Diagnostics {
+		if diagnosticRuleID(diag) == "MD003" {
+			t.Fatalf("expected MD003 to be disabled after settings change, got %#v", refreshed.Diagnostics)
+		}
+	}
+
+	// Verify no additional diagnostics arrive after debounce
+	select {
+	case params := <-diagnostics:
+		t.Fatalf("unexpected additional diagnostics: %+v", params)
+	case <-time.After(150 * time.Millisecond):
+	}
+}
+
 func TestDiagnosticsRapidOpenClose(t *testing.T) {
 	s := NewServer("0.1.0")
 	s.Debounce = 50 * time.Millisecond
