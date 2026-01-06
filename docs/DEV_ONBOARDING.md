@@ -91,3 +91,31 @@ AZURE_BLOB_CONTAINER_URL="https://myaccount.blob.core.windows.net/snapshots?sv=2
 - **Never commit SAS tokens** to source control; use environment variables or secrets management
 - Errors from this module automatically redact SAS token parameters from logs
 - For production, use Managed Identity instead of SAS tokens when possible
+
+## Storage quotas and limits
+
+The CLI sync feature enforces storage limits at multiple levels to prevent abuse.
+
+### Per-snapshot limits
+| Limit | Value | Description |
+|-------|-------|-------------|
+| `MAX_SNAPSHOT_FILES` | 5,000 | Max files per snapshot |
+| `MAX_SNAPSHOT_TOTAL_BYTES` | 50 MB | Max total size per snapshot |
+| `MAX_SNAPSHOT_FILE_BYTES` | 5 MB | Max size per individual file |
+
+### User-level quota
+| Limit | Value | Description |
+|-------|-------|-------------|
+| `MAX_USER_STORAGE_BYTES` | 500 MB | Max total storage across all user snapshots |
+
+The user-level quota aggregates all non-deleted files across all snapshots for a given user. When a user approaches or exceeds their quota:
+- New uploads are rejected with HTTP 413 (Payload Too Large)
+- The rejection is logged with user ID and requested size for observability
+- Deleting old snapshots or files reclaims quota immediately
+
+### Quota calculation notes
+- Quota is calculated from `SnapshotFile.sizeBytes` where `isDeleted = false`
+- Blob deduplication does not affect quota (same blob in two files counts twice)
+- Concurrent uploads may briefly exceed quota in race conditions; final writes are still validated
+
+These constants are defined in `apps/web/src/lib/validation.ts`.

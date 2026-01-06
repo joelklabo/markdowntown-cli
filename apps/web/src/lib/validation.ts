@@ -8,6 +8,9 @@ export const MAX_BLOB_BYTES = MAX_SNAPSHOT_FILE_BYTES;
 export const MAX_SNAPSHOT_METADATA_BYTES = 50 * 1024;
 export const MAX_CLI_TOKEN_LABEL_LENGTH = 80;
 
+/** User-level storage quota: max total bytes across all snapshots/blobs per user */
+export const MAX_USER_STORAGE_BYTES = 500 * 1024 * 1024; // 500MB
+
 export const MAX_PATCH_BODY_BYTES = 1024 * 1024; // 1MB
 export const MAX_AUDIT_ISSUES_PER_UPLOAD = 5000;
 export const MAX_AUDIT_MESSAGE_LENGTH = 2000;

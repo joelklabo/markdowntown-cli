@@ -8,9 +8,10 @@ import { CLI_SNAPSHOT_LIMITS, rateLimit } from "@/lib/rateLimiter";
 import { logAbuseSignal, logAuditEvent } from "@/lib/reports";
 import { requireCliToken } from "@/lib/requireCliToken";
 import { validateBlobUpload, validateUploadManifest } from "@/lib/cli/validation";
+import { checkUserStorageQuota } from "@/lib/cli/upload";
 import { getBlobStore } from "@/lib/storage";
 import { shouldWriteBlob } from "@/lib/storage/blobStore";
-import { MAX_SNAPSHOT_FILES, MAX_SNAPSHOT_TOTAL_BYTES } from "@/lib/validation";
+import { MAX_SNAPSHOT_FILES, MAX_SNAPSHOT_TOTAL_BYTES, MAX_USER_STORAGE_BYTES } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -216,6 +217,25 @@ export async function POST(request: Request, context: RouteContext) {
     const isDeleted = Boolean(input.isDeleted);
     if (!isDeleted && !input.contentBase64) {
       return NextResponse.json({ error: "Missing blob content" }, { status: 422 });
+    }
+
+    // Check user-level storage quota before proceeding
+    if (!isDeleted) {
+      const quotaCheck = await checkUserStorageQuota(token.userId, input.sizeBytes);
+      if (!quotaCheck.allowed) {
+        auditLog("cli_quota_exceeded", {
+          ip,
+          traceId,
+          userId: token.userId,
+          snapshotId,
+          requestedBytes: input.sizeBytes,
+          reason: quotaCheck.reason,
+        });
+        return NextResponse.json(
+          { error: `User storage quota exceeded (max ${MAX_USER_STORAGE_BYTES} bytes)` },
+          { status: 413 },
+        );
+      }
     }
 
     const blobValidation = validateBlobUpload({

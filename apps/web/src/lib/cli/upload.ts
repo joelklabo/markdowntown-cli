@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { validateUploadManifest } from "@/lib/cli/validation";
 import { buildUploadPlan, type UploadPlan } from "@/lib/storage/s3";
 import { requireCliToken, type RequireCliTokenResult } from "@/lib/requireCliToken";
+import { MAX_USER_STORAGE_BYTES } from "@/lib/validation";
 
 export type { RequireCliTokenResult };
 
@@ -291,4 +292,65 @@ async function ensureSnapshotFiles(snapshotId: string, manifest: ManifestEntry[]
   if (files.length === 0) return;
 
   await prisma.snapshotFile.createMany({ data: files, skipDuplicates: true });
+}
+
+/**
+ * Check user-level storage quota.
+ * Returns the current usage and remaining bytes, or an error if quota would be exceeded.
+ */
+export async function checkUserStorageQuota(
+  userId: string,
+  additionalBytes: number,
+): Promise<{ allowed: true; currentBytes: number; remainingBytes: number } | { allowed: false; reason: string }> {
+  // Sum all non-deleted file sizes across all user snapshots
+  const aggregate = await prisma.snapshotFile.aggregate({
+    where: {
+      snapshot: { project: { userId } },
+      isDeleted: false,
+    },
+    _sum: { sizeBytes: true },
+  });
+
+  const currentBytes = aggregate._sum.sizeBytes ?? 0;
+  const projectedBytes = currentBytes + additionalBytes;
+
+  if (projectedBytes > MAX_USER_STORAGE_BYTES) {
+    const reason = `User storage quota exceeded (current: ${currentBytes} bytes, requested: ${additionalBytes} bytes, max: ${MAX_USER_STORAGE_BYTES} bytes)`;
+    return { allowed: false, reason };
+  }
+
+  return {
+    allowed: true,
+    currentBytes,
+    remainingBytes: MAX_USER_STORAGE_BYTES - currentBytes,
+  };
+}
+
+/**
+ * Get current user storage usage without checking a specific upload.
+ */
+export async function getUserStorageUsage(userId: string): Promise<{
+  currentBytes: number;
+  maxBytes: number;
+  remainingBytes: number;
+  usagePercent: number;
+}> {
+  const aggregate = await prisma.snapshotFile.aggregate({
+    where: {
+      snapshot: { project: { userId } },
+      isDeleted: false,
+    },
+    _sum: { sizeBytes: true },
+  });
+
+  const currentBytes = aggregate._sum.sizeBytes ?? 0;
+  const remainingBytes = Math.max(0, MAX_USER_STORAGE_BYTES - currentBytes);
+  const usagePercent = (currentBytes / MAX_USER_STORAGE_BYTES) * 100;
+
+  return {
+    currentBytes,
+    maxBytes: MAX_USER_STORAGE_BYTES,
+    remainingBytes,
+    usagePercent,
+  };
 }
