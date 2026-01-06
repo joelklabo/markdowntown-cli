@@ -5,6 +5,28 @@ import { execFileSync } from "node:child_process";
 import { runTests } from "@vscode/test-electron";
 
 async function main(): Promise<void> {
+  // Suppress punycode deprecation warning from transitive dependencies
+  // The warning comes from VS Code's Electron dependencies and cannot be easily fixed
+  // by updating our direct dependencies. This is a known issue across VS Code extensions.
+  // See: https://github.com/nodejs/node/issues/47228
+  const originalEmitWarning = process.emitWarning;
+  process.emitWarning = (warning, ...args: any[]) => {
+    if (
+      typeof warning === "string" &&
+      warning.includes("punycode")
+    ) {
+      return;
+    }
+    if (
+      typeof warning === "object" &&
+      warning.name === "DeprecationWarning" &&
+      warning.message.includes("punycode")
+    ) {
+      return;
+    }
+    return originalEmitWarning.call(process, warning, ...args);
+  };
+
   let workspaceDir = "";
   let logFile = "";
 
