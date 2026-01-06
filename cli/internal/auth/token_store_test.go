@@ -103,27 +103,6 @@ func TestFileTokenStoreFilePermissionError(t *testing.T) {
 	}
 
 	tempDir := t.TempDir()
-
-	// Test if the filesystem actually enforces permission checks
-	testDir := filepath.Join(tempDir, "perm-test")
-	if err := os.MkdirAll(testDir, 0o750); err != nil {
-		t.Fatalf("failed to create test dir: %v", err)
-	}
-	// #nosec G302 -- setting directory permissions for test.
-	if err := os.Chmod(testDir, 0o555); err != nil {
-		t.Fatalf("failed to set read-only: %v", err)
-	}
-	testFile := filepath.Join(testDir, "testfile")
-	// #nosec G306 -- test file permissions
-	if err := os.WriteFile(testFile, []byte("test"), 0o644); err == nil {
-		// Filesystem doesn't enforce permissions (e.g., some CI environments)
-		// #nosec G302 -- restoring directory permissions for test.
-		_ = os.Chmod(testDir, 0o750)
-		t.Skip("filesystem does not enforce permission checks")
-	}
-	// #nosec G302 -- restoring directory permissions for test.
-	_ = os.Chmod(testDir, 0o750)
-
 	t.Setenv("HOME", tempDir)
 	configDir := filepath.Join(tempDir, ".config", "markdowntown")
 	if err := os.MkdirAll(configDir, 0o750); err != nil {
@@ -139,6 +118,15 @@ func TestFileTokenStoreFilePermissionError(t *testing.T) {
 		// #nosec G302 -- restoring directory permissions for test.
 		_ = os.Chmod(configDir, 0o750)
 	})
+
+	// Test if the filesystem actually enforces permission checks on this directory
+	testFile := filepath.Join(configDir, "perm-test")
+	// #nosec G306 -- test file permissions
+	if err := os.WriteFile(testFile, []byte("test"), 0o644); err == nil {
+		// Filesystem doesn't enforce permissions (e.g., some CI environments)
+		_ = os.Remove(testFile)
+		t.Skip("filesystem does not enforce permission checks")
+	}
 
 	store := NewFileTokenStore()
 

@@ -57,30 +57,32 @@ async function main(): Promise<void> {
       JSON.stringify({ "markdowntown.serverPath": binPath }, null, 2)
     );
 
-    // MD001/MD003/MD004/MD006/MD012 etc.
+    // Each file should map to a unique tool to avoid MD001 conflicts
+    // AGENTS.md → github-copilot, github-copilot-cli, codex
     const testFile = path.join(workspaceDir, "AGENTS.md");
     fs.writeFileSync(testFile, "# Test\n");
 
-    // Use GEMINI.md for frontmatter tests (recognized by registry)
+    // GEMINI.md → gemini (no conflict with AGENTS.md)
     const frontmatterFile = path.join(workspaceDir, "GEMINI.md");
     fs.writeFileSync(frontmatterFile, "---\nkey: value\n---\n");
 
-    // Use .github/copilot-instructions.md for empty file tests (recognized by registry)
-    const githubDir = path.join(workspaceDir, ".github");
-    fs.mkdirSync(githubDir, { recursive: true });
-    const emptyFile = path.join(githubDir, "copilot-instructions.md");
+    // CLAUDE.md → claude (no conflict with AGENTS.md or GEMINI.md)
+    // Use for empty file tests
+    const emptyFile = path.join(workspaceDir, "CLAUDE.md");
     fs.writeFileSync(emptyFile, "");
 
-    // Use AGENTS.override.md for gitignored tests (recognized by registry)
-    const gitignoredFile = path.join(workspaceDir, "AGENTS.override.md");
+    // For gitignored test, use .cursor/rules/test.md (cursor tool, no conflict)
+    const cursorRulesDir = path.join(workspaceDir, ".cursor", "rules");
+    fs.mkdirSync(cursorRulesDir, { recursive: true });
+    const gitignoredFile = path.join(cursorRulesDir, "test.md");
     fs.writeFileSync(gitignoredFile, "# Ignored\n");
-    fs.writeFileSync(path.join(workspaceDir, ".gitignore"), "AGENTS.override.md\n");
+    fs.writeFileSync(path.join(workspaceDir, ".gitignore"), ".cursor/rules/test.md\n");
 
     // MD005 Setup: User config exists, but no repo config for the same tool.
-    // We'll use Claude Code for this.
-    const userClaudeDir = path.join(fakeHome, ".claude");
-    fs.mkdirSync(userClaudeDir, { recursive: true });
-    const userFile = path.join(userClaudeDir, "CLAUDE.md");
+    // Use Cline which has user config at ~/Documents/Cline/Rules but we won't create .clinerules
+    const userClineDir = path.join(fakeHome, "Documents", "Cline", "Rules");
+    fs.mkdirSync(userClineDir, { recursive: true });
+    const userFile = path.join(userClineDir, "test-rule.md");
     fs.writeFileSync(userFile, "# User Instructions\n");
 
     // MD007 Setup: Multiple skill configs with same name.
