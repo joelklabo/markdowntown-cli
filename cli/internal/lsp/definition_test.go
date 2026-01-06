@@ -43,10 +43,8 @@ func TestFindToolIDRangeInRegistryJSON(t *testing.T) {
 	wd, _ := os.Getwd()
 
 	t.Run("UTF-16 emoji", func(t *testing.T) {
-
-		path := filepath.Join(wd, "..", "..", "testdata", "registry", "registry-utf16.json")
-
-		content, err := os.ReadFile(path)
+		// #nosec G304 -- trusted test fixture path
+		content, err := os.ReadFile(filepath.Join(wd, "..", "..", "testdata", "registry", "registry-utf16.json"))
 
 		if err != nil {
 			t.Fatalf("failed to read registry: %v", err)
@@ -66,8 +64,8 @@ func TestFindToolIDRangeInRegistryJSON(t *testing.T) {
 	})
 
 	t.Run("Escaped quotes", func(t *testing.T) {
-		path := filepath.Join(wd, "..", "..", "testdata", "registry", "registry-escaped.json")
-		content, err := os.ReadFile(path)
+		// #nosec G304 -- trusted test fixture path
+		content, err := os.ReadFile(filepath.Join(wd, "..", "..", "testdata", "registry", "registry-escaped.json"))
 		if err != nil {
 			t.Fatalf("failed to read registry: %v", err)
 		}

@@ -78,8 +78,13 @@ func TestValidateGitVersionTooOld(t *testing.T) {
 		content = "#!/bin/sh\nif [ \"$1\" = \"version\" ]; then echo \"git version 1.7.0\"; fi\n"
 	}
 
-	if err := os.WriteFile(gitBin, []byte(content), 0755); err != nil {
+	if err := os.WriteFile(gitBin, []byte(content), 0600); err != nil {
 		t.Fatalf("failed to write mock git: %v", err)
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(gitBin, 0755); err != nil {
+			t.Fatalf("failed to chmod mock git: %v", err)
+		}
 	}
 
 	oldPath := os.Getenv("PATH")
