@@ -1,0 +1,189 @@
+name: Checks & Coverage
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Workflow is running (smoke check)."
+
+  dependency_review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: smoke
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          config-file: .github/dependency-review.yml
+          fail-on-severity: high
+          fail-on-scopes: runtime
+
+  atlas:
+    runs-on: ubuntu-latest
+    needs: smoke
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Atlas validate
+        run: pnpm atlas:validate
+
+  build:
+    runs-on: ubuntu-latest
+    needs: smoke
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma schema validate
+        env:
+          DATABASE_URL: "postgresql://user:pass@localhost:5432/markdowntown"
+        run: pnpm prisma:validate
+
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: "file:./dev.db"
+        run: pnpm prisma generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Knip (unused deps/exports)
+        run: pnpm lint:knip
+
+      - name: Circular dependency check
+        run: pnpm lint:cycles
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Test
+        run: |
+          mkdir -p test-results
+          pnpm test -- --reporter=default --reporter=junit --outputFile=test-results/vitest-junit.xml
+
+      - name: Build
+        env:
+          DATABASE_URL: "file:./dev.db"
+          NEXTAUTH_SECRET: "ci-secret"
+          NEXTAUTH_URL: "http://localhost:3000"
+          GITHUB_CLIENT_ID: "ci-placeholder"
+          GITHUB_CLIENT_SECRET: "ci-placeholder"
+        run: pnpm build
+
+      - name: Bundle size budget
+        env:
+          BUNDLE_BUDGET_BYTES: 1400000
+        run: pnpm bundle:check
+
+      - name: Coverage
+        if: always()
+        run: pnpm test:coverage
+
+      - name: Job summary (tests + coverage)
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import xml.etree.ElementTree as ET
+
+          summary_path = pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"])
+
+          junit = pathlib.Path("test-results/vitest-junit.xml")
+          if junit.exists():
+            root = ET.parse(junit).getroot()
+            suites = root.findall("testsuite") if root.tag == "testsuites" else [root]
+            tests = sum(int(s.get("tests", 0)) for s in suites)
+            failures = sum(int(s.get("failures", 0)) for s in suites)
+            errors = sum(int(s.get("errors", 0)) for s in suites)
+            skipped = sum(int(s.get("skipped", 0)) for s in suites)
+            test_line = f"- Unit tests: {tests} (failures={failures}, errors={errors}, skipped={skipped})"
+          else:
+            test_line = "- Unit tests: JUnit report not found"
+
+          coverage = pathlib.Path("coverage/coverage-summary.json")
+          if coverage.exists():
+            data = json.loads(coverage.read_text())
+            total = data.get("total") or {}
+            def pct(key: str) -> str:
+              value = (total.get(key) or {}).get("pct")
+              return "n/a" if value is None else f"{value:.1f}%"
+            cov_line = f"- Coverage: lines {pct('lines')}, statements {pct('statements')}, branches {pct('branches')}, functions {pct('functions')} (json-summary)"
+          else:
+            cov_line = "- Coverage: summary not found"
+
+          summary_path.write_text(
+            f"## CI Summary\n\n{test_line}\n{cov_line}\n",
+            encoding="utf-8",
+          )
+          PY
+
+      - name: Upload coverage to Codecov
+        if: ${{ env.CODECOV_TOKEN != '' }}
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ env.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
+          verbose: true
+
+      - name: Codecov skipped (missing token)
+        if: ${{ env.CODECOV_TOKEN == '' }}
+        run: |
+          echo "Codecov upload skipped: \`CODECOV_TOKEN\` is not available in this context." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test & coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checks-test-artifacts
+          path: |
+            test-results/
+            coverage/
+          if-no-files-found: warn
+          retention-days: 14

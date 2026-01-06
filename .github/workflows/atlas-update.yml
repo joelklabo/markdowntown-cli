@@ -1,0 +1,68 @@
+name: Atlas Update
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays at 12:00 UTC
+    - cron: "0 12 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: atlas-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Atlas update
+        id: atlas
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUTPUT="$(pnpm atlas:update | tee /dev/stderr)"
+          SUMMARY="$(echo "$OUTPUT" | awk 'BEGIN{p=0} /^### Atlas changelog/{p=1} {if(p)print}')"
+          if [ -z "$SUMMARY" ]; then
+            SUMMARY="[atlas:update] No changelog summary produced."
+          fi
+          echo "summary<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$SUMMARY" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          title: "Atlas update"
+          commit-message: "Atlas update"
+          branch: "automation/atlas-update"
+          delete-branch: true
+          body: |
+            Automated weekly Atlas update.
+
+            ${{ steps.atlas.outputs.summary }}
+          add-paths: |
+            atlas/facts/**
+            atlas/changelog/**
+            atlas/changelog.json

@@ -1,0 +1,178 @@
+name: E2E Playwright
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: markdowntown
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps
+
+      - name: Prisma generate
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/markdowntown"
+        run: pnpm prisma generate
+
+      - name: Migrate
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/markdowntown"
+        run: pnpm prisma migrate deploy
+
+      - name: Build
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/markdowntown"
+          NEXTAUTH_URL: "http://localhost:3000"
+          NEXTAUTH_SECRET: "e2e-secret"
+          GITHUB_CLIENT_ID: ${{ secrets.CLIENT_ID_TEST }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET_TEST }}
+        run: pnpm build --webpack
+
+      - name: Start app
+        env:
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/markdowntown"
+          NEXTAUTH_URL: "http://localhost:3000"
+          NEXTAUTH_SECRET: "e2e-secret"
+          GITHUB_CLIENT_ID: ${{ secrets.CLIENT_ID_TEST }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET_TEST }}
+        run: |
+          pnpm start --hostname 0.0.0.0 --port 3000 &
+          echo $! > /tmp/next.pid
+          echo "Waiting for app to be ready..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:3000/api/health > /dev/null && curl -sf http://localhost:3000/ > /dev/null; then
+              echo "App is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "App did not become ready in time"
+          exit 1
+
+      - name: Run e2e tests
+        env:
+          E2E_BASE_URL: "http://localhost:3000"
+          GITHUB_TEST_USER: ${{ secrets.TEST_USER }}
+          GITHUB_TEST_PASS: ${{ secrets.TEST_PASS }}
+        run: |
+          mkdir -p test-results
+          pnpm test:e2e -- --reporter=default --reporter=junit --outputFile=test-results/e2e-junit.xml
+
+      - name: Generate e2e HTML summary
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import xml.etree.ElementTree as ET
+
+          junit = pathlib.Path("test-results/e2e-junit.xml")
+          out_dir = pathlib.Path("test-results/e2e-report")
+          out_dir.mkdir(parents=True, exist_ok=True)
+          out_file = out_dir / "index.html"
+
+          if not junit.exists():
+            out_file.write_text("<html><body><h1>E2E Report</h1><p>JUnit file not found.</p></body></html>", encoding="utf-8")
+            raise SystemExit(0)
+
+          root = ET.parse(junit).getroot()
+          suites = root.findall("testsuite") if root.tag == "testsuites" else [root]
+          tests = sum(int(s.get("tests", 0)) for s in suites)
+          failures = sum(int(s.get("failures", 0)) for s in suites)
+          errors = sum(int(s.get("errors", 0)) for s in suites)
+          skipped = sum(int(s.get("skipped", 0)) for s in suites)
+
+          failure_cases = []
+          for suite in suites:
+            for case in suite.findall("testcase"):
+              failure = case.find("failure") or case.find("error")
+              if failure is not None:
+                name = case.get("name") or "unknown"
+                classname = case.get("classname") or ""
+                message = (failure.get("message") or "").strip()
+                failure_cases.append((classname, name, message))
+
+          items = "".join(
+            f"<li><code>{classname}</code> — <strong>{name}</strong><br/><pre>{message}</pre></li>"
+            for classname, name, message in failure_cases[:200]
+          )
+          failures_html = f"<h2>Failures</h2><ul>{items}</ul>" if failure_cases else "<h2>No failures</h2>"
+
+          out_file.write_text(
+            f"""<!doctype html>
+          <html>
+            <head>
+              <meta charset="utf-8"/>
+              <title>E2E Report</title>
+              <style>
+                body {{ font-family: -apple-system, system-ui, sans-serif; padding: 16px; }}
+                pre {{ white-space: pre-wrap; background: #f6f8fa; padding: 8px; border-radius: 6px; }}
+                code {{ background: #f6f8fa; padding: 2px 4px; border-radius: 4px; }}
+              </style>
+            </head>
+            <body>
+              <h1>E2E Report</h1>
+              <p>Tests: <strong>{tests}</strong> · Failures: <strong>{failures}</strong> · Errors: <strong>{errors}</strong> · Skipped: <strong>{skipped}</strong></p>
+              <p>Artifacts (if failures): see <code>test-results/e2e/</code> for <code>trace.zip</code> and <code>failure.png</code>.</p>
+              {failures_html}
+            </body>
+          </html>
+          """,
+            encoding="utf-8",
+          )
+          PY
+
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f /tmp/next.pid ]; then kill $(cat /tmp/next.pid) || true; fi
+
+      - name: Upload e2e artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: warn
+          retention-days: 14

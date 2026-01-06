@@ -1,0 +1,95 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 9 * * 1"
+
+jobs:
+  analyze:
+    name: Analyze (CodeQL)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["javascript-typescript"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+          config-file: .github/codeql/codeql-config.yml
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
+          output: sarif-results
+
+      - name: Gate high/critical findings on main
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          files=(sarif-results/*.sarif)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No SARIF files found in sarif-results/"
+            exit 1
+          fi
+
+          jq_filter='
+            def props_map($run):
+              reduce (($run.tool.driver.rules // [])[]) as $r ({}; .[$r.id] = ($r.properties // {}));
+
+            [ .runs[] as $run
+              | (props_map($run)) as $props
+              | ($run.results // [])[]?
+              | ($props[.ruleId] // {}) as $p
+              | select((($p["security-severity"] // "0") | tonumber) >= 7)
+              | select(($p.precision // $p["precision"] // "") == "high")
+              | {ruleId: .ruleId, severity: ($p["security-severity"] // "0"), message: (.message.text // "")}
+            ]'
+
+          total=0
+          for f in "${files[@]}"; do
+            hits="$(jq -r "$jq_filter | length" "$f")"
+            if [ "$hits" -gt 0 ]; then
+              echo "High-confidence high/critical alerts in $f:"
+              jq -r "$jq_filter[] | \"- \\(.ruleId) (severity=\\(.severity)): \\(.message)\"" "$f" | head -n 200
+              total=$((total + hits))
+            fi
+          done
+
+          if [ "$total" -gt 0 ]; then
+            echo "Failing because $total high-confidence high/critical CodeQL findings were detected on main."
+            exit 1
+          fi
+
+          echo "No high-confidence high/critical CodeQL findings detected."
