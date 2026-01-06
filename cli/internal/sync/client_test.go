@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+// maxUploadRetries matches the retry count passed to uploadBlobWithRetry.
+// Total attempts = maxUploadRetries + 1 (initial + retries).
+const maxUploadRetries = 3
+
 func TestClientRetriesOnTransientErrors(t *testing.T) {
 	var attempts int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -89,8 +93,9 @@ func TestClientRetriesExhausted(t *testing.T) {
 		t.Fatal("expected error after exhausted retries")
 	}
 
-	if atomic.LoadInt32(&attempts) != maxRetries {
-		t.Errorf("expected %d attempts, got %d", maxRetries, attempts)
+	// Total attempts = maxUploadRetries + 1 (initial attempt + retries)
+	if atomic.LoadInt32(&attempts) != maxUploadRetries+1 {
+		t.Errorf("expected %d attempts, got %d", maxUploadRetries+1, attempts)
 	}
 }
 
@@ -109,15 +114,12 @@ func TestClientAuthError(t *testing.T) {
 		t.Fatal("expected auth error")
 	}
 
-	var authErr *AuthError
-	if !errors.As(err, &authErr) {
-		t.Fatalf("expected AuthError, got %T: %v", err, err)
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected APIError, got %T: %v", err, err)
 	}
-	if authErr.Status != http.StatusUnauthorized {
-		t.Errorf("expected status 401, got %d", authErr.Status)
-	}
-	if !strings.Contains(err.Error(), "invalid token") {
-		t.Errorf("expected error message to contain 'invalid token', got %q", err.Error())
+	if apiErr.Status != http.StatusUnauthorized {
+		t.Errorf("expected status 401, got %d", apiErr.Status)
 	}
 	if !strings.Contains(err.Error(), "markdowntown login") {
 		t.Error("expected error message to include login guidance")

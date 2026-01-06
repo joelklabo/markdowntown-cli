@@ -25,7 +25,7 @@ suite("markdowntown LSP quick fixes", () => {
     await ensureEditorReady();
   });
 
-  test.skip("offers quick fix for invalid frontmatter", async () => {
+  test("offers quick fix for invalid frontmatter", async () => {
     logTest("[code-actions] frontmatter start");
     const testFile = process.env.MARKDOWNTOWN_TEST_FRONTMATTER_FILE;
     assert.ok(testFile, "MARKDOWNTOWN_TEST_FRONTMATTER_FILE env var not set");
@@ -44,7 +44,7 @@ suite("markdowntown LSP quick fixes", () => {
         "---\nkey: value\ninvalid: [\n---\n"
       );
     });
-    await document.save();
+    // Don't save - diagnostics should appear on unsaved buffer
     logTest("[code-actions] frontmatter after edit");
 
     const diagnostics = await waitForDiagnostics(document.uri, (items) =>
@@ -66,7 +66,7 @@ suite("markdowntown LSP quick fixes", () => {
     logTest("[code-actions] frontmatter done");
   });
 
-  test.skip("offers quick fix for empty config", async () => {
+  test("offers quick fix for empty config", async () => {
     logTest("[code-actions] empty start");
     const testFile = process.env.MARKDOWNTOWN_TEST_EMPTY_FILE;
     assert.ok(testFile, "MARKDOWNTOWN_TEST_EMPTY_FILE env var not set");
@@ -78,7 +78,7 @@ suite("markdowntown LSP quick fixes", () => {
     await editor.edit((editBuilder) => {
       editBuilder.insert(new vscode.Position(document.lineCount, 0), "\n");
     });
-    await document.save();
+    // Don't save - diagnostics should appear on unsaved buffer
     logTest("[code-actions] empty after edit");
 
     const diagnostics = await waitForDiagnostics(document.uri, (items) =>
@@ -100,7 +100,7 @@ suite("markdowntown LSP quick fixes", () => {
     logTest("[code-actions] empty done");
   });
 
-  test.skip("offers quick fix for gitignored config", async () => {
+  test("offers quick fix for gitignored config", async () => {
     logTest("[code-actions] gitignored start");
     const testFile = process.env.MARKDOWNTOWN_TEST_GITIGNORED_FILE;
     assert.ok(testFile, "MARKDOWNTOWN_TEST_GITIGNORED_FILE env var not set");
@@ -129,7 +129,7 @@ suite("markdowntown LSP quick fixes", () => {
     logTest("[code-actions] gitignored done");
   });
 
-  test.skip("offers quick fix for missing repo config", async () => {
+  test("offers quick fix for missing repo config", async () => {
     logTest("[code-actions] missing-repo start");
     const testFile = process.env.MARKDOWNTOWN_TEST_USER_FILE;
     assert.ok(testFile, "MARKDOWNTOWN_TEST_USER_FILE env var not set");
@@ -158,7 +158,7 @@ suite("markdowntown LSP quick fixes", () => {
     logTest("[code-actions] missing-repo done");
   });
 
-  test.skip("offers quick fix for duplicate frontmatter", async () => {
+  test("offers quick fix for duplicate frontmatter", async () => {
     logTest("[code-actions] duplicate-frontmatter start");
     const testFile = process.env.MARKDOWNTOWN_TEST_DUPLICATE_SKILL_FILE;
     assert.ok(
