@@ -38,7 +38,7 @@ jobs:
           node-version: 20
           cache: pnpm
       - name: Validate OpenAPI
-        run: pnpm install --frozen-lockfile && pnpm docs:openapi
+        run: pnpm install --frozen-lockfile && pnpm -C apps/web docs:openapi
       - name: Write Lighthouse config
         run: |
           cat > lighthouserc.json <<'EOF'
