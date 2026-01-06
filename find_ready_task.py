@@ -30,13 +30,10 @@ def is_blocked(issue, issues):
                 if dep['issue_id'] == other_id and dep['depends_on_id'] == issue_id and dep['type'] == 'parent-child':
                     return True
     
-    # 2. Check for dependencies on this issue pointing to others?
-    # Usually dependencies are outgoing. "I depend on X".
-    # {issue_id: ME, depends_on_id: X, type: blocks} -> I am blocked by X.
-    # We should check this too!
+    # 2. Check for dependencies where this issue is blocked by another
     if 'dependencies' in issue:
         for dep in issue['dependencies']:
-             if dep['issue_id'] == issue_id and dep['type'] == 'blocks':
+             if dep['issue_id'] == issue_id and dep['type'] == 'is-blocked-by':
                  target_id = dep['depends_on_id']
                  if target_id in issues and issues[target_id]['status'] != 'closed':
                      return True
