@@ -6,7 +6,17 @@ export type UiTelemetryEventName =
   | "scan_complete"
   | "scan_cancel"
   | "scan_results_cta"
-  | "scan_next_step_click";
+  | "scan_next_step_click"
+  | "cli_login_start"
+  | "cli_login_success"
+  | "cli_login_failure"
+  | "cli_upload_start"
+  | "cli_upload_success"
+  | "cli_upload_failure"
+  | "cli_patch_pull_start"
+  | "cli_patch_pull_success"
+  | "cli_patch_pull_failure"
+  | "cli_error";
 
 export type UiTelemetryEventDetail = {
   name: UiTelemetryEventName;

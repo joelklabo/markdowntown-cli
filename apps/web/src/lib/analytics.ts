@@ -151,12 +151,41 @@ export function trackHomeCtaClick(properties: {
   trackUiEvent("ui_home_cta_click", properties);
 }
 
-export function trackError(event: string, error: Error, properties?: Record<string, unknown>) {
+export function trackError(event: string, error: Error, properties?: Record<string, unknown>, errorCode?: string) {
   track(event, {
     message: error.message,
     stack: error.stack,
+    errorCode: errorCode,
     ...properties,
   });
+}
+
+export function trackCliLogin(
+  event: "start" | "success" | "failure",
+  properties?: Record<string, unknown>,
+  errorCode?: string,
+) {
+  track("cli_login", { event, errorCode, ...properties });
+}
+
+export function trackCliUpload(
+  event: "start" | "success" | "failure",
+  properties?: Record<string, unknown>,
+  errorCode?: string,
+) {
+  track("cli_upload", { event, errorCode, ...properties });
+}
+
+export function trackCliPatchPull(
+  event: "start" | "success" | "failure",
+  properties?: Record<string, unknown>,
+  errorCode?: string,
+) {
+  track("cli_patch_pull", { event, errorCode, ...properties });
+}
+
+export function trackCliError(error: Error, properties?: Record<string, unknown>, errorCode?: string) {
+  trackError("cli_error", error, properties, errorCode);
 }
 
 export function trackSkillsListView(properties: {

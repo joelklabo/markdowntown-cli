@@ -17,7 +17,7 @@ import (
 func BenchmarkNativeEngineScanAudit(b *testing.B) {
 	repoRoot := b.TempDir()
 	fs := afero.NewOsFs()
-	
+
 	// Create a representative fixture
 	agentsPath := filepath.Join(repoRoot, "AGENTS.md")
 	if err := os.WriteFile(agentsPath, []byte("---\ntoolId: claude-3-opus\n---\n# Test\nYou MUST follow instructions."), 0o600); err != nil {
@@ -40,11 +40,11 @@ func BenchmarkNativeEngineScanAudit(b *testing.B) {
 	}
 
 	opts := scan.Options{
-		RepoRoot:      repoRoot,
-		RepoOnly:      true,
-		Registry:      registry,
-		Fs:            fs,
-		ScanWorkers:   1,
+		RepoRoot:    repoRoot,
+		RepoOnly:    true,
+		Registry:    registry,
+		Fs:          fs,
+		ScanWorkers: 1,
 	}
 
 	b.ResetTimer()
@@ -125,14 +125,14 @@ func BenchmarkNativeEngineRunWithContext(b *testing.B) {
 
 func BenchmarkNativeEngineSuggest(b *testing.B) {
 	sourcesRegistry := suggest.SourceRegistry{
-		Version: "1.0",
+		Version:        "1.0",
 		AllowlistHosts: []string{"example.com"},
 		Sources: []suggest.Source{
 			{
-				ID: "s1",
-				Client: "codex",
-				Tier: "tier-0",
-				URL: "https://example.com/docs.md",
+				ID:           "s1",
+				Client:       "codex",
+				Tier:         "tier-0",
+				URL:          "https://example.com/docs.md",
 				RefreshHours: 24,
 			},
 		},

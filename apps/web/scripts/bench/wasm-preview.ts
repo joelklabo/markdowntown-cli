@@ -1,7 +1,22 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import { performance } from "node:perf_hooks";
+
+// Define the shape of the Go Wasm object for better type safety
+type GoInstance = {
+  importObject: WebAssembly.Imports;
+  run(instance: WebAssembly.Instance): void | Promise<void>;
+};
+
+// Define the shape of the global Go constructor
+type GoConstructor = new () => GoInstance;
+
+// Define the shape of the Wasm module exports
+type WasmGlobalExports = typeof globalThis & {
+  markdowntownScanAudit?: (input: string) => unknown;
+  markdowntownSuggest?: (input: string) => unknown;
+};
 
 async function main() {
   const repoRoot = process.cwd();
@@ -17,16 +32,16 @@ async function main() {
     : path.join(repoRoot, "cli/data/ai-config-patterns.json");
 
   // Load Go WASM support
-  // @ts-ignore
+  // @ts-expect-error Go is dynamically attached to globalThis by wasm_exec.js
   await import(pathToFileURL(wasmExecPath).href);
-  const GoCtor = (globalThis as any).Go;
+  const GoCtor = (globalThis as { Go?: GoConstructor }).Go;
   if (!GoCtor) {
     throw new Error("Go runtime not found");
   }
 
   const go = new GoCtor();
   const wasmBytes = await fs.readFile(wasmPath);
-  const { instance } = await WebAssembly.instantiate(wasmBytes, go.importObject);
+  const { instance } = await WebAssembly.instantiate(toArrayBuffer(wasmBytes), go.importObject);
   void go.run(instance);
 
   const registry = JSON.parse(await fs.readFile(registryPath, "utf8"));
@@ -42,7 +57,10 @@ async function main() {
     ],
   };
 
-  const scanAudit = (globalThis as any).markdowntownScanAudit;
+  const scanAudit = (globalThis as WasmGlobalExports).markdowntownScanAudit;
+  if (typeof scanAudit !== "function") {
+    throw new Error("markdowntownScanAudit export not available");
+  }
   
   const iterations = 100;
   console.log(`Benchmarking WASM engine (Preview path) over ${iterations} iterations...`);
@@ -72,10 +90,12 @@ async function main() {
     client: "codex",
     registry: sourcesRegistry,
     explain: true,
-    offline: true, // Use offline mode for bench
+    sourceOverrides: {
+      "https://example.com/docs.md": "You MUST do the thing.",
+    },
   };
 
-  const suggest = (globalThis as any).markdowntownSuggest;
+  const suggest = (globalThis as WasmGlobalExports).markdowntownSuggest;
   if (typeof suggest !== "function") {
     throw new Error("markdowntownSuggest export not available");
   }
@@ -97,6 +117,13 @@ async function main() {
 
   console.log(`Suggest: Total time: ${sTotalMs.toFixed(2)}ms`);
   console.log(`Suggest: Average time per call: ${sAvgMs.toFixed(2)}ms`);
+}
+
+// Helper to convert Buffer to ArrayBuffer for WebAssembly.instantiate
+function toArrayBuffer(buffer: Buffer): ArrayBuffer {
+  // slice creates a new Buffer that does not share memory with the original,
+  // then access its underlying ArrayBuffer.
+  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
 }
 
 main().catch(console.error);
