@@ -1,7 +1,13 @@
 import type { AuditIssue, AuditSeverity } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizeRepoPath } from "@/lib/cli/patches";
-import { validateAuditIssue, MAX_AUDIT_ISSUES_PER_UPLOAD } from "@/lib/validation";
+import { 
+  validateAuditIssue, 
+  MAX_AUDIT_ISSUES_PER_UPLOAD, 
+  AUDIT_RETENTION_DAYS, 
+  MAX_AUDIT_SNAPSHOTS_PER_PROJECT 
+} from "@/lib/validation";
+import { auditLog } from "@/lib/observability";
 
 export type AuditIssueInput = {
   ruleId: string;
@@ -98,4 +104,73 @@ export async function listAuditIssues(options: {
     cursor: options.cursor ? { id: options.cursor } : undefined,
     orderBy: [{ severity: "desc" }, { path: "asc" }, { id: "asc" }],
   });
+}
+
+/**
+ * Cleanup expired audit issues based on TTL and per-project limits.
+ * Does not delete snapshots, only the linked audit issues.
+ */
+export async function cleanupAuditIssues(): Promise<{ deleted: number }> {
+  const retentionDate = new Date();
+  retentionDate.setDate(retentionDate.getDate() - AUDIT_RETENTION_DAYS);
+
+  let totalDeleted = 0;
+
+  // 1. Delete issues for snapshots older than retention TTL
+  const expiredIssues = await prisma.auditIssue.deleteMany({
+    where: {
+      snapshot: {
+        createdAt: { lt: retentionDate },
+      },
+    },
+  });
+  totalDeleted += expiredIssues.count;
+
+  // 2. Enforce per-project snapshot issue limit
+  // Find projects that have more than MAX_AUDIT_SNAPSHOTS_PER_PROJECT snapshots with issues
+  const projects = await prisma.project.findMany({
+    select: { id: true },
+    where: {
+      snapshots: {
+        some: {
+          auditIssues: { some: {} },
+        },
+      },
+    },
+  });
+
+  for (const project of projects) {
+    // Get all snapshots for this project that have audit issues, ordered by creation date
+    const snapshotsWithIssues = await prisma.snapshot.findMany({
+      where: {
+        projectId: project.id,
+        auditIssues: { some: {} },
+      },
+      select: { id: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (snapshotsWithIssues.length > MAX_AUDIT_SNAPSHOTS_PER_PROJECT) {
+      const idsToDelete = snapshotsWithIssues
+        .slice(MAX_AUDIT_SNAPSHOTS_PER_PROJECT)
+        .map((s) => s.id);
+
+      const deleted = await prisma.auditIssue.deleteMany({
+        where: {
+          snapshotId: { in: idsToDelete },
+        },
+      });
+      totalDeleted += deleted.count;
+    }
+  }
+
+  if (totalDeleted > 0) {
+    auditLog("audit_issues_cleanup", {
+      totalDeleted,
+      retentionDays: AUDIT_RETENTION_DAYS,
+      maxSnapshotsPerProject: MAX_AUDIT_SNAPSHOTS_PER_PROJECT,
+    });
+  }
+
+  return { deleted: totalDeleted };
 }

@@ -17,6 +17,11 @@ export const MAX_AUDIT_MESSAGE_LENGTH = 2000;
 export const MAX_AUDIT_PAYLOAD_BYTES = 20 * 1024 * 1024; // 20MB
 export const MAX_RULE_ID_LENGTH = 128;
 
+/** Audit issue retention: delete issues for snapshots older than this */
+export const AUDIT_RETENTION_DAYS = 30;
+/** Audit issue retention: max snapshots with issues to keep per project */
+export const MAX_AUDIT_SNAPSHOTS_PER_PROJECT = 50;
+
 export function validateSectionPayload(title: string | null, content: string) {
   if (!title) return "Title is required";
   if (title.length > MAX_TITLE_LENGTH) return `Title is too long (max ${MAX_TITLE_LENGTH} characters)`;
