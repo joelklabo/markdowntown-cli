@@ -83,8 +83,8 @@ func TestFindToolIDRangeInRegistryJSON(t *testing.T) {
 	})
 
 	t.Run("Unicode escape", func(t *testing.T) {
-		path := filepath.Join(wd, "..", "..", "testdata", "registry", "registry-escaped.json")
-		content, err := os.ReadFile(path)
+		// #nosec G304 -- trusted test fixture path
+		content, err := os.ReadFile(filepath.Join(wd, "..", "..", "testdata", "registry", "registry-escaped.json"))
 		if err != nil {
 			t.Fatalf("failed to read registry: %v", err)
 		}
