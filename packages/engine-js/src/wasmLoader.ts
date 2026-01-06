@@ -52,6 +52,7 @@ export type WasmSuggestRequest = {
     allowlistHosts: string[];
     sources: Array<Record<string, unknown>>;
   };
+  sourceOverrides?: Record<string, string>;
 };
 
 export type WasmSuggestResponse = {

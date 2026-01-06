@@ -5,15 +5,16 @@ import { performance } from "node:perf_hooks";
 
 async function main() {
   const repoRoot = process.cwd();
-  const wasmDir = path.join(repoRoot, "apps/web/public/engine");
+  // Assume run from repo root or apps/web
+  const wasmDir = repoRoot.endsWith("apps/web") 
+    ? path.join(repoRoot, "public/engine")
+    : path.join(repoRoot, "apps/web/public/engine");
+  
   const wasmPath = path.join(wasmDir, "markdowntown_engine.wasm");
   const wasmExecPath = path.join(wasmDir, "wasm_exec.js");
-  const registryPath = path.join(repoRoot, "cli", "data", "ai-config-patterns.json");
-
-  if (!await exists(wasmPath)) {
-    console.error("WASM binary missing at", wasmPath);
-    process.exit(1);
-  }
+  const registryPath = repoRoot.endsWith("apps/web")
+    ? path.join(repoRoot, "../../cli/data/ai-config-patterns.json")
+    : path.join(repoRoot, "cli/data/ai-config-patterns.json");
 
   // Load Go WASM support
   // @ts-ignore
@@ -36,18 +37,15 @@ async function main() {
     files: [
       {
         path: "/repo/AGENTS.md",
-        content: "---\nkey: value\ninvalid: [\n---\n",
+        content: "---\ntoolId: claude-3-opus\n---\n# Test\nYou MUST follow instructions.",
       },
     ],
   };
 
   const scanAudit = (globalThis as any).markdowntownScanAudit;
-  if (typeof scanAudit !== "function") {
-    throw new Error("markdowntownScanAudit export not available");
-  }
-
+  
   const iterations = 100;
-  console.log(`Benchmarking WASM engine over ${iterations} iterations...`);
+  console.log(`Benchmarking WASM engine (Preview path) over ${iterations} iterations...`);
 
   const requestStr = JSON.stringify(request);
   const start = performance.now();
@@ -66,15 +64,15 @@ async function main() {
   console.log(`Scan/Audit: Total time: ${totalMs.toFixed(2)}ms`);
   console.log(`Scan/Audit: Average time per call: ${avgMs.toFixed(2)}ms`);
 
-  const sourcesPath = path.join(repoRoot, "cli", "data", "doc-sources.json");
+  const sourcesPath = repoRoot.endsWith("apps/web")
+    ? path.join(repoRoot, "../../cli/data/doc-sources.json")
+    : path.join(repoRoot, "cli/data/doc-sources.json");
   const sourcesRegistry = JSON.parse(await fs.readFile(sourcesPath, "utf8"));
   const suggestRequest = {
     client: "codex",
     registry: sourcesRegistry,
     explain: true,
-    sourceOverrides: {
-      "https://example.com/docs.md": "You MUST do the thing.",
-    },
+    offline: true, // Use offline mode for bench
   };
 
   const suggest = (globalThis as any).markdowntownSuggest;
@@ -82,7 +80,7 @@ async function main() {
     throw new Error("markdowntownSuggest export not available");
   }
 
-  console.log(`Benchmarking WASM suggest over ${iterations} iterations...`);
+  console.log(`Benchmarking WASM suggest (Preview path) over ${iterations} iterations...`);
   const suggestRequestStr = JSON.stringify(suggestRequest);
   const sStart = performance.now();
   for (let i = 0; i < iterations; i++) {
@@ -99,15 +97,6 @@ async function main() {
 
   console.log(`Suggest: Total time: ${sTotalMs.toFixed(2)}ms`);
   console.log(`Suggest: Average time per call: ${sAvgMs.toFixed(2)}ms`);
-}
-
-async function exists(path: string) {
-  try {
-    await fs.access(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 main().catch(console.error);

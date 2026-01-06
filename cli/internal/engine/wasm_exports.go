@@ -45,12 +45,13 @@ type wasmAuditOutput struct {
 }
 
 type wasmSuggestRequest struct {
-	Client   string                 `json:"client"`
-	Explain  bool                   `json:"explain"`
-	Refresh  bool                   `json:"refresh"`
-	Offline  bool                   `json:"offline"`
-	ProxyURL string                 `json:"proxyUrl,omitempty"`
-	Registry suggest.SourceRegistry `json:"registry"`
+	Client          string                 `json:"client"`
+	Explain         bool                   `json:"explain"`
+	Refresh         bool                   `json:"refresh"`
+	Offline         bool                   `json:"offline"`
+	ProxyURL        string                 `json:"proxyUrl,omitempty"`
+	Registry        suggest.SourceRegistry `json:"registry"`
+	SourceOverrides map[string]string      `json:"sourceOverrides,omitempty"`
 }
 
 type wasmSuggestResponse struct {
@@ -138,14 +139,22 @@ func markdowntownSuggest(_ js.Value, args []js.Value) (result any) {
 	ctx := context.Background()
 	var claims []suggest.Claim
 	for _, src := range filtered {
-		res, err := fetcher.Fetch(ctx, suggest.FetchSource{ID: src.ID, URL: src.URL})
-		if err != nil {
-			report.Warnings = append(report.Warnings, fmt.Sprintf("fetch %s failed: %v", src.URL, err))
-			continue
-		}
-		if res.Skipped {
-			report.Warnings = append(report.Warnings, fmt.Sprintf("fetch %s skipped: %s", src.URL, res.SkipReason))
-			continue
+		var body []byte
+		var err error
+
+		if content, ok := req.SourceOverrides[src.URL]; ok {
+			body = []byte(content)
+		} else {
+			res, fetchErr := fetcher.Fetch(ctx, suggest.FetchSource{ID: src.ID, URL: src.URL})
+			if fetchErr != nil {
+				report.Warnings = append(report.Warnings, fmt.Sprintf("fetch %s failed: %v", src.URL, fetchErr))
+				continue
+			}
+			if res.Skipped {
+				report.Warnings = append(report.Warnings, fmt.Sprintf("fetch %s skipped: %s", src.URL, res.SkipReason))
+				continue
+			}
+			body = res.Body
 		}
 
 		format := "markdown"
@@ -153,12 +162,12 @@ func markdowntownSuggest(_ js.Value, args []js.Value) (result any) {
 			format = "html"
 		}
 
-		doc, err := suggest.NormalizeDocument(string(res.Body), format)
-		if err != nil {
-			report.Warnings = append(report.Warnings, fmt.Sprintf("normalize %s failed: %v", src.URL, err))
+		doc, normalizeErr := suggest.NormalizeDocument(string(body), format)
+		if normalizeErr != nil {
+			report.Warnings = append(report.Warnings, fmt.Sprintf("normalize %s failed: %v", src.URL, normalizeErr))
 			continue
 		}
-		snapshotID := "sha256:" + scanhash.SumHex(res.Body)
+		snapshotID := "sha256:" + scanhash.SumHex(body)
 		claims = append(claims, suggest.ExtractClaims(doc, src, snapshotID)...)
 	}
 
