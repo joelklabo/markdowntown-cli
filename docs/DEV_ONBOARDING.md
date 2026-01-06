@@ -119,3 +119,40 @@ The user-level quota aggregates all non-deleted files across all snapshots for a
 - Concurrent uploads may briefly exceed quota in race conditions; final writes are still validated
 
 These constants are defined in `apps/web/src/lib/validation.ts`.
+
+## Blob store fallback configuration
+
+The blob storage system supports dual-read fallback for migration scenarios (e.g., migrating from DB to Azure).
+
+### Environment variables
+
+| Variable | Values | Description |
+|----------|--------|-------------|
+| `BLOB_STORE_PRIMARY` | `azure`, `db` | Select primary store. Default: Azure if configured, otherwise DB |
+| `BLOB_STORE_FALLBACK` | `1`, `true` | Enable fallback reads from secondary store |
+
+### Behavior
+- **Writes**: Always go to the primary store
+- **Reads**: Try primary first; if null or error, try secondary
+- **Deletes**: Delete from primary; attempt secondary deletion (failures ignored)
+
+### Migration example
+When migrating from DB to Azure blob storage:
+
+```bash
+# Phase 1: Dual-read (Azure primary, DB fallback)
+BLOB_STORE_PRIMARY=azure
+BLOB_STORE_FALLBACK=true
+
+# Phase 2: Azure only (after all blobs migrated)
+BLOB_STORE_PRIMARY=azure
+# BLOB_STORE_FALLBACK unset or false
+```
+
+### Observability
+Blob store operations are logged with the format:
+```
+[blob-store] blob:<hash-prefix> served from primary
+[blob-store] blob:<hash-prefix> served from secondary (fallback)
+[blob-store] blob:<hash-prefix> primary error: <message>
+```
