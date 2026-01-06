@@ -2,7 +2,7 @@
   "name": "markdowntown",
   "displayName": "markdowntown",
   "description": "Language Server Protocol client for markdowntown.",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "publisher": "markdowntown",
   "repository": {
     "type": "git",
