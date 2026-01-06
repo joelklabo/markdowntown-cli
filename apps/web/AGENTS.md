@@ -1,6 +1,6 @@
 # YOUR JOB:
 
-1. Clear stale work: run `node scripts/bd-reset-stale.mjs --hours 4` (or `--minutes 30`) to reopen any `in_progress` older than the threshold.
+1. Clear stale work: run `pnpm bd:stale --hours 4` (or `--minutes 30`) to reopen any `in_progress` older than the threshold.
 2. Ask `bd ready` what to do.
 3. Before starting, set yourself on the issue (`bd update <id> --status in_progress`).
 4. Work on it.

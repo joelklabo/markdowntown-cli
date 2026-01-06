@@ -28,6 +28,7 @@
     "analyze": "ANALYZE=true pnpm exec next build --webpack",
     "bundle:check": "node scripts/check-bundle-size.mjs",
     "bd:validate": "node scripts/bd-validate-jsonl.mjs",
+    "bd:stale": "node ../../scripts/bd-reset-stale.mjs",
     "audit:cleanup": "node scripts/cleanup-audit-issues.mjs",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",

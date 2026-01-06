@@ -16,6 +16,7 @@
 - For CLI changes, follow `cli/AGENTS.md` and run `cd cli && make lint` + `cd cli && make test`.
 - For web changes, follow `apps/web/AGENTS.md` and run `pnpm -C apps/web lint` + `pnpm -C apps/web compile` + `pnpm -C apps/web test:unit`.
 - For docs-only changes, run `pnpm -C apps/web lint:md`.
+- Clear stale work: `pnpm bd:stale --hours 4`.
 - Use bd with `npx bd --no-daemon ...` (see repo instructions).
 
 ## Files
