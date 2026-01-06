@@ -16,6 +16,9 @@ export type UiTelemetryEventName =
   | "cli_patch_pull_start"
   | "cli_patch_pull_success"
   | "cli_patch_pull_failure"
+  | "cli_patch_apply_start"
+  | "cli_patch_apply_success"
+  | "cli_patch_apply_failure"
   | "cli_error";
 
 export type UiTelemetryEventDetail = {

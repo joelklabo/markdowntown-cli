@@ -184,6 +184,14 @@ export function trackCliPatchPull(
   track("cli_patch_pull", { event, errorCode, ...properties });
 }
 
+export function trackCliPatchApply(
+  event: "start" | "success" | "failure",
+  properties?: Record<string, unknown>,
+  errorCode?: string,
+) {
+  track("cli_patch_apply", { event, errorCode, ...properties });
+}
+
 export function trackCliError(error: Error, properties?: Record<string, unknown>, errorCode?: string) {
   trackError("cli_error", error, properties, errorCode);
 }

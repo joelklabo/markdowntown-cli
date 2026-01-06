@@ -13,6 +13,7 @@ type GoGlobal = typeof globalThis & { Go?: GoConstructor };
 
 type WasmGlobal = typeof globalThis & {
   markdowntownScanAudit?: (input: string) => unknown;
+  markdowntownSuggest?: (input: string) => unknown;
 };
 
 export type WasmRegistry = {

@@ -2,7 +2,7 @@
 
 ## Signals
 - **Tracing/Logs**: API routes use `withAPM` to attach `x-trace-id`/`x-request-id`, emit `api_request`/`api_error` structured logs, and add `Server-Timing` for total duration. Use the trace ID to correlate console logs, frontend calls, and Azure Monitor queries.
-- **Telemetry**: UI events are captured via `emitUiTelemetryEvent` and tracked with PostHog, including `cli_login`, `cli_upload`, and `cli_patch_pull` actions. These events are redacted to remove sensitive information.
+- **Telemetry**: UI events are captured via `emitUiTelemetryEvent` and tracked with PostHog, including `cli_login`, `cli_upload`, `cli_patch_pull`, and `cli_patch_apply` actions. These events are redacted to remove sensitive information.
 - **Health**: `GET /api/health` returns queue/worker status based on environment configuration and is wrapped with APM headers.
 - **Metrics**: Container Apps logs and metrics flow into Log Analytics; Application Insights (created via `monitoring.bicep`) links to the shared workspace for dashboards/alerts.
 
@@ -13,6 +13,7 @@
   - **`cli_login`**: Count of login attempts, success rate, failure rate (by error code).
   - **`cli_upload`**: Count of upload attempts, success rate, failure rate (by error code).
   - **`cli_patch_pull`**: Count of patch pull attempts, success rate, failure rate (by error code).
+  - **`cli_patch_apply`**: Count of patch apply attempts, success rate, failure rate (by error code).
   - **`cli_error`**: Count of CLI-related errors (by error code, message).
 
 ## Health checks

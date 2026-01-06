@@ -32,7 +32,6 @@ async function main() {
     : path.join(repoRoot, "cli/data/ai-config-patterns.json");
 
   // Load Go WASM support
-  // @ts-expect-error Go is dynamically attached to globalThis by wasm_exec.js
   await import(pathToFileURL(wasmExecPath).href);
   const GoCtor = (globalThis as { Go?: GoConstructor }).Go;
   if (!GoCtor) {
@@ -123,7 +122,13 @@ async function main() {
 function toArrayBuffer(buffer: Buffer): ArrayBuffer {
   // slice creates a new Buffer that does not share memory with the original,
   // then access its underlying ArrayBuffer.
-  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  const sliced = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  if (sliced instanceof SharedArrayBuffer) {
+    const ab = new ArrayBuffer(sliced.byteLength);
+    new Uint8Array(ab).set(new Uint8Array(sliced));
+    return ab;
+  }
+  return sliced;
 }
 
 main().catch(console.error);
