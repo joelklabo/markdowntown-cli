@@ -2168,6 +2168,159 @@ func TestCodeLensShadowedByOverride(t *testing.T) {
 	}
 }
 
+// TestCodeLensCacheInvalidation verifies that CodeLens results are updated
+// after file changes, demonstrating that the scan cache is properly invalidated.
+func TestCodeLensCacheInvalidation(t *testing.T) {
+	s := NewServer("0.1.0")
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	agentsPath := filepath.Join(repoRoot, "AGENTS.md")
+	overridePath := filepath.Join(repoRoot, "AGENTS.override.md")
+
+	// Initially, only AGENTS.md exists (should be "Active")
+	if err := os.WriteFile(agentsPath, []byte("---\ntoolId: claude-3-opus\n---\n# Base"), 0o600); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 10)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	initializeLSPClient(t, ctx, clientRPC, rootURI)
+
+	uri := pathToURL(agentsPath)
+	testCodeLensCacheActive(t, ctx, clientRPC, diagnostics, uri, agentsPath)
+	testCodeLensCacheShadowed(t, ctx, clientRPC, diagnostics, uri, overridePath)
+	testCodeLensCacheActiveAfterRemoval(t, ctx, clientRPC, diagnostics, uri, overridePath)
+}
+
+func initializeLSPClient(t *testing.T, ctx context.Context, clientRPC *jsonrpc2.Conn, rootURI string) {
+	t.Helper()
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+		Capabilities: protocol.ClientCapabilities{
+			TextDocument: &protocol.TextDocumentClientCapabilities{
+				PublishDiagnostics: &protocol.PublishDiagnosticsClientCapabilities{
+					RelatedInformation:     boolPtr(true),
+					CodeDescriptionSupport: boolPtr(true),
+					TagSupport: &struct {
+						ValueSet []protocol.DiagnosticTag `json:"valueSet"`
+					}{
+						ValueSet: []protocol.DiagnosticTag{1, 2},
+					},
+				},
+			},
+		},
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+}
+
+func testCodeLensCacheActive(t *testing.T, ctx context.Context, clientRPC *jsonrpc2.Conn, diagnostics chan protocol.PublishDiagnosticsParams, uri, agentsPath string) {
+	t.Helper()
+	// Open document and drain diagnostics
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: "---\ntoolId: claude-3-opus\n---\n# Base",
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+	drainDiagnostics(diagnostics, 200*time.Millisecond)
+
+	// First and second CodeLens requests should show "Active" (using cache on 2nd)
+	assertCodeLensTitle(t, ctx, clientRPC, uri, "Active", "1st")
+	assertCodeLensTitle(t, ctx, clientRPC, uri, "Active", "2nd")
+}
+
+func testCodeLensCacheShadowed(t *testing.T, ctx context.Context, clientRPC *jsonrpc2.Conn, diagnostics chan protocol.PublishDiagnosticsParams, uri, overridePath string) {
+	t.Helper()
+	// Create override file to shadow AGENTS.md
+	if err := os.WriteFile(overridePath, []byte("---\ntoolId: claude-3-opus\n---\n# Override"), 0o600); err != nil {
+		t.Fatalf("write AGENTS.override.md: %v", err)
+	}
+
+	overrideURI := pathToURL(overridePath)
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  overrideURI,
+			Text: "---\ntoolId: claude-3-opus\n---\n# Override",
+		},
+	}); err != nil {
+		t.Fatalf("didOpen (override) notify failed: %v", err)
+	}
+	drainDiagnostics(diagnostics, 200*time.Millisecond)
+
+	// Third CodeLens request should now show "Shadowed"
+	assertCodeLensTitle(t, ctx, clientRPC, uri, "Shadowed", "3rd")
+}
+
+func testCodeLensCacheActiveAfterRemoval(t *testing.T, ctx context.Context, clientRPC *jsonrpc2.Conn, diagnostics chan protocol.PublishDiagnosticsParams, uri, overridePath string) {
+	t.Helper()
+	overrideURI := pathToURL(overridePath)
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidClose, protocol.DidCloseTextDocumentParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: overrideURI},
+	}); err != nil {
+		t.Fatalf("didClose notify failed: %v", err)
+	}
+	drainDiagnostics(diagnostics, 100*time.Millisecond)
+
+	if err := os.Remove(overridePath); err != nil {
+		t.Fatalf("remove override: %v", err)
+	}
+
+	// Fourth CodeLens request should be "Active" again
+	assertCodeLensTitle(t, ctx, clientRPC, uri, "Active", "4th")
+	drainDiagnostics(diagnostics, 100*time.Millisecond)
+}
+
+func assertCodeLensTitle(t *testing.T, ctx context.Context, clientRPC *jsonrpc2.Conn, uri, expectedTitle, callDesc string) {
+	t.Helper()
+	var lenses []protocol.CodeLens
+	if err := clientRPC.Call(ctx, protocol.MethodTextDocumentCodeLens, protocol.CodeLensParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	}, &lenses); err != nil {
+		t.Fatalf("codeLens (%s) failed: %v", callDesc, err)
+	}
+	if len(lenses) == 0 {
+		t.Fatalf("expected code lens (%s call), got none", callDesc)
+	}
+	if lenses[0].Command == nil || !strings.Contains(lenses[0].Command.Title, expectedTitle) {
+		t.Fatalf("expected %s lens (%s), got: %#v", expectedTitle, callDesc, lenses[0])
+	}
+}
+
+func drainDiagnostics(diagnostics chan protocol.PublishDiagnosticsParams, timeout time.Duration) {
+	select {
+	case <-diagnostics:
+	case <-time.After(timeout):
+	}
+}
+
 func TestServeCanary(t *testing.T) {
 	binPath := buildMarkdowntownBinary(t)
 
