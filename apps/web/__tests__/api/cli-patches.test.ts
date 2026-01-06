@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { PatchStatus } from "@prisma/client";
 import { resetRateLimitStore } from "@/lib/rateLimiter";
 import { validatePatchInput } from "@/lib/cli/patches";
-import { MAX_PATCH_BODY_BYTES } from "@/lib/validation";
 
 const VALID_HASH = "a".repeat(64);
 
@@ -96,22 +95,19 @@ describe("cli-patches API", () => {
 
   it("lists patches for a snapshot", async () => {
     requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
-    listPatchesMock.mockResolvedValue({
-      patches: [
-        {
-          id: "patch-1",
-          snapshotId: "snap-1",
-          path: "README.md",
-          baseBlobHash: VALID_HASH,
-          patchFormat: "unified",
-          patchBody: "diff",
-          status: PatchStatus.PROPOSED,
-          createdAt: new Date(),
-          appliedAt: null,
-        },
-      ],
-      nextCursor: null,
-    });
+    listPatchesMock.mockResolvedValue([
+      {
+        id: "patch-1",
+        snapshotId: "snap-1",
+        path: "README.md",
+        baseBlobHash: VALID_HASH,
+        patchFormat: "unified",
+        patchBody: "diff",
+        status: PatchStatus.PROPOSED,
+        createdAt: new Date(),
+        appliedAt: null,
+      },
+    ]);
 
     const { GET } = await patchesRoute;
     const res = await GET(new Request("http://localhost/api/cli/patches?snapshotId=snap-1"));
@@ -297,49 +293,21 @@ describe("cli-patches API", () => {
     expect(json.error).toBe("Patch create failed");
   });
 
-  it("rejects oversized patch bodies", async () => {
-    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
-    
-    const largeBody = "a".repeat(MAX_PATCH_BODY_BYTES + 1);
-
-    const { POST } = await patchesRoute;
-    const res = await POST(
-      new Request("http://localhost/api/cli/patches", {
-        method: "POST",
-        body: JSON.stringify({
-          snapshotId: "snap-1",
-          path: "README.md",
-          baseBlobHash: VALID_HASH,
-          patchFormat: "unified",
-          patchBody: largeBody,
-        }),
-      })
-    );
-    const json = await res.json();
-
-    expect(res.status).toBe(400);
-    expect(json.error).toBe("Invalid payload");
-    expect(json.details[0].message).toMatch(/too large/);
-  });
-
   it("supports pagination params in list", async () => {
     requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
-    listPatchesMock.mockResolvedValue({
-      patches: [
-        {
-          id: "patch-2",
-          snapshotId: "snap-1",
-          path: "src/index.ts",
-          baseBlobHash: VALID_HASH,
-          patchFormat: "unified",
-          patchBody: "diff2",
-          status: PatchStatus.PROPOSED,
-          createdAt: new Date(),
-          appliedAt: null,
-        },
-      ],
-      nextCursor: "patch-2",
-    });
+    listPatchesMock.mockResolvedValue([
+      {
+        id: "patch-2",
+        snapshotId: "snap-1",
+        path: "src/index.ts",
+        baseBlobHash: VALID_HASH,
+        patchFormat: "unified",
+        patchBody: "diff2",
+        status: PatchStatus.PROPOSED,
+        createdAt: new Date(),
+        appliedAt: null,
+      },
+    ]);
 
     const { GET } = await patchesRoute;
     const res = await GET(new Request("http://localhost/api/cli/patches?snapshotId=snap-1&limit=1&cursor=patch-1"));

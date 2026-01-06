@@ -59,6 +59,7 @@ describe("Monorepo E2E Flow", () => {
       await page.goto("/signin");
       await page.fill('input[type="password"]', "demo-login");
       await page.click('button:has-text("Demo login")');
+      // @ts-expect-error - toHaveURL is Playwright specific
       await expect(page).toHaveURL("/");
 
       await page.goto("/tokens");

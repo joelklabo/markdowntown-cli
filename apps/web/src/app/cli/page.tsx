@@ -3,14 +3,16 @@ import { Container } from "@/components/ui/Container";
 import { Heading } from "@/components/ui/Heading";
 import { Stack } from "@/components/ui/Stack";
 import { Text } from "@/components/ui/Text";
-import { RepoList, type RepoListItem, type RepoSyncStatus } from "@/components/cli-sync/RepoList";
+import { RepoList, type RepoListItem } from "@/components/cli-sync/RepoList";
 import { SyncStatusCard, type SyncAuthStatus } from "@/components/cli-sync/SyncStatusCard";
 import { auth } from "@/lib/auth";
 import { getUserProjects } from "@/lib/api/projects";
 import { getUserCliTokens } from "@/lib/auth/cliToken";
 import { timeAgo, isStale } from "@/lib/time";
 
-function deriveAuthStatus(tokens: any[]): SyncAuthStatus {
+type TokenInfo = { expiresAt?: Date | string | null };
+
+function deriveAuthStatus(tokens: TokenInfo[]): SyncAuthStatus {
   if (tokens.length === 0) return "missing";
   const active = tokens.some(t => !t.expiresAt || new Date(t.expiresAt) > new Date());
   return active ? "connected" : "expired";
@@ -33,13 +35,18 @@ export default async function CliDashboardPage() {
   const repoItems: RepoListItem[] = projects.map(p => ({
     id: p.id,
     name: p.name,
-    path: p.repoRoot || "Local repo",
+    path: p.slug || p.name || "Local repo",
     status: isStale(p.updatedAt) ? "attention" : "synced",
     lastSync: timeAgo(p.updatedAt),
     snapshots: p._count.snapshots,
     issues: 0,
     branch: undefined,
   }));
+
+  const now = new Date();
+  const tokenRefresh = latestToken?.expiresAt 
+    ? `in ${Math.ceil((new Date(latestToken.expiresAt).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))} days` 
+    : undefined;
 
   return (
     <Container className="py-mdt-10 md:py-mdt-12">
@@ -60,7 +67,7 @@ export default async function CliDashboardPage() {
           deviceName={latestToken?.label || undefined}
           userLabel={session.user.username || session.user.email || undefined}
           lastHandshake={latestToken?.lastUsedAt ? timeAgo(latestToken.lastUsedAt) : undefined}
-          tokenRefresh={latestToken?.expiresAt ? `in ${Math.ceil((new Date(latestToken.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days` : undefined}
+          tokenRefresh={tokenRefresh}
         />
 
         <RepoList items={repoItems} />

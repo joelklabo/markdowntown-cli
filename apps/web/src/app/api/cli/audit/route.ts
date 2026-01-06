@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { AuditSeverity } from "@prisma/client";
+import { AuditSeverity, type AuditIssue } from "@prisma/client";
 import { auditLog, withAPM } from "@/lib/observability";
 import { hasDatabaseEnv } from "@/lib/prisma";
 import { rateLimit } from "@/lib/rateLimiter";
@@ -10,6 +10,9 @@ import { listAuditIssues, storeAuditIssues } from "@/lib/audit/store";
 import { MAX_AUDIT_ISSUES_PER_UPLOAD, MAX_AUDIT_MESSAGE_LENGTH, MAX_AUDIT_PAYLOAD_BYTES } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
+
+type AuditErrorResponse = { error: string };
+type AuditListResponse = { issues: AuditIssue[]; nextCursor: string | null };
 
 const IssueSchema = z.object({
   ruleId: z.string().min(1).max(160),

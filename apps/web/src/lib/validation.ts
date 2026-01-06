@@ -12,6 +12,7 @@ export const MAX_PATCH_BODY_BYTES = 1024 * 1024; // 1MB
 export const MAX_AUDIT_ISSUES_PER_UPLOAD = 5000;
 export const MAX_AUDIT_MESSAGE_LENGTH = 2000;
 export const MAX_AUDIT_PAYLOAD_BYTES = 20 * 1024 * 1024; // 20MB
+export const MAX_RULE_ID_LENGTH = 128;
 
 export function validateSectionPayload(title: string | null, content: string) {
   if (!title) return "Title is required";

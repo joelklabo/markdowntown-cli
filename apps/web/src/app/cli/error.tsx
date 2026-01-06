@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { Container } from "@/components/ui/Container";
 import { Heading } from "@/components/ui/Heading";
 import { Stack } from "@/components/ui/Stack";
@@ -20,7 +21,7 @@ export default function CliErrorPage({
 
   return (
     <Container className="py-mdt-20">
-      <Card padding="lg" tone="raised" className="text-center">
+      <Card className="p-mdt-6 text-center">
         <Stack gap={4} align="center">
           <div className="rounded-full bg-mdt-red-subtle p-mdt-4 text-mdt-red">
             <svg
@@ -42,7 +43,7 @@ export default function CliErrorPage({
           <Stack gap={2}>
             <Heading level="h2">Something went wrong</Heading>
             <Text tone="muted">
-              We couldn't load your CLI sync dashboard. This might be a temporary connection issue.
+              We couldn&apos;t load your CLI sync dashboard. This might be a temporary connection issue.
             </Text>
           </Stack>
           <div className="flex gap-mdt-3">
@@ -50,7 +51,7 @@ export default function CliErrorPage({
               Try again
             </Button>
             <Button asChild variant="secondary">
-              <a href="/">Go home</a>
+              <Link href="/">Go home</Link>
             </Button>
           </div>
         </Stack>
@@ -59,7 +60,7 @@ export default function CliErrorPage({
   );
 }
 
-function Card({ children, padding, tone, className }: any) {
+function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   // Simple proxy for UI Card to avoid complex imports in error boundary if needed
   return <div className={`rounded-mdt-lg border border-mdt-border bg-mdt-surface ${className}`}>{children}</div>;
 }

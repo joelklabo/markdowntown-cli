@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { checkRateLimit, resetRateLimitStore } from "@/lib/rateLimiter";
 import * as redisModule from "@/lib/redis";
@@ -12,7 +13,8 @@ vi.mock("@/lib/redis", () => ({
 
 vi.mock("@upstash/ratelimit", () => {
   const RatelimitMock = vi.fn();
-  (RatelimitMock as any).slidingWindow = vi.fn();
+  // @ts-expect-error - mock does not match full Ratelimit signature
+  RatelimitMock.slidingWindow = vi.fn();
   return {
     Ratelimit: RatelimitMock,
   };

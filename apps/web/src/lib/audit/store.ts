@@ -1,7 +1,7 @@
 import type { AuditIssue, AuditSeverity } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizeRepoPath } from "@/lib/cli/patches";
-import { validateAuditIssue } from "@/lib/validation";
+import { validateAuditIssue, MAX_AUDIT_ISSUES_PER_UPLOAD } from "@/lib/validation";
 
 export type AuditIssueInput = {
   ruleId: string;
