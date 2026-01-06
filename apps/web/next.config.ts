@@ -75,6 +75,21 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: "/engine/:path*.wasm",
+        headers: [
+          { key: "Cache-Control", value: staticAssetCacheControl },
+          { key: "Content-Type", value: "application/wasm" },
+        ],
+      },
+      {
+        source: "/engine/:path*.wasm.br",
+        headers: [
+          { key: "Cache-Control", value: staticAssetCacheControl },
+          { key: "Content-Type", value: "application/wasm" },
+          { key: "Content-Encoding", value: "br" },
+        ],
+      },
+      {
         source: "/(.*)",
         headers: securityHeaders,
       },

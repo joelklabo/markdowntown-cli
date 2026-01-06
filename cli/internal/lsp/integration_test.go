@@ -881,6 +881,220 @@ func TestDiagnosticsDidCloseCancelsDebounce(t *testing.T) {
 	}
 }
 
+func TestDiagnosticsRapidOpenClose(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 5)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
+	content := "---\nkey: value\ninvalid: [\n---\n# Hello"
+
+	// Rapidly open, change, and close.
+	for i := 0; i < 3; i++ {
+		if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI:     uri,
+				Version: protocol.Integer(i),
+				Text:    content,
+			},
+		}); err != nil {
+			t.Fatalf("didOpen notify failed: %v", err)
+		}
+		if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidClose, protocol.DidCloseTextDocumentParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		}); err != nil {
+			t.Fatalf("didClose notify failed: %v", err)
+		}
+	}
+
+	select {
+	case params := <-diagnostics:
+		t.Fatalf("expected no diagnostics after rapid open/close, got %+v", params)
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+func TestDiagnosticsRaceClose(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 20 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 5)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
+	content := "---\nkey: value\ninvalid: [\n---\n# Hello"
+
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: content,
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+
+	// Wait for debounce to almost expire, then close.
+	time.Sleep(15 * time.Millisecond)
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidClose, protocol.DidCloseTextDocumentParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	}); err != nil {
+		t.Fatalf("didClose notify failed: %v", err)
+	}
+
+	select {
+	case params := <-diagnostics:
+		// We might get the one from didOpen if it fired fast, but we should NOT get one after didClose.
+		// To be strict, we drain the one from didOpen first.
+		t.Logf("Received diagnostic: %v", params.URI)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// Verify no more diagnostics arrive.
+	select {
+	case params := <-diagnostics:
+		t.Fatalf("unexpected diagnostics after close: %+v", params)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestDiagnosticsRapidOpenChangeClose(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 10)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	var initResult protocol.InitializeResult
+	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
+		RootURI: &rootURI,
+	}, &initResult); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	if err := clientRPC.Notify(ctx, protocol.MethodInitialized, protocol.InitializedParams{}); err != nil {
+		t.Fatalf("initialized notify failed: %v", err)
+	}
+
+	uri := pathToURL(filepath.Join(repoRoot, "GEMINI.md"))
+	content := "---\ntoolId: gemini-cli\n---\n# Hello"
+
+	for i := 0; i < 5; i++ {
+		_ = clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI:     uri,
+				Version: 1,
+				Text:    content,
+			},
+		})
+		_ = clientRPC.Notify(ctx, protocol.MethodTextDocumentDidChange, protocol.DidChangeTextDocumentParams{
+			TextDocument: protocol.VersionedTextDocumentIdentifier{
+				TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
+				Version:                2,
+			},
+			ContentChanges: []any{
+				protocol.TextDocumentContentChangeEvent{Text: content + "\nchange"},
+			},
+		})
+		_ = clientRPC.Notify(ctx, protocol.MethodTextDocumentDidClose, protocol.DidCloseTextDocumentParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+		})
+	}
+
+	// Wait long enough for any leaked timers to fire.
+	time.Sleep(150 * time.Millisecond)
+
+	// Verify no diagnostics arrive.
+	select {
+	case params := <-diagnostics:
+		t.Fatalf("unexpected diagnostics after rapid open/change/close: %+v", params)
+	default:
+	}
+}
+
 func TestDiagnosticsConflict(t *testing.T) {
 	s := NewServer("0.1.0")
 	s.Debounce = 50 * time.Millisecond

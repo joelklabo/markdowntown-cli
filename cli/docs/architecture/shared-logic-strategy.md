@@ -67,6 +67,53 @@ Provide a single source of truth (SSOT) for scan/audit/suggest rules across the 
 - Doubles maintenance and test burden.
 - Increases long-term cost and bugs.
 
+## WASM Fallback and Protocol
+
+The WASM approach includes a documented fallback to a sidecar service to ensure availability when WASM constraints are hit.
+
+### Fallback Triggers
+
+The system switches to the fallback path if:
+- **Initialization Failure**: The WASM module fails to load or the `WebAssembly.instantiate` call errors.
+- **Resource Limits**: The input snapshot size exceeds the WASM memory budget (e.g., > 10MB).
+- **Runtime Error**: A panic occurs within the WASM module that is recovered by the host.
+- **Timeout**: WASM execution exceeds the configured timeout (default 15s).
+
+### Sidecar Protocol
+
+When the fallback path is active, the web app communicates with a Go-based sidecar service:
+- **Transport**: HTTP/1.1 over local network or Unix socket.
+- **Authentication**: Shared secret or mutual TLS.
+- **Endpoints**: `POST /evaluate` (JSON request/response).
+- **Robustness**: Implement 3 retries with 100ms jittered backoff for 5xx errors.
+
+### Interface Schema (IDL)
+
+To minimize drift between Go and TypeScript:
+- **Contract**: Use a shared JSON Schema definition for request and response payloads.
+- **Format**: Prefer `Uint8Array` (binary) for high-volume data like snapshots, with JSON metadata.
+- **Generation**: Use `tygo` to generate TypeScript interfaces directly from Go structs in `internal/audit` and `internal/engine`.
+
+### Observability and Logging
+
+- **Go Logs**: Redirect `log` and `fmt.Print` in Go to a JS-exposed bridge function that maps Go log levels to the web app's logger.
+- **Trace Propagation**: Pass `traceId` from the web app into the Go context to ensure end-to-end observability.
+- **Metrics**: Record WASM cold-start time vs. execution time and fallback frequency.
+
+## Shared Rule Engine
+
+The core logic for rule evaluation is encapsulated in the `cli/internal/engine` package. This package provides a unified implementation for executing audit and suggestion rules, ensuring that behavior is identical across all interfaces.
+
+### Consumers
+
+- **CLI (`markdowntown audit`)**: Uses the engine to analyze local files or scan results from JSON input.
+- **LSP (`markdowntown serve`)**: Uses the engine to provide real-time diagnostics in the editor, operating on in-memory buffers (overlays).
+- **WASM (`apps/web`)**: The engine is compiled into the WASM module used by the web app to analyze uploaded snapshots.
+
+### Implementation
+
+The engine defines a `Rule` interface and a `Context` that provides the necessary data (scan output, pattern registry, and redactor). Rule implementations are stateless and operate only on the provided context, facilitating reuse across different execution environments.
+
 ## SSOT Ownership
 
 - **Rule source:** `cli/internal/audit` and `cli/internal/suggest` are the SSOT for rule definitions, IDs, and copy.

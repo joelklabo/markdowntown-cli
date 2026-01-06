@@ -60,7 +60,7 @@ func BuildManifest(opts ManifestOptions) (Manifest, PreflightResult, error) {
 		return Manifest{}, preflight, err
 	}
 
-	entries, err := buildEntries(records)
+	entries, err := buildEntries(records, opts.MaxFileBytes)
 	if err != nil {
 		return Manifest{}, preflight, err
 	}
@@ -202,10 +202,10 @@ func filterGitIgnored(repoRoot string, records []fileRecord, includeGitIgnored b
 	return filtered, nil
 }
 
-func buildEntries(records []fileRecord) ([]ManifestEntry, error) {
+func buildEntries(records []fileRecord, maxFileBytes int64) ([]ManifestEntry, error) {
 	entries := make([]ManifestEntry, 0, len(records))
 	for _, record := range records {
-		hash, err := HashFile(record.absPath)
+		hash, err := HashFileWithLimit(record.absPath, maxFileBytes)
 		if err != nil {
 			return nil, err
 		}

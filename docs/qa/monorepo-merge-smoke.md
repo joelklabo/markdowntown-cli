@@ -19,6 +19,7 @@
 - Clean install + production build verification added (2026-01-05).
 
 ## Pass/Fail summary
+
 | Check | Status | Notes |
 | --- | --- | --- |
 | CLI scan schema/order | PASS | Schema version + key ordering validated. |

@@ -346,6 +346,28 @@ func TestManifestGitWorktree(t *testing.T) {
 	}
 }
 
+func TestManifestHashTOCTOU(t *testing.T) {
+	repoRoot := t.TempDir()
+	initGitRepo(t, repoRoot)
+
+	path := filepath.Join(repoRoot, "large.txt")
+	writeFile(t, path, "initial content")
+
+	// We can't easily mock the walk vs read gap without manual control,
+	// but we can test that if HashFileWithLimit fails, BuildManifest fails.
+	
+	// Set a limit that is smaller than the file.
+	opts := ManifestOptions{
+		RepoRoot:     repoRoot,
+		MaxFileBytes: 5,
+	}
+
+	_, _, err := BuildManifest(opts)
+	if err == nil {
+		t.Fatal("expected error when file exceeds MaxFileBytes during hashing")
+	}
+}
+
 func gitCommitAll(t *testing.T, dir string, message string) {
 	t.Helper()
 

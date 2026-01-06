@@ -1,33 +1,47 @@
-/// <reference types="vitest" />
+import { vi } from "vitest";
 import "@testing-library/jest-dom";
 
-// Ensure React act warnings are suppressed in the test environment.
-(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+if (typeof window !== "undefined") {
+  const localStorageMock = (() => {
+    let store: { [key: string]: string } = {};
+    return {
+      getItem: (key: string) => store[key] || null,
+      setItem: (key: string, value: string) => {
+        store[key] = value.toString();
+      },
+      clear: () => {
+        store = {};
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      },
+    };
+  })();
 
-// Radix Tooltip and Drawer use ResizeObserver; jsdom doesn't provide it by default.
-class ResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
+  Object.defineProperty(window, "localStorage", {
+    value: localStorageMock,
+  });
 
-const globalWithRO = globalThis as typeof globalThis & { ResizeObserver?: typeof ResizeObserver };
-globalWithRO.ResizeObserver = ResizeObserver;
+  // Mock ResizeObserver
+  class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
 
-// matchMedia is used in responsive guards; jsdom doesn't implement it.
-const globalWithMM = globalThis as typeof globalThis & {
-  matchMedia?: (query: string) => MediaQueryList;
-};
-if (!globalWithMM.matchMedia) {
-  globalWithMM.matchMedia = (query: string) =>
-    ({
+  window.ResizeObserver = ResizeObserver;
+
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query) => ({
       matches: false,
       media: query,
       onchange: null,
-      addListener: () => {},
-      removeListener: () => {},
-      addEventListener: () => {},
-      removeEventListener: () => {},
-      dispatchEvent: () => false,
-    }) as unknown as MediaQueryList;
+      addListener: vi.fn(), // deprecated
+      removeListener: vi.fn(), // deprecated
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
 }

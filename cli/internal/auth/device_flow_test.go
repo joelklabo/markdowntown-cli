@@ -201,4 +201,3 @@ func TestDeviceFlowPollSlowDownMissingInterval(t *testing.T) {
 		t.Fatalf("expected interval 0 when missing, got %d", resp.Interval)
 	}
 }
-

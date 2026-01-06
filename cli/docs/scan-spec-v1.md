@@ -965,3 +965,6 @@ deterministically.
 - [x] Pre-commit hooks via lefthook
 - [x] CI matrix covers Go 1.22+1.23 × all OS × all arch
 - [x] goreleaser produces release binaries
+- [x] Global scope scanning is available behind flag with safe defaults
+- [x] Bounded parallel scan implemented with configurable workers
+- [x] Resource guardrails (max files/bytes) enforced for global scope

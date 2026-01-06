@@ -8,15 +8,22 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"markdowntown-cli/internal/version"
 )
 
-const defaultClientTimeout = 30 * time.Second
+const (
+	defaultClientTimeout = 30 * time.Second
+	maxRetries           = 5
+	baseRetryDelay       = 250 * time.Millisecond
+	maxRetryDelay        = 10 * time.Second
+)
 
 // Client is a minimal API client for the CLI upload endpoints.
 type Client struct {
@@ -129,6 +136,27 @@ func (e *APIError) Error() string {
 		return fmt.Sprintf("request failed: status %d", e.Status)
 	}
 	return fmt.Sprintf("request failed: %s (status %d)", e.Message, e.Status)
+}
+
+// AuthError indicates an authentication or authorization failure.
+type AuthError struct {
+	Status  int
+	Message string
+}
+
+func (e *AuthError) Error() string {
+	if e == nil {
+		return ""
+	}
+	msg := e.Message
+	if msg == "" {
+		if e.Status == http.StatusUnauthorized {
+			msg = "authentication required"
+		} else {
+			msg = "permission denied"
+		}
+	}
+	return fmt.Sprintf("%s (status %d). Please try logging in again with 'markdowntown login'.", msg, e.Status)
 }
 
 // MissingBlobsError indicates the finalize endpoint needs more blobs.
@@ -247,9 +275,15 @@ func parseAPIError(status int, body []byte) error {
 		if len(parsed.MissingBlobs) > 0 {
 			return &MissingBlobsError{Missing: parsed.MissingBlobs, Status: status}
 		}
+		if status == http.StatusUnauthorized || status == http.StatusForbidden {
+			return &AuthError{Status: status, Message: parsed.Error}
+		}
 		if parsed.Error != "" {
 			return &APIError{Status: status, Message: parsed.Error}
 		}
+	}
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return &AuthError{Status: status, Message: strings.TrimSpace(string(body))}
 	}
 	message := strings.TrimSpace(string(body))
 	if message == "" {
@@ -282,9 +316,37 @@ func (c *Client) postJSON(ctx context.Context, endpoint string, payload any) (in
 		return 0, nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, urlStr, bytes.NewReader(body))
+	var lastStatus int
+	var lastBody []byte
+	var lastRetryAfter time.Duration
+	var lastErr error
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			delay := calculateDelay(attempt, lastStatus, lastRetryAfter)
+			select {
+			case <-ctx.Done():
+				return 0, nil, ctx.Err()
+			case <-time.After(delay):
+			}
+		}
+
+		lastStatus, lastBody, lastRetryAfter, lastErr = c.doRequest(ctx, http.MethodPost, urlStr, body)
+		if !shouldRetry(lastStatus, lastErr) {
+			return lastStatus, lastBody, lastErr
+		}
+	}
+
+	if lastErr != nil {
+		return lastStatus, lastBody, fmt.Errorf("request failed after %d attempts: %w", maxRetries, lastErr)
+	}
+	return lastStatus, lastBody, nil
+}
+
+func (c *Client) doRequest(ctx context.Context, method, urlStr string, body []byte) (int, []byte, time.Duration, error) {
+	req, err := http.NewRequestWithContext(ctx, method, urlStr, bytes.NewReader(body))
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, 0, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -296,7 +358,7 @@ func (c *Client) postJSON(ctx context.Context, endpoint string, payload any) (in
 
 	resp, err := c.Client.Do(req)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, 0, err
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -304,10 +366,56 @@ func (c *Client) postJSON(ctx context.Context, endpoint string, payload any) (in
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return resp.StatusCode, nil, err
+		return resp.StatusCode, nil, 0, err
 	}
 
-	return resp.StatusCode, data, nil
+	var retryAfter time.Duration
+	if resp.StatusCode == http.StatusTooManyRequests {
+		if val := resp.Header.Get("Retry-After"); val != "" {
+			if seconds, err := strconv.Atoi(val); err == nil {
+				retryAfter = time.Duration(seconds) * time.Second
+			} else if date, err := http.ParseTime(val); err == nil {
+				retryAfter = time.Until(date)
+			}
+		}
+	}
+
+	return resp.StatusCode, data, retryAfter, nil
+}
+
+func shouldRetry(status int, err error) bool {
+	if err != nil {
+		// Network errors are usually retryable
+		return true
+	}
+	// Retry on rate limit and server errors
+	return status == http.StatusTooManyRequests || (status >= 500 && status <= 599)
+}
+
+func calculateDelay(attempt int, status int, retryAfter time.Duration) time.Duration {
+	if status == http.StatusTooManyRequests && retryAfter > 0 {
+		return retryAfter
+	}
+
+	// Simple exponential backoff
+	shift := attempt - 1
+	if shift < 0 {
+		shift = 0
+	}
+	if shift > 31 {
+		shift = 31
+	}
+	// #nosec G115 -- shift is constrained between 0 and 31.
+	delay := baseRetryDelay * time.Duration(1<<uint(shift))
+	if delay > maxRetryDelay {
+		delay = maxRetryDelay
+	}
+
+	// Add jitter (up to 20%)
+	jitter := time.Duration(rand.Int63n(int64(delay / 5))) // #nosec G404 -- jitter doesn't need secure RNG
+	delay += jitter
+
+	return delay
 }
 
 func (c *Client) resolveEndpoint(endpoint string) (string, error) {

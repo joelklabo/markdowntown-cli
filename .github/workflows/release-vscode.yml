@@ -113,9 +113,9 @@ jobs:
           cp "$binary_path" vscode-extension/bin/markdowntown${{ matrix.ext }}
           if [ "${{ matrix.ext }}" = "" ]; then chmod +x vscode-extension/bin/markdowntown; fi
       - name: Package VSIX
-        run: cd vscode-extension && npx vsce package --target ${{ matrix.target }} --out ../dist/markdowntown-${{ matrix.target }}.vsix --skip-license
+        run: cd vscode-extension && npx vsce package --target ${{ matrix.target }} --out ../dist/markdowntown-${{ matrix.target }}.vsix
       - name: Publish VSIX
         if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish == 'true')
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: cd vscode-extension && npx vsce publish --packagePath ../dist/markdowntown-${{ matrix.target }}.vsix --pat $VSCE_PAT --skip-license
+        run: cd vscode-extension && npx vsce publish --packagePath ../dist/markdowntown-${{ matrix.target }}.vsix --pat $VSCE_PAT

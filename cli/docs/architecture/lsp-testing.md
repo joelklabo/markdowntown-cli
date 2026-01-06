@@ -20,25 +20,23 @@ LSP reliability is critical. A crash or hang breaks the editing flow. This strat
 
 - **Focus:** `internal/lsp` handlers and state management.
 - **Mechanism:** in-process `glsp` server with `net.Pipe()` and `jsonrpc2` client (see `internal/lsp/integration_test.go`).
-- **Goleak expectation:** add `go.uber.org/goleak` verification for LSP tests to catch goroutine leaks on shutdown and cancel.
+- **Goleak coverage:** `go.uber.org/goleak` verifies no goroutine leaks on shutdown or debounce cancellation.
 - **Key scenarios:**
   - Initialize → diagnostics → shutdown lifecycle.
   - Registry env (`MARKDOWNTOWN_REGISTRY`) set for hover/definition/completion.
   - Diagnostics include tags/codeDescription/related info when supported.
   - Overlay-only buffers (opened but not on disk) are included in scans.
 
-### Debounce + cancellation guidance
+### Debounce + cancellation coverage
 
-- Set `Server.Debounce` to a small value in tests to avoid sleeps.
-- Use channels (`waitForDiagnostics`) rather than fixed `time.Sleep`.
-- When sending rapid `didChange` events, assert only the final state publishes diagnostics.
-- Verify timers are stopped/cleared on shutdown to avoid leaks.
-- If `$\/cancelRequest` is added, ensure handlers honor `context.Context` cancellation.
+- `Server.Debounce` is configurable in tests to avoid long sleeps.
+- Rapid `didChange` events are tested under `-race` to ensure only the final state publishes diagnostics.
+- Pending timers are explicitly cancelled on `didClose` and shutdown.
 
 ### Level 3: E2E (client/binary)
 
 - **VS Code extension tests:** validate diagnostics + code actions in the extension harness (`vscode-extension/src/test`).
-- **Binary sanity (optional):** spawn `markdowntown serve` via `os/exec` to ensure stdout is clean and the process exits on shutdown/SIGTERM.
+- **Binary sanity:** `TestServeCanary` spawns the binary via `os/exec` to ensure stdout is clean and JSON-RPC framing is robust.
 
 ## 2. Feature-specific suites
 
@@ -52,6 +50,11 @@ LSP reliability is critical. A crash or hang breaks the editing flow. This strat
 - Hover boundaries (first/last token char) and outside-token results (null).
 - Code action idempotency and range validation (`WorkspaceEdit` matches diagnostics).
 
+### Document symbols
+
+- Assert tree structure and ranges for frontmatter keys.
+- Verify behavior for files with and without frontmatter.
+
 ## 3. Tooling & infrastructure
 
 - **CI:** `make lint`, `make test`, plus `go test -race ./internal/lsp` for concurrency coverage.
@@ -63,6 +66,12 @@ LSP reliability is critical. A crash or hang breaks the editing flow. This strat
 
 - Track latency from `didChange` → `publishDiagnostics` for large files.
 - Establish a baseline for scan + audit throughput under load.
+
+## 5. Deprecation Warnings
+
+### Node.js punycode
+
+During `make lsp-vscode-test`, Node.js may emit a `punycode` deprecation warning. This is a transitive dependency from `markdown-it` (used by `@vscode/vsce`). Since this is an external dependency used only for packaging/testing and not part of the runtime server, it is currently ignored.
 
 ## Open questions + assumptions
 

@@ -14,7 +14,7 @@
   - Repo detail → Workbench run summary (read-only) for deeper audit context.
   - Issues panel → rule docs / guidelines when available.
 
-```
+```text
 CLI Sync
 ├─ Dashboard
 │  ├─ Connect CLI (if not authenticated)
@@ -36,6 +36,38 @@ CLI Sync
 7. **Apply locally**: Web shows patch ID + copyable CLI command:
    - `markdowntown pull --patch-id <id> --apply`
 8. **Resync**: After apply, user uploads a new snapshot to reflect local state.
+
+## CLI-to-Workbench handoff protocol
+
+When opening Workbench from a CLI snapshot, the following protocol is used to preserve context and ensure safe edits.
+
+### Handoff parameters (Query string)
+- `entrySource=cli`: identifies the entry point.
+- `cliRepoId`: unique identifier for the repository.
+- `cliSnapshotId`: identifier for the source snapshot.
+- `cliStatus`: `READY`, `PENDING`, or `UPLOADING`.
+- `cliBranch`: optional branch name.
+
+### Validation rules
+- `cliRepoId` and `cliSnapshotId` must be alphanumeric (max 200 chars).
+- `cliStatus` must be one of the supported enum values.
+- If validation fails, Workbench surfaces a clear error banner and allows dismissal.
+
+### Expected schema/version
+- Handoff payloads must match the `scan-spec-v1` schema for snapshots.
+- Mismatched schema versions trigger a "Snapshot incompatible" warning.
+
+## User-facing patch apply steps
+
+Once edits are made in the web app, changes must be pulled back to the local repository.
+
+1. **Export Patch**: Use the **Export patch** button in the patch panel to download a `.patch` or `.zip` file.
+2. **Copy CLI Command**: Use the **Copy command** action to get the `markdowntown pull` command.
+3. **Run Locally**:
+   ```bash
+   markdowntown pull --patch-id <id> --apply
+   ```
+4. **Verify**: Check local files for changes and re-run `markdowntown scan` to verify instruction health.
 
 ## Primary CTAs + copy
 - **Connect CLI** (dashboard empty state): “Run `markdowntown login` to connect your CLI.”

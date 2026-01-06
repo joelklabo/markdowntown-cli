@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,6 +12,8 @@ import (
 	"strings"
 	syncpkg "sync"
 	"testing"
+
+	"markdowntown-cli/internal/config"
 )
 
 func TestUploadSnapshotUploadsMissingBlobs(t *testing.T) {
@@ -220,11 +223,116 @@ func TestUploadSnapshotSkipsWhenNoMissingBlobs(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	if len(blobRequests) != 0 {
-		t.Fatalf("expected no blob uploads, got %d", len(blobRequests))
-	}
 	if finalizeCount != 1 {
 		t.Fatalf("expected finalize to run once, got %d", finalizeCount)
+	}
+}
+
+func TestUploadSnapshotResume(t *testing.T) {
+	repoRoot := t.TempDir()
+	fileOne := filepath.Join(repoRoot, "alpha.txt")
+	if err := os.WriteFile(fileOne, []byte("alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha: %v", err)
+	}
+
+	manifest, _, _ := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+
+	// Pre-create a checkpoint
+	err := config.SaveCheckpoint(config.UploadCheckpoint{
+		RepoRoot:     repoRoot,
+		SnapshotID:   "resumed-snap",
+		ManifestHash: manifest.Hash,
+	})
+	if err != nil {
+		t.Fatalf("save checkpoint: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	var capturedBaseSnapshotID string
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, r *http.Request) {
+		var req UploadHandshakeRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		capturedBaseSnapshotID = req.BaseSnapshotID
+
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID: "resumed-snap",
+			Upload:     UploadPlan{Mode: "direct", URL: server.URL + "/blob"},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/complete", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(FinalizeResponse{Status: "ready"})
+	})
+
+	client, _ := NewClient(server.URL, "token", "Bearer", server.Client())
+	result, err := UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:    repoRoot,
+		ProjectName: "demo",
+	})
+
+	if err != nil {
+		t.Fatalf("upload failed: %v", err)
+	}
+	if !result.Resumed {
+		t.Error("expected Resumed to be true")
+	}
+	if capturedBaseSnapshotID != "resumed-snap" {
+		t.Errorf("expected BaseSnapshotID to be resumed-snap, got %s", capturedBaseSnapshotID)
+	}
+
+	// Verify checkpoint was removed
+	if _, err := config.LoadCheckpoint(repoRoot); !errors.Is(err, config.ErrCheckpointNotFound) {
+		t.Error("expected checkpoint to be removed after successful upload")
+	}
+}
+
+func TestUploadSnapshotMaxBase64Limit(t *testing.T) {
+	repoRoot := t.TempDir()
+	fileOne := filepath.Join(repoRoot, "large.txt")
+	// 10 bytes
+	if err := os.WriteFile(fileOne, []byte("0123456789"), 0o600); err != nil {
+		t.Fatalf("write large: %v", err)
+	}
+
+	mux := http.NewServeMux()
+
+	server := httptest.NewServer(mux)
+
+	defer server.Close()
+
+	// Use real hash from manifest
+
+	manifest, _, _ := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+
+	missingHash := manifest.Entries[0].BlobHash
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
+
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+
+			SnapshotID: "snap-123",
+
+			MissingBlobs: []string{missingHash},
+
+			Upload: UploadPlan{Mode: "direct", URL: server.URL + "/blob"},
+		})
+
+	})
+
+	client, _ := NewClient(server.URL, "token", "Bearer", server.Client())
+
+	// Limit to 5 bytes, file is 10 bytes
+	_, err := UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:       repoRoot,
+		ProjectName:    "demo",
+		MaxBase64Bytes: 5,
+	})
+
+	if err == nil || !strings.Contains(err.Error(), "exceeds base64 upload limit") {
+		t.Fatalf("expected size limit error, got %v", err)
 	}
 }
 

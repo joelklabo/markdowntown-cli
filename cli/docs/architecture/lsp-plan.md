@@ -10,10 +10,11 @@ Provide a Language Server Protocol (LSP) server backed by markdowntown-cli scan 
 - **Overlay FS**: `afero.NewCopyOnWriteFs` (MemMap + OS) to support unsaved buffers.
 - **Diagnostics**: debounced on `didOpen`/`didChange`, respects client capabilities (tags, codeDescription, related info) and settings (rule filters, severity overrides, redaction, evidence).
 - **Hover**: toolId hover shows registry notes + docs.
-- **Definition**: toolId jumps to repo `AGENTS.md` when present.
+- **Definition**: toolId jumps to the registry entry in `ai-config-patterns.json` or fallback to repo `AGENTS.md`.
 - **Completion**: toolId suggestions from the registry.
 - **Code actions**: quick fixes for common audit rules and frontmatter repairs.
 - **Code lens**: shows active/shadowed scope for a config file.
+- **Document symbols**: tree view of config blocks and fields.
 
 ## Architecture: shared core + LSP adapter
 
@@ -38,23 +39,8 @@ Provide a Language Server Protocol (LSP) server backed by markdowntown-cli scan 
 - **Range conversion** translates UTF-8 byte offsets to LSP UTF-16 positions (multi-byte correctness).
 - **Diagnostics pipeline**: scan → gitignore filter → audit rules → diagnostics (with optional evidence + related info).
 - **Settings** come from initialization options and `workspace/didChangeConfiguration` and apply live.
-
-## Planned: document symbols + registry-aware definition
-
-### Document symbols
-
-- Provide a `DocumentSymbol` tree per file.
-- Root symbol per config block (frontmatter), with child symbols for key fields (toolId, model, scope, etc.).
-- Skip files without frontmatter to avoid noise.
-- Use the frontmatter location map to compute ranges.
-
-### Definition (registry-aware)
-
-- Prefer registry matches for toolId:
-  - Open local `ai-config-patterns.json` and highlight the matching pattern.
-  - Return multiple locations when toolId is duplicated.
-- Fallback to repo `AGENTS.md` when registry is unavailable or no match is found.
-- Keep registry lookups local + cached to avoid blocking the editor UI.
+- **Document symbols** provide a `DocumentSymbol` tree per file, rooted at config blocks with children for key fields (toolId, model, scope, etc.).
+- **Definition (registry-aware)** resolves toolId to `ai-config-patterns.json` when available, with multiple locations for duplicated IDs.
 
 ## Open questions + assumptions
 

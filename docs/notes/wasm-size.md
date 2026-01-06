@@ -105,7 +105,7 @@ GOOS=js GOARCH=wasm CGO_ENABLED=0 go build \
 
 ### Static Hosting
 Serve pre-compressed `.wasm.br` files with:
-```
+```http
 Content-Type: application/wasm
 Content-Encoding: br
 Cache-Control: public, max-age=31536000, immutable

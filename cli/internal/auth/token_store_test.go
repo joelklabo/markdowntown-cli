@@ -105,16 +105,18 @@ func TestFileTokenStoreFilePermissionError(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Setenv("HOME", tempDir)
 	configDir := filepath.Join(tempDir, ".config", "markdowntown")
-	if err := os.MkdirAll(configDir, 0o755); err != nil {
+	if err := os.MkdirAll(configDir, 0o750); err != nil {
 		t.Fatalf("failed to create config dir: %v", err)
 	}
 
 	// Create read-only directory
+	// #nosec G302 -- setting directory permissions for test.
 	if err := os.Chmod(configDir, 0o555); err != nil {
 		t.Fatalf("failed to set read-only: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = os.Chmod(configDir, 0o755)
+		// #nosec G302 -- restoring directory permissions for test.
+		_ = os.Chmod(configDir, 0o750)
 	})
 
 	store := NewFileTokenStore()

@@ -17,3 +17,8 @@ The canonical machine-readable inventory lives in `docs/doc-inventory.json` and 
 ## Seed inventory
 
 `docs/doc-inventory.json` seeds the pipeline with user guides, design system docs, and the source registry spec. Extend this file when adding new canonical docs; the refresh job will validate IDs/URLs and publish the latest JSON snapshot for consumers.
+
+## Assets
+
+- `docs/screenshots/lsp/document-symbols.png`: UI view of the document symbols tree in VS Code.
+- `cli/docs/screenshots/lsp-diagnostics/diagnostics.png`: Example of LSP diagnostics and quick fixes.

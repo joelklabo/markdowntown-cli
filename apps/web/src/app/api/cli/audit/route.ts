@@ -7,19 +7,20 @@ import { rateLimit } from "@/lib/rateLimiter";
 import { logAbuseSignal, logAuditEvent } from "@/lib/reports";
 import { requireCliToken } from "@/lib/cli/upload";
 import { listAuditIssues, storeAuditIssues } from "@/lib/audit/store";
+import { MAX_AUDIT_ISSUES, MAX_AUDIT_MESSAGE_LENGTH, MAX_AUDIT_RULE_ID_LENGTH } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
 const IssueSchema = z.object({
-  ruleId: z.string().min(1).max(160),
+  ruleId: z.string().min(1).max(MAX_AUDIT_RULE_ID_LENGTH),
   severity: z.enum(["INFO", "WARNING", "ERROR"]),
   path: z.string().min(1).max(4096),
-  message: z.string().min(1).max(2000),
+  message: z.string().min(1).max(MAX_AUDIT_MESSAGE_LENGTH),
 });
 
 const AuditSchema = z.object({
   snapshotId: z.string().min(1),
-  issues: z.array(IssueSchema).max(5000).default([]),
+  issues: z.array(IssueSchema).max(MAX_AUDIT_ISSUES).default([]),
 });
 
 function getClientIp(request: Request): string {

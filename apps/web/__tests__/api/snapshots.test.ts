@@ -182,9 +182,9 @@ const prismaMock = {
 
 vi.mock("@/lib/prisma", () => ({ prisma: prismaMock, hasDatabaseEnv: true }));
 
-const projectSnapshotsRoute = import("@/app/api/projects/[projectId]/snapshots/route");
-const snapshotDetailRoute = import("@/app/api/snapshots/[snapshotId]/route");
-const snapshotFilesRoute = import("@/app/api/snapshots/[snapshotId]/files/route");
+const getProjectSnapshotsRoute = () => import("@/app/api/projects/[projectId]/snapshots/route");
+const getSnapshotDetailRoute = () => import("@/app/api/snapshots/[snapshotId]/route");
+const getSnapshotFilesRoute = () => import("@/app/api/snapshots/[snapshotId]/files/route");
 
 type ProjectRouteContext = { params: Promise<{ projectId: string }> };
 type SnapshotRouteContext = { params: Promise<{ snapshotId: string }> };
@@ -219,7 +219,7 @@ describe("snapshots API", () => {
 
   it("requires CLI auth for snapshot list", async () => {
     requireCliTokenMock.mockResolvedValueOnce({ response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) });
-    const { GET } = await projectSnapshotsRoute;
+    const { GET } = await getProjectSnapshotsRoute();
     const ctx: ProjectRouteContext = { params: Promise.resolve({ projectId: "project-1" }) };
 
     const res = await GET(new Request("http://localhost/api/projects/project-1/snapshots"), ctx);
@@ -229,7 +229,7 @@ describe("snapshots API", () => {
   it("creates and lists snapshots for a project", async () => {
     seedProject();
     requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
-    const { POST, GET } = await projectSnapshotsRoute;
+    const { POST, GET } = await getProjectSnapshotsRoute();
     const ctx: ProjectRouteContext = { params: Promise.resolve({ projectId: "project-1" }) };
 
     const createRes = await POST(
@@ -255,7 +255,7 @@ describe("snapshots API", () => {
     seedSnapshot("project-1", "snapshot-1");
     requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
 
-    const { GET } = await snapshotDetailRoute;
+    const { GET } = await getSnapshotDetailRoute();
     const ctx: SnapshotRouteContext = { params: Promise.resolve({ snapshotId: "snapshot-1" }) };
     const res = await GET(new Request("http://localhost/api/snapshots/snapshot-1"), ctx);
     const json = await res.json();
@@ -269,7 +269,7 @@ describe("snapshots API", () => {
     seedSnapshot("project-1", "snapshot-1");
     requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
 
-    const { POST } = await snapshotFilesRoute;
+    const { POST } = await getSnapshotFilesRoute();
     const ctx: SnapshotRouteContext = { params: Promise.resolve({ snapshotId: "snapshot-1" }) };
 
     const res = await POST(
@@ -305,7 +305,7 @@ describe("snapshots API", () => {
     });
     requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
 
-    const { GET } = await snapshotFilesRoute;
+    const { GET } = await getSnapshotFilesRoute();
     const ctx: SnapshotRouteContext = { params: Promise.resolve({ snapshotId: "snapshot-1" }) };
 
     const res = await GET(new Request("http://localhost/api/snapshots/snapshot-1/files"), ctx);

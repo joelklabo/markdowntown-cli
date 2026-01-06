@@ -47,7 +47,25 @@
    - Sort deterministically.
    - Emit JSON with trailing newline.
 
-## Determinism Rules
+## Effective Config Resolution
+
+To support LSP features like CodeLens and `--for-file` filtering, the scanner identifies which configurations are "effective" for a given target path.
+
+### Precedence rules
+
+1. **Scope Priority**: `repo` > `user` > `global`.
+2. **Override Pairs**: Within a single scope, certain patterns explicitly supersede others.
+   - Example: `AGENTS.override.md` > `AGENTS.md`.
+3. **Nearest Ancestor**: For tools that support hierarchical discovery, the config file closest to the target path in the directory tree takes precedence.
+
+### Shadowing
+
+A configuration is **Shadowed** if:
+- It has a broader scope than an active configuration for the same `toolId` and `kind`.
+- It is the "weak" side of an override pair where the "strong" side exists in the same directory.
+- It is further up the directory tree than another configuration for a tool using "nearest ancestor" resolution.
+
+Shadowing only applies to tools with `loadBehavior: "replace"`. Tools that `merge` or `append` do not shadow other configurations in the same or broader scopes.
 
 - Configs sorted by: scope (repo < user < global) -> depth -> path.
 - Tools array sorted by toolId; warnings are not deduped.

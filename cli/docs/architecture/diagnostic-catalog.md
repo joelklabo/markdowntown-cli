@@ -39,20 +39,20 @@ Scope:
 
 | ID | Severity | Category | Trigger | Message summary | Suggestion | Evidence keys | Quick Fix | Tags |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| MD000 | error | Registry | LSP error path (registry or scan failure) | `LSP error: <err>` | Set registry path or fix scan error | `suggestion` | no | none |
-| MD001 | error | Conflict | Multiple configs for same tool/kind/scope (single-file kinds only) | Conflicting configs | Keep one config or use override pair | `scope`, `toolId`, `kind` | no | none |
-| MD002 | warning | Scope/Precedence | Repo config is gitignored | Repo config ignored by git | Remove from .gitignore or move | `gitignored` | yes (allow gitignore) | Unnecessary (optional) |
-| MD003 | error | Validity | Invalid YAML frontmatter | Invalid YAML frontmatter | Fix syntax or remove | `frontmatterError` | yes (remove frontmatter) | none |
-| MD004 | warning | Content | Empty config file | Config file is empty | Add instructions or delete | `warning`, `sizeBytes` | yes (insert placeholder) | Unnecessary |
-| MD005 | info | Scope/Precedence | User/global config exists without repo config | No repo-scoped config | Add repo config | `detectedScopes`, `candidatePaths` | yes (create repo config) | none |
-| MD006 | error/warn | Validity | Config unreadable (EACCES/ENOENT/ERROR) | Config file could not be read | Fix permissions/path | `error` | no | none |
-| MD007 | warning | Conflict | Duplicate frontmatter identifiers in multi-file kinds | Duplicate frontmatter value | Make identifiers unique | `scope`, `tool`, `kind`, `field`, `value`, `count` | yes (remove duplicate frontmatter) | none |
-| MD008 | warning | Discovery | scan warning `CIRCULAR_SYMLINK` | Circular symlink detected | Break the symlink loop | `warningCode`, `warningMessage` | no | none |
-| MD009 | info | Discovery | scan warning `UNRECOGNIZED_STDIN` | Stdin path not recognized | Add to registry or remove stdin path | `warningCode`, `warningMessage` | no | none |
-| MD010 | warning | Discovery | scan warning `EACCES`/`ERROR`/`ENOENT` | Scan warning encountered | Fix permissions or registry path | `warningCode`, `warningMessage` | no | none |
-| MD011 | warning | Content | `contentSkipped == "binary"` | Binary config skipped | Replace with text config or remove | `contentSkipped`, `sizeBytes` | no | Unnecessary |
-| MD012 | warning | Validity | Missing required frontmatter key for multi-file kinds (skills/prompts) | Missing frontmatter identifier | Add required identifier | `requiredKeys`, `toolId`, `kind` | yes (insert frontmatter stub) | none |
-| MD015 | warning | Validity | Unknown toolId in frontmatter | Unknown toolId | Replace with closest match | `toolId`, `replacement` | yes (replace toolId) | none |
+| MD000 (Implemented) | error | Registry | LSP error path (registry or scan failure) | `LSP error: <err>` | Set registry path or fix scan error | `suggestion` | no | none |
+| MD001 (Implemented) | error | Conflict | Multiple configs for same tool/kind/scope (single-file kinds only) | Conflicting configs | Keep one config or use override pair | `scope`, `toolId`, `kind` | no | none |
+| MD002 (Implemented) | warning | Scope/Precedence | Repo config is gitignored | Repo config ignored by git | Remove from .gitignore or move | `gitignored` | yes (allow gitignore) | Unnecessary (optional) |
+| MD003 (Implemented) | error | Validity | Invalid YAML frontmatter | Invalid YAML frontmatter | Fix syntax or remove | `frontmatterError` | yes (remove frontmatter) | none |
+| MD004 (Implemented) | warning | Content | Empty config file | Config file is empty | Add instructions or delete | `warning`, `sizeBytes` | yes (insert placeholder) | Unnecessary |
+| MD005 (Implemented) | info | Scope/Precedence | User/global config exists without repo config | No repo-scoped config | Add repo config | `detectedScopes`, `candidatePaths` | yes (create repo config) | none |
+| MD006 (Implemented) | error/warn | Validity | Config unreadable (EACCES/ENOENT/ERROR) | Config file could not be read | Fix permissions/path | `error` | no | none |
+| MD007 (Implemented) | warning | Conflict | Duplicate frontmatter identifiers in multi-file kinds | Duplicate frontmatter value | Make identifiers unique | `scope`, `tool`, `kind`, `field`, `value`, `count` | yes (remove duplicate frontmatter) | none |
+| MD008 (Implemented) | warning | Discovery | scan warning `CIRCULAR_SYMLINK` | Circular symlink detected | Break the symlink loop | `warningCode`, `warningMessage` | no | none |
+| MD009 (Implemented) | info | Discovery | scan warning `UNRECOGNIZED_STDIN` | Stdin path not recognized | Add to registry or remove stdin path | `warningCode`, `warningMessage` | no | none |
+| MD010 (Implemented) | warning | Discovery | scan warning `EACCES`/`ERROR`/`ENOENT` | Scan warning encountered | Fix permissions or registry path | `warningCode`, `warningMessage` | no | none |
+| MD011 (Implemented) | warning | Content | `contentSkipped == "binary"` | Binary config skipped | Replace with text config or remove | `contentSkipped`, `sizeBytes` | no | Unnecessary |
+| MD012 (Implemented) | warning | Validity | Missing required frontmatter key for multi-file kinds (skills/prompts) | Missing frontmatter identifier | Add required identifier | `requiredKeys`, `toolId`, `kind` | yes (insert frontmatter stub) | none |
+| MD015 (Implemented) | warning | Validity | Unknown toolId in frontmatter | Unknown toolId | Replace with closest match | `toolId`, `replacement` | yes (replace toolId) | none |
 
 Notes:
 
@@ -73,10 +73,10 @@ These rules can be implemented using scan metadata without reading file content,
 
 | ID | Severity | Category | Trigger | Message summary | Suggestion | Evidence keys | Quick Fix | Tags |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| MD013 | info | Scope/Precedence | Config is shadowed by higher-precedence file | Config is shadowed | Remove or move config | `shadowedBy`, `loadBehavior` | no | Unnecessary |
-| MD014 | info | Validity | Deprecated filename or legacy path detected | Deprecated config path | Rename to supported filename/path | `deprecatedPath`, `replacement` | yes (rename) | Deprecated |
-| MD016 | warning | Validity | Frontmatter contains unknown keys or invalid enum values | Invalid frontmatter value | Remove or correct invalid keys/values | `field`, `value`, `allowed` | no | none |
-| MD017 | warning | Validity | Invalid `applyTo` glob syntax | Invalid applyTo glob | Fix glob syntax | `applyTo`, `error` | no | none |
+| MD013 (Proposed) | info | Scope/Precedence | Config is shadowed by higher-precedence file | Config is shadowed | Remove or move config | `shadowedBy`, `loadBehavior` | no | Unnecessary |
+| MD014 (Proposed) | info | Validity | Deprecated filename or legacy path detected | Deprecated config path | Rename to supported filename/path | `deprecatedPath`, `replacement` | yes (rename) | Deprecated |
+| MD016 (Proposed) | warning | Validity | Frontmatter contains unknown keys or invalid enum values | Invalid frontmatter value | Remove or correct invalid keys/values | `field`, `value`, `allowed` | no | none |
+| MD017 (Proposed) | warning | Validity | Invalid `applyTo` glob syntax | Invalid applyTo glob | Fix glob syntax | `applyTo`, `error` | no | none |
 
 ## Copy Gaps and Improvements
 

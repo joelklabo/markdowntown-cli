@@ -7,6 +7,7 @@ import { rateLimit } from "@/lib/rateLimiter";
 import { logAbuseSignal, logAuditEvent } from "@/lib/reports";
 import { requireCliToken } from "@/lib/cli/upload";
 import { createPatch, getPatch, listPatches } from "@/lib/cli/patches";
+import { MAX_PATCH_BODY_BYTES } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ const PatchSchema = z.object({
   path: z.string().min(1).max(4096),
   baseBlobHash: z.string().min(1).max(128),
   patchFormat: z.string().min(1).max(64),
-  patchBody: z.string().min(1),
+  patchBody: z.string().min(1).max(MAX_PATCH_BODY_BYTES, "Patch body too large"),
   idempotencyKey: z.string().max(120).optional(),
 });
 

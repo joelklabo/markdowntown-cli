@@ -99,11 +99,14 @@ function normalizeIssues(rawIssues: unknown[], repoRoot: string): NormalizedIssu
 
   const normalizePaths = (paths: unknown[]): NormalizedPath[] =>
     (paths ?? [])
-      .map((entry: unknown) => ({
-        path: normalizePath(String((entry as Record<string, unknown>)?.path ?? "")),
-        scope: (entry as Record<string, unknown>)?.scope ? String((entry as Record<string, unknown>).scope) : undefined,
-        redacted: (entry as Record<string, unknown>)?.redacted ?? false,
-      }))
+      .map((entry: unknown) => {
+        const e = entry as Record<string, unknown>;
+        return {
+          path: normalizePath(String(e?.path ?? "")),
+          scope: e?.scope ? String(e.scope) : undefined,
+          redacted: typeof e?.redacted === "boolean" ? e.redacted : undefined,
+        };
+      })
       .sort((left, right) => left.path.localeCompare(right.path));
 
   const normalizeTools = (tools: unknown[]): Array<{ toolId: string; kind: string }> =>
@@ -119,26 +122,30 @@ function normalizeIssues(rawIssues: unknown[], repoRoot: string): NormalizedIssu
         return left.kind.localeCompare(right.kind);
       });
 
-  const issues = (rawIssues ?? []).map<NormalizedIssue>((issue) => ({
-    ruleId: String(issue?.ruleId ?? issue?.ruleID ?? ""),
-    severity: String(issue?.severity ?? ""),
-    title: issue?.title ? String(issue.title) : undefined,
-    message: issue?.message ? String(issue.message) : undefined,
-    suggestion: issue?.suggestion ? String(issue.suggestion) : undefined,
-    fingerprint: issue?.fingerprint ? String(issue.fingerprint) : undefined,
-    range: issue?.range
-      ? {
-          startLine: issue.range.startLine,
-          startCol: issue.range.startCol,
-          endLine: issue.range.endLine,
-          endCol: issue.range.endCol,
-        }
-      : undefined,
-    paths: normalizePaths(issue?.paths ?? []),
-    tools: normalizeTools(issue?.tools ?? []),
-    evidence: issue?.evidence,
-    data: issue?.data,
-  }));
+  const issues = (rawIssues ?? []).map<NormalizedIssue>((rawIssue) => {
+    const issue = rawIssue as Record<string, unknown>;
+    const range = issue?.range as Record<string, number | undefined> | undefined;
+    return {
+      ruleId: String(issue?.ruleId ?? issue?.ruleID ?? ""),
+      severity: String(issue?.severity ?? ""),
+      title: issue?.title ? String(issue.title) : undefined,
+      message: issue?.message ? String(issue.message) : undefined,
+      suggestion: issue?.suggestion ? String(issue.suggestion) : undefined,
+      fingerprint: issue?.fingerprint ? String(issue.fingerprint) : undefined,
+      range: range
+        ? {
+            startLine: range.startLine,
+            startCol: range.startCol,
+            endLine: range.endLine,
+            endCol: range.endCol,
+          }
+        : undefined,
+      paths: normalizePaths((issue?.paths as unknown[]) ?? []),
+      tools: normalizeTools((issue?.tools as unknown[]) ?? []),
+      evidence: issue?.evidence,
+      data: issue?.data,
+    };
+  });
 
   issues.sort((left, right) => {
     if (left.ruleId !== right.ruleId) {

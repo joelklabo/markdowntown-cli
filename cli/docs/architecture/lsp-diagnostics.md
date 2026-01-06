@@ -117,6 +117,30 @@ Include structured data for code actions and tests:
 | MD012 | Missing frontmatter identifier: Missing required frontmatter identifier for codex (skills). | Add one of: name, title, id. | none |
 | MD015 | Unknown toolId: Unknown toolId: codx-cli | Replace with codex-cli. | none |
 
+## CodeLens Visibility
+
+Provide a visual indicator at the top of configuration files showing their effective status.
+
+### Labels
+
+- **Active (Repo Scope)**: The file is the primary configuration for the tool in this repo.
+- **Active (User Scope)**: The file is the primary configuration for the tool across all repos for this user.
+- **Shadowed by [path]**: The file is ignored because another configuration has higher precedence.
+
+### Visibility logic and precedence
+
+CodeLens uses the `internal/scan` effective config resolution to determine visibility:
+
+1. **Scope precedence**: `repo` > `user` > `global`. A configuration in a more specific scope shadows those in broader scopes for the same `toolId` and `kind`.
+2. **Override pairs**: Specific file patterns may supersede others within the same scope. For example, `AGENTS.override.md` always shadows `AGENTS.md` if both exist in the same directory.
+3. **Multi-file behavior**: Tools that support `loadBehavior: "merge"` or `append` may show multiple "Active" lenses instead of shadowing. Shadowing applies only to `loadBehavior: "replace"` (default).
+
+### Implementation notes
+
+- Trigger CodeLens only on files matching the pattern registry.
+- Resolve absolute vs relative paths carefully when comparing current file to the shadowing path.
+- In multi-root workspaces, evaluate precedence relative to the workspace folder root.
+
 ## Ordering and Noise Control
 
 - Prefer deterministic ordering: severity desc, rule ID asc, path asc.

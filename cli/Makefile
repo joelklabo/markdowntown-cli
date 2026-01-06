@@ -15,10 +15,13 @@ build:
 test:
 	$(GO) test ./...
 
-lint: lint-go lint-md lint-yaml lint-sh
+lint: lint-go lint-md lint-yaml lint-sh catalog-check
 
 lint-go:
 	$(GOLANGCI_LINT) run ./...
+
+catalog-check:
+	../scripts/diagnostic-catalog-check.sh
 
 lint-md:
 	npx markdownlint-cli "**/*.md" --ignore "**/node_modules/**" --ignore "**/out/**" --ignore "**/.vscode-test/**" --ignore .gemini --config ../.markdownlint.json

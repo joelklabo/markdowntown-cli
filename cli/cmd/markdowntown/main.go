@@ -135,6 +135,9 @@ func main() {
 		printVersion(os.Stdout)
 		return
 	case "scan":
+		if err := git.ValidateGitVersion(); err != nil {
+			exitWithError(err)
+		}
 		if err := runScan(args[1:]); err != nil {
 			exitWithError(err)
 		}
@@ -150,16 +153,27 @@ func main() {
 		}
 		return
 	case "sync":
-		if err := runSync(args[1:]); err != nil {
+		if err := git.ValidateGitVersion(); err != nil {
+			exitWithError(err)
+		}
+		cmd := newSyncCmd()
+		cmd.SetArgs(args[1:])
+		if err := cmd.Execute(); err != nil {
 			exitWithError(err)
 		}
 		return
 	case "pull":
+		if err := git.ValidateGitVersion(); err != nil {
+			exitWithError(err)
+		}
 		if err := runPull(args[1:]); err != nil {
 			exitWithError(err)
 		}
 		return
 	case "scan-remote":
+		if err := git.ValidateGitVersion(); err != nil {
+			exitWithError(err)
+		}
 		if err := runScanRemote(args[1:]); err != nil {
 			exitWithError(err)
 		}
@@ -476,93 +490,14 @@ func runServe(_ []string) error {
 	return lsp.RunServer(version.ToolVersion)
 }
 
-//nolint:gocyclo // Flag parsing/validation is intentionally linear.
 func runAudit(args []string) error {
-	flags := flag.NewFlagSet("audit", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-
-	var inputPath string
-	var format string
-	var compact bool
-	var failSeverity string
-	var redactMode string
-	var includeScanWarnings bool
-	var repoPath string
-	var repoOnly bool
-	var globalScope bool
-	var globalMaxFiles int
-	var globalMaxBytes int64
-	var globalXDev bool
-	var scanWorkers int
-	var readStdin bool
-	var noContent bool
-	var help bool
-	var onlyRules stringList
-	var ignoreRules stringList
-	var excludePaths stringList
-
-	flags.StringVar(&inputPath, "input", "", "read scan JSON from file or stdin (-)")
-	flags.StringVar(&format, "format", "json", "output format (json or md)")
-	flags.BoolVar(&compact, "compact", false, "emit compact JSON")
-	flags.StringVar(&failSeverity, "fail-severity", string(audit.SeverityError), "exit 1 when issues meet severity (error|warning|info)")
-	flags.StringVar(&redactMode, "redact", string(audit.RedactAuto), "path redaction mode (auto|always|never)")
-	flags.Var(&onlyRules, "only", "rule IDs to include (repeatable)")
-	flags.Var(&ignoreRules, "ignore-rule", "rule IDs to suppress (repeatable)")
-	flags.Var(&excludePaths, "exclude", "exclude path globs from audit matching (repeatable)")
-	flags.BoolVar(&includeScanWarnings, "include-scan-warnings", false, "include raw scan warnings")
-	flags.StringVar(&repoPath, "repo", "", "repo path (defaults to git root)")
-	flags.BoolVar(&repoOnly, "repo-only", false, "exclude user scope")
-	flags.BoolVar(&globalScope, "global-scope", false, "include global/system scope roots")
-	flags.IntVar(&globalMaxFiles, "global-max-files", 0, "max files to scan in global scope (0 = unlimited)")
-	flags.Int64Var(&globalMaxBytes, "global-max-bytes", 0, "max bytes to scan in global scope (0 = unlimited)")
-	flags.BoolVar(&globalXDev, "global-xdev", false, "do not cross filesystem boundaries in global scope")
-	flags.IntVar(&scanWorkers, "scan-workers", 0, "parallel scan workers (0 = auto)")
-	flags.BoolVar(&readStdin, "stdin", false, "read additional paths from stdin")
-	flags.BoolVar(&noContent, "no-content", false, "exclude file contents from internal scan")
-	flags.BoolVar(&help, "help", false, "show help")
-	flags.BoolVar(&help, "h", false, "show help")
-
-	if err := flags.Parse(args); err != nil {
+	opts, err := parseAuditFlags(args)
+	if err != nil {
 		return newCLIError(err, 2)
 	}
-	if help {
+	if opts.help {
 		printAuditUsage(os.Stdout)
 		return nil
-	}
-	if flags.NArg() > 0 {
-		return newCLIError(fmt.Errorf("unexpected arguments: %s", strings.Join(flags.Args(), " ")), 2)
-	}
-	if globalMaxFiles < 0 {
-		return newCLIError(fmt.Errorf("global-max-files must be >= 0"), 2)
-	}
-	if globalMaxBytes < 0 {
-		return newCLIError(fmt.Errorf("global-max-bytes must be >= 0"), 2)
-	}
-	if globalScope && runtime.GOOS == "windows" {
-		_, _ = fmt.Fprintln(os.Stderr, "warning: --global-scope is not supported on Windows")
-	}
-
-	if inputPath != "" && (repoPath != "" || repoOnly || readStdin) {
-		return newCLIError(fmt.Errorf("--input cannot be combined with scan flags"), 2)
-	}
-
-	format = strings.ToLower(format)
-	if format != "json" && format != "md" {
-		return newCLIError(fmt.Errorf("invalid format: %s", format), 2)
-	}
-
-	threshold, err := audit.ParseSeverity(failSeverity)
-	if err != nil {
-		return newCLIError(err, 2)
-	}
-	redact, err := audit.ParseRedactMode(redactMode)
-	if err != nil {
-		return newCLIError(err, 2)
-	}
-
-	rules, err := audit.FilterRules(audit.DefaultRules(), []string(onlyRules), []string(ignoreRules))
-	if err != nil {
-		return newCLIError(err, 2)
 	}
 
 	registry, _, err := scan.LoadRegistry()
@@ -571,35 +506,133 @@ func runAudit(args []string) error {
 	}
 
 	auditStartedAt := time.Now()
-	var scanOutput scan.Output
+	scanOutput, err := loadAuditInput(opts, registry)
+	if err != nil {
+		return newCLIError(err, 2)
+	}
 
-	if inputPath != "" {
-		output, err := readScanInput(inputPath)
+	auditOutput, threshold, err := executeAudit(scanOutput, registry, opts, auditStartedAt)
+	if err != nil {
+		return newCLIError(err, 2)
+	}
+
+	if err := renderAuditOutput(auditOutput, opts); err != nil {
+		return newCLIError(err, 2)
+	}
+
+	if audit.ShouldFail(auditOutput.Issues, threshold) {
+		os.Exit(1)
+	}
+	return nil
+}
+
+type auditOptions struct {
+	inputPath           string
+	format              string
+	compact             bool
+	failSeverity        string
+	redactMode          string
+	includeScanWarnings bool
+	repoPath            string
+	repoOnly            bool
+	globalScope         bool
+	globalMaxFiles      int
+	globalMaxBytes      int64
+	globalXDev          bool
+	scanWorkers         int
+	readStdin           bool
+	noContent           bool
+	help                bool
+	onlyRules           stringList
+	ignoreRules         stringList
+	excludePaths        stringList
+}
+
+func parseAuditFlags(args []string) (*auditOptions, error) {
+	opts := &auditOptions{}
+	flags := flag.NewFlagSet("audit", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+
+	flags.StringVar(&opts.inputPath, "input", "", "read scan JSON from file or stdin (-)")
+	flags.StringVar(&opts.format, "format", "json", "output format (json or md)")
+	flags.BoolVar(&opts.compact, "compact", false, "emit compact JSON")
+	flags.StringVar(&opts.failSeverity, "fail-severity", string(audit.SeverityError), "exit 1 when issues meet severity (error|warning|info)")
+	flags.StringVar(&opts.redactMode, "redact", string(audit.RedactAuto), "path redaction mode (auto|always|never)")
+	flags.Var(&opts.onlyRules, "only", "rule IDs to include (repeatable)")
+	flags.Var(&opts.ignoreRules, "ignore-rule", "rule IDs to suppress (repeatable)")
+	flags.Var(&opts.excludePaths, "exclude", "exclude path globs from audit matching (repeatable)")
+	flags.BoolVar(&opts.includeScanWarnings, "include-scan-warnings", false, "include raw scan warnings")
+	flags.StringVar(&opts.repoPath, "repo", "", "repo path (defaults to git root)")
+	flags.BoolVar(&opts.repoOnly, "repo-only", false, "exclude user scope")
+	flags.BoolVar(&opts.globalScope, "global-scope", false, "include global/system scope roots")
+	flags.IntVar(&opts.globalMaxFiles, "global-max-files", 0, "max files to scan in global scope (0 = unlimited)")
+	flags.Int64Var(&opts.globalMaxBytes, "global-max-bytes", 0, "max bytes to scan in global scope (0 = unlimited)")
+	flags.BoolVar(&opts.globalXDev, "global-xdev", false, "do not cross filesystem boundaries in global scope")
+	flags.IntVar(&opts.scanWorkers, "scan-workers", 0, "parallel scan workers (0 = auto)")
+	flags.BoolVar(&opts.readStdin, "stdin", false, "read additional paths from stdin")
+	flags.BoolVar(&opts.noContent, "no-content", false, "exclude file contents from internal scan")
+	flags.BoolVar(&opts.help, "help", false, "show help")
+	flags.BoolVar(&opts.help, "h", false, "show help")
+
+	if err := flags.Parse(args); err != nil {
+		return nil, err
+	}
+	if opts.help {
+		return opts, nil
+	}
+	if flags.NArg() > 0 {
+		return nil, fmt.Errorf("unexpected arguments: %s", strings.Join(flags.Args(), " "))
+	}
+	if opts.globalMaxFiles < 0 {
+		return nil, fmt.Errorf("global-max-files must be >= 0")
+	}
+	if opts.globalMaxBytes < 0 {
+		return nil, fmt.Errorf("global-max-bytes must be >= 0")
+	}
+	if opts.globalScope && runtime.GOOS == "windows" {
+		_, _ = fmt.Fprintln(os.Stderr, "warning: --global-scope is not supported on Windows")
+	}
+	if opts.inputPath != "" && (opts.repoPath != "" || opts.repoOnly || opts.readStdin) {
+		return nil, fmt.Errorf("--input cannot be combined with scan flags")
+	}
+	opts.format = strings.ToLower(opts.format)
+	if opts.format != "json" && opts.format != "md" {
+		return nil, fmt.Errorf("invalid format: %s", opts.format)
+	}
+
+	return opts, nil
+}
+
+func loadAuditInput(opts *auditOptions, registry scan.Registry) (scan.Output, error) {
+	var scanOutput scan.Output
+	var err error
+
+	if opts.inputPath != "" {
+		scanOutput, err = readScanInput(opts.inputPath)
 		if err != nil {
-			return newCLIError(err, 2)
+			return scanOutput, err
 		}
-		scanOutput = output
 	} else {
-		repoRoot, err := resolveRepoRoot(repoPath)
+		repoRoot, err := resolveRepoRoot(opts.repoPath)
 		if err != nil {
-			return newCLIError(err, 2)
+			return scanOutput, err
 		}
-		stdinPaths, err := readStdinPaths(readStdin)
+		stdinPaths, err := readStdinPaths(opts.readStdin)
 		if err != nil {
-			return newCLIError(err, 2)
+			return scanOutput, err
 		}
 
 		progress, finish := progressReporter(true)
 		scanStartedAt := time.Now()
 		result, err := scan.Scan(scan.Options{
 			RepoRoot:       repoRoot,
-			RepoOnly:       repoOnly,
-			IncludeGlobal:  globalScope,
-			IncludeContent: !noContent,
-			ScanWorkers:    scanWorkers,
-			GlobalMaxFiles: globalMaxFiles,
-			GlobalMaxBytes: globalMaxBytes,
-			GlobalXDev:     globalXDev,
+			RepoOnly:       opts.repoOnly,
+			IncludeGlobal:  opts.globalScope,
+			IncludeContent: !opts.noContent,
+			ScanWorkers:    opts.scanWorkers,
+			GlobalMaxFiles: opts.globalMaxFiles,
+			GlobalMaxBytes: opts.globalMaxBytes,
+			GlobalXDev:     opts.globalXDev,
 			Progress:       progress,
 			StdinPaths:     stdinPaths,
 			Registry:       registry,
@@ -607,12 +640,12 @@ func runAudit(args []string) error {
 		})
 		finish()
 		if err != nil {
-			return newCLIError(err, 2)
+			return scanOutput, err
 		}
 
 		result, err = scan.ApplyGitignore(result, repoRoot)
 		if err != nil {
-			return newCLIError(err, 2)
+			return scanOutput, err
 		}
 		scanFinishedAt := time.Now()
 
@@ -634,11 +667,23 @@ func runAudit(args []string) error {
 		})
 	}
 
-	filteredOutput, err := audit.FilterOutput(scanOutput, []string(excludePaths))
+	return audit.FilterOutput(scanOutput, []string(opts.excludePaths))
+}
+
+func executeAudit(scanOutput scan.Output, registry scan.Registry, opts *auditOptions, startedAt time.Time) (audit.Output, audit.Severity, error) {
+	threshold, err := audit.ParseSeverity(opts.failSeverity)
 	if err != nil {
-		return newCLIError(err, 2)
+		return audit.Output{}, threshold, err
 	}
-	scanOutput = filteredOutput
+	redact, err := audit.ParseRedactMode(opts.redactMode)
+	if err != nil {
+		return audit.Output{}, threshold, err
+	}
+
+	rules, err := audit.FilterRules(audit.DefaultRules(), []string(opts.onlyRules), []string(opts.ignoreRules))
+	if err != nil {
+		return audit.Output{}, threshold, err
+	}
 
 	homeDir, _ := os.UserHomeDir()
 	xdgConfigHome := os.Getenv("XDG_CONFIG_HOME")
@@ -647,13 +692,12 @@ func runAudit(args []string) error {
 	}
 
 	redactor := audit.NewRedactor(scanOutput.RepoRoot, homeDir, xdgConfigHome, redact)
-	ctx := audit.Context{
+	issues := engine.Run(audit.Context{
 		Scan:     scanOutput,
 		Registry: registry,
 		Redactor: redactor,
-	}
+	}, rules)
 
-	issues := engine.Run(ctx, rules)
 	normalizer := audit.NewEngine(redactor)
 	issues = normalizer.NormalizeIssues(issues)
 
@@ -662,33 +706,33 @@ func runAudit(args []string) error {
 
 	output := audit.Output{
 		SchemaVersion:       version.AuditSchemaVersion,
-		Audit:               audit.Meta{ToolVersion: version.ToolVersion, AuditStartedAt: auditStartedAt.UnixMilli(), GeneratedAt: generatedAt.UnixMilli()},
+		Audit:               audit.Meta{ToolVersion: version.ToolVersion, AuditStartedAt: startedAt.UnixMilli(), GeneratedAt: generatedAt.UnixMilli()},
 		SourceScan:          audit.SourceScan{SchemaVersion: scanOutput.SchemaVersion, ToolVersion: scanOutput.ToolVersion, RegistryVersion: scanOutput.RegistryVersion, RepoRoot: scanOutput.RepoRoot, ScanStartedAt: scanOutput.ScanStartedAt, GeneratedAt: scanOutput.GeneratedAt, Scans: scanOutput.Scans},
 		RegistryVersionUsed: registry.Version,
 		PathRedaction:       audit.RedactionInfo{Mode: redact, Enabled: redact != audit.RedactNever},
 		Summary:             summary,
 		Issues:              issues,
 	}
-	if includeScanWarnings {
+	if opts.includeScanWarnings {
 		output.ScanWarnings = audit.BuildScanWarnings(scanOutput.Warnings, issues, redactor, scanOutput.RepoRoot)
 	}
 
-	switch format {
+	return output, threshold, nil
+}
+
+func renderAuditOutput(output audit.Output, opts *auditOptions) error {
+	switch opts.format {
 	case "md":
 		_, _ = fmt.Fprint(os.Stdout, audit.RenderMarkdown(output))
 	default:
 		enc := json.NewEncoder(os.Stdout)
-		if !compact {
+		if !opts.compact {
 			enc.SetIndent("", "  ")
 		}
 		enc.SetEscapeHTML(false)
 		if err := enc.Encode(output); err != nil {
-			return newCLIError(err, 2)
+			return err
 		}
-	}
-
-	if audit.ShouldFail(issues, threshold) {
-		os.Exit(1)
 	}
 	return nil
 }

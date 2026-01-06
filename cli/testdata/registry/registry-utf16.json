@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "patterns": [
+    {
+      "id": "utf16-test",
+      "toolId": "🚀-cli",
+      "toolName": "UTF-16 Test CLI",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": ["UTF16.md"],
+      "docs": ["https://example.com"]
+    }
+  ]
+}

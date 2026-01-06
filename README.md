@@ -290,16 +290,6 @@ These files are commonly scanned and may show up in results:
 - `.codex/skills/` (skill definitions)
 - Codex CLI helpers: `/init`, `/prompts`, `/skills`
 
-## Docs
-
-- `cli/docs/scan-spec-v1.md`
-- `cli/docs/architecture/scan.md`
-- `cli/docs/audit-spec-v1.md`
-- `cli/docs/architecture/audit.md`
-- `cli/docs/USER_GUIDE.md`
-- `cli/docs/CONTRIBUTING.md`
-- `apps/web/docs/` (web guides + specs)
-
 ## Contributing
 
 See `cli/docs/CONTRIBUTING.md` for the full workflow. CI must always be green before merging or releasing changes.

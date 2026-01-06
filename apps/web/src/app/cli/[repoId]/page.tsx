@@ -1,7 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { getBlobStore } from "@/lib/storage";
 import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { Heading } from "@/components/ui/Heading";
@@ -11,60 +14,11 @@ import { Text } from "@/components/ui/Text";
 import { Editor } from "@/components/cli-sync/Editor";
 import { FileTree } from "@/components/cli-sync/FileTree";
 import { IssuesPanel, type CliIssue, type IssueSeverity } from "@/components/cli-sync/IssuesPanel";
+import { runWasmAuditIsolated } from "@/lib/cli/wasmAudit";
 
 type RepoDetailPageProps = {
   params: Promise<{ repoId: string }>;
 };
-
-type WasmScanResponse = {
-  ok: boolean;
-  error?: string;
-  output?: {
-    issues?: unknown[];
-  };
-};
-
-type ScanAuditFn = (input: string) => unknown;
-
-let scanAuditPromise: Promise<ScanAuditFn> | null = null;
-
-async function loadScanAudit(): Promise<ScanAuditFn> {
-  if (scanAuditPromise) return scanAuditPromise;
-  scanAuditPromise = (async () => {
-    const repoRoot = path.resolve(process.cwd(), "..", "..");
-    const wasmDir = path.join(repoRoot, "cli", "dist", "wasm");
-    const wasmPath = path.join(wasmDir, "markdowntown_scan_audit.wasm");
-    const wasmExecPath = path.join(wasmDir, "wasm_exec.js");
-
-    await fs.access(wasmPath);
-    await fs.access(wasmExecPath);
-
-    await import(/* webpackIgnore: true */ pathToFileURL(wasmExecPath).href);
-    const GoCtor = (globalThis as { Go?: new () => { importObject: WebAssembly.Imports; run: (instance: WebAssembly.Instance) => void } })
-      .Go;
-    if (!GoCtor) {
-      throw new Error("Go runtime not found for WASM audit");
-    }
-
-    const go = new GoCtor();
-    const wasmBytes = await fs.readFile(wasmPath);
-    const { instance } = await WebAssembly.instantiate(
-      wasmBytes.buffer.slice(wasmBytes.byteOffset, wasmBytes.byteOffset + wasmBytes.byteLength),
-      go.importObject
-    );
-    void go.run(instance);
-
-    const scanAudit = (globalThis as { markdowntownScanAudit?: (input: string) => unknown })
-      .markdowntownScanAudit;
-    if (typeof scanAudit !== "function") {
-      throw new Error("markdowntownScanAudit export not available");
-    }
-
-    return scanAudit;
-  })();
-
-  return scanAuditPromise;
-}
 
 function normalizeSeverity(value: string | undefined): IssueSeverity {
   if (!value) return "warning";
@@ -112,49 +66,33 @@ async function loadAuditIssues(files: Array<{ path: string; content: string }>) 
       filePath: "AGENTS.md",
       summary: "Fix YAML syntax before the CLI can apply patches.",
     },
-    {
-      id: "audit-instructions-2",
-      ruleId: "mdt.instructions.missing",
-      title: "Missing project instructions section",
-      severity: "warning",
-      filePath: "AGENTS.md",
-      summary: "Add a project overview and build/test guidance.",
-    },
   ];
 
   try {
-    const scanAudit = await loadScanAudit();
     const repoRootDir = path.resolve(process.cwd(), "..", "..");
     const registryPath = path.join(repoRootDir, "cli", "data", "ai-config-patterns.json");
     const registry = JSON.parse(await fs.readFile(registryPath, "utf8"));
 
-    const request = {
-      repoRoot,
-      includeContent: true,
+    const result = await runWasmAuditIsolated({
+      files,
       registry,
-      files: files.map((file) => ({
-        path: `${repoRoot}/${file.path}`,
-        content: file.content,
-      })),
-    };
+      timeoutMs: 15000,
+    });
 
-    const responseRaw = scanAudit(JSON.stringify(request));
-    const response = (typeof responseRaw === "string"
-      ? JSON.parse(responseRaw)
-      : responseRaw) as WasmScanResponse;
-
-    if (!response.ok) {
-      throw new Error(response.error || "WASM audit failed");
+    if (!result.ok || !result.response) {
+      throw new Error(result.error || "WASM audit failed");
     }
 
+    const response = result.response;
     const rawIssues = Array.isArray(response.output?.issues) ? response.output?.issues ?? [] : [];
     const issues = normalizeIssues(rawIssues, repoRoot);
 
     return {
-      issues: issues.length > 0 ? issues : fallbackIssues,
+      issues,
       status: "ready" as const,
     };
   } catch (error) {
+    console.error("[loadAuditIssues]", error);
     return {
       issues: fallbackIssues,
       status: "error" as const,
@@ -164,26 +102,65 @@ async function loadAuditIssues(files: Array<{ path: string; content: string }>) 
 }
 
 export default async function RepoDetailPage({ params }: RepoDetailPageProps) {
-  const { repoId: rawRepoId } = await params;
-  const repoId = decodeURIComponent(rawRepoId);
-  const repoName = repoId.replace(/-/g, " ");
-  const files = [
-    {
-      path: "AGENTS.md",
-      content: "---\nproject: cli-sync-demo\ninvalid: [\n---\n\n# Repo instructions\n- Use pnpm lint\n",
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/signin?callbackUrl=/cli");
+  }
+
+  const { repoId } = await params;
+  const project = await prisma.project.findFirst({
+    where: {
+      OR: [{ id: repoId }, { slug: repoId }],
+      userId: session.user.id,
     },
-    {
-      path: "src/lib/sync.ts",
-      content: "export const syncVersion = \"0.9.4\";\n\nexport function syncSnapshot() {\n  return \"snapshot-ready\";\n}\n",
+  });
+
+  if (!project) {
+    notFound();
+  }
+
+  const latestSnapshot = await prisma.snapshot.findFirst({
+    where: {
+      projectId: project.id,
+      status: "READY",
     },
-    {
-      path: "README.md",
-      content: "# CLI Sync Demo\n\nThis repo demonstrates CLI snapshot sync.\n",
+    orderBy: { createdAt: "desc" },
+    include: {
+      files: {
+        include: { blob: true },
+      },
     },
-  ];
+  });
+
+  if (!latestSnapshot) {
+    return (
+      <Container className="py-mdt-10 md:py-mdt-12">
+        <Stack gap={6}>
+          <Stack gap={1}>
+            <Heading level="h1">{project.name}</Heading>
+            <Text tone="muted">No snapshots ready for this repository.</Text>
+          </Stack>
+          <Button asChild variant="secondary" className="w-fit">
+            <Link href="/cli">Back to dashboard</Link>
+          </Button>
+        </Stack>
+      </Container>
+    );
+  }
+
+  const blobStore = getBlobStore();
+  const files = await Promise.all(
+    latestSnapshot.files.map(async (file) => {
+      const contentBuffer = await blobStore.getBlob(file.blob.sha256);
+      return {
+        path: file.path,
+        content: contentBuffer?.toString("utf8") ?? "",
+      };
+    })
+  );
 
   const { issues, status: auditStatus, error } = await loadAuditIssues(files);
-  const selectedFile = files[0]!;
+  const selectedFile = files.find((f) => f.path === "AGENTS.md") ?? files[0];
 
   return (
     <Container className="py-mdt-10 md:py-mdt-12">
@@ -193,9 +170,9 @@ export default async function RepoDetailPage({ params }: RepoDetailPageProps) {
             <Text size="caption" tone="muted" className="uppercase tracking-wide">
               CLI Sync
             </Text>
-            <Heading level="h1">{repoName}</Heading>
-            <Text tone="muted">
-              Snapshot 4c9b2a1 · {issues.length} issues · {files.length} files
+            <Heading level="h1">{project.name}</Heading>
+            <Text tone="muted" className="truncate">
+              Snapshot {latestSnapshot.id.substring(0, 7)} · {issues.length} issues · {files.length} files
             </Text>
           </Stack>
           <Stack gap={2} className="sm:items-start lg:items-end">
@@ -210,13 +187,19 @@ export default async function RepoDetailPage({ params }: RepoDetailPageProps) {
 
         {auditStatus === "error" ? (
           <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle p-mdt-4 text-body-sm text-mdt-danger">
-            WASM audit failed to load. Showing last known issues. {error ? `(${error})` : null}
+            WASM audit failed to load. {error ? `(${error})` : null}
           </div>
         ) : null}
 
         <div className="grid gap-mdt-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]">
-          <FileTree paths={files.map((file) => file.path)} selectedPath={selectedFile.path} />
-          <Editor filePath={selectedFile.path} content={selectedFile.content} />
+          <FileTree paths={files.map((file) => file.path)} selectedPath={selectedFile?.path} />
+          {selectedFile ? (
+            <Editor filePath={selectedFile.path} content={selectedFile.content} />
+          ) : (
+            <div className="rounded-mdt-lg border border-mdt-border bg-mdt-surface-subtle p-mdt-8 text-center">
+              <Text tone="muted">No files to display.</Text>
+            </div>
+          )}
           <IssuesPanel issues={issues} auditStatus={auditStatus} />
         </div>
       </Stack>

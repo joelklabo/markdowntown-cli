@@ -116,6 +116,16 @@ When using `go test -run` with regex patterns containing pipes (`|`), ensure you
 go test -run "TestA|TestB" ./...
 ```
 
+#### Go cache disk space
+
+If `go test` or `make test` fails with "no space left on device", clear the Go build and test caches:
+
+```bash
+go clean -cache -testcache
+```
+
+On macOS, the cache typically lives in `~/Library/Caches/go-build`. You can verify free space with `df -h`. Ensuring at least 5GB of free space is recommended for large test runs.
+
 ### Release workflow (goreleaser)
 
 Install goreleaser (choose one):

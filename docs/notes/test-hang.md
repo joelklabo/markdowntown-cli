@@ -6,7 +6,7 @@ Local runs of `make test` / `go test ./...` sometimes appeared to hang. The most
 ## Repro script
 Use the repro script to capture JSON logs for the last package/test executed:
 
-```
+```bash
 ./scripts/test-hang-repro.sh
 ```
 
@@ -19,6 +19,23 @@ Outputs are written to `.tmp/test-hang/` and include both JSON and text logs.
 ## Mitigations added
 - HTTP fetcher tests now enforce client timeouts to avoid indefinite waits.
 - Git and Go build helpers in integration tests use context timeouts to prevent hangs.
+
+## Troubleshooting Disk Space / GOTMPDIR
+Go tests and builds use temporary directories heavily. If your default temporary partition (often `/tmp` or a small system partition) is full, tests may hang or fail mysteriously.
+
+### Recommended Free Space
+Ensure at least **5GB** of free space on the partition used by Go.
+
+### Custom Temporary Directory
+If your system `/tmp` is too small, you can redirect Go's temporary files using the `GOTMPDIR` and `TMPDIR` environment variables:
+
+```bash
+# Example: redirect to a data partition
+export GOTMPDIR=/mnt/data/go-tmp
+export TMPDIR=/mnt/data/tmp
+mkdir -p $GOTMPDIR $TMPDIR
+make test
+```
 
 ## If the hang persists
 1. Run the repro script and note the last package in the log.

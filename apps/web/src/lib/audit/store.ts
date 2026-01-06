@@ -1,9 +1,7 @@
 import type { AuditIssue, AuditSeverity } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizeRepoPath } from "@/lib/cli/patches";
-
-const MAX_RULE_ID_LENGTH = 160;
-const MAX_MESSAGE_LENGTH = 2000;
+import { MAX_AUDIT_MESSAGE_LENGTH, MAX_AUDIT_RULE_ID_LENGTH } from "@/lib/validation";
 
 export type AuditIssueInput = {
   ruleId: string;
@@ -25,16 +23,16 @@ function normalizeIssue(issue: AuditIssueInput): StoredAuditIssue {
   if (!ruleId) {
     throw new Error("Rule id is required");
   }
-  if (ruleId.length > MAX_RULE_ID_LENGTH) {
-    throw new Error(`Rule id is too long (max ${MAX_RULE_ID_LENGTH} characters)`);
+  if (ruleId.length > MAX_AUDIT_RULE_ID_LENGTH) {
+    throw new Error(`Rule id is too long (max ${MAX_AUDIT_RULE_ID_LENGTH} characters)`);
   }
 
   const message = issue.message.trim();
   if (!message) {
     throw new Error("Message is required");
   }
-  if (message.length > MAX_MESSAGE_LENGTH) {
-    throw new Error(`Message is too long (max ${MAX_MESSAGE_LENGTH} characters)`);
+  if (message.length > MAX_AUDIT_MESSAGE_LENGTH) {
+    throw new Error(`Message is too long (max ${MAX_AUDIT_MESSAGE_LENGTH} characters)`);
   }
 
   const pathResult = normalizeRepoPath(issue.path);

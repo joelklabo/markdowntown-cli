@@ -64,8 +64,8 @@ const authMock = vi.fn<() => Promise<{ user: { id: string } } | null>>();
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
 
 // Route handlers under test
-const routePromise = import("@/app/api/sections/route");
-const routeWithIdPromise = import("@/app/api/sections/[id]/route");
+const getRoute = () => import("@/app/api/sections/route");
+const getRouteWithId = () => import("@/app/api/sections/[id]/route");
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -82,14 +82,14 @@ describe("sections API CRUD", () => {
 
   it("requires auth on list", async () => {
     authMock.mockResolvedValueOnce(null);
-    const { GET } = await routePromise;
+    const { GET } = await getRoute();
     const res = await GET();
     expect(res.status).toBe(401);
   });
 
   it("creates and lists sections for the user", async () => {
     authMock.mockResolvedValue({ user: { id: "user-1" } });
-    const { POST, GET } = await routePromise;
+    const { POST, GET } = await getRoute();
     await POST(
       new Request("http://localhost/api/sections", {
         method: "POST",
@@ -112,8 +112,8 @@ describe("sections API CRUD", () => {
   });
 
   it("updates a section", async () => {
-    const { POST } = await routePromise;
-    const { PUT } = await routeWithIdPromise;
+    const { POST } = await getRoute();
+    const { PUT } = await getRouteWithId();
 
     const createdRes = await POST(
       new Request("http://localhost/api/sections", {
@@ -138,8 +138,8 @@ describe("sections API CRUD", () => {
   });
 
   it("normalizes tags on create and update", async () => {
-    const { POST } = await routePromise;
-    const { PUT } = await routeWithIdPromise;
+    const { POST } = await getRoute();
+    const { PUT } = await getRouteWithId();
 
     const createdRes = await POST(
       new Request("http://localhost/api/sections", {
@@ -163,8 +163,8 @@ describe("sections API CRUD", () => {
   });
 
   it("deletes a section", async () => {
-    const { POST } = await routePromise;
-    const { DELETE } = await routeWithIdPromise;
+    const { POST } = await getRoute();
+    const { DELETE } = await getRouteWithId();
 
     const createdRes = await POST(
       new Request("http://localhost/api/sections", {

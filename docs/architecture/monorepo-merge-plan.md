@@ -4,16 +4,30 @@
 Unify the CLI and web app in a single repo with shared tooling, explicit ownership, and CI jobs that scope to only the paths they need.
 
 ## Target layout
+
+
+
 | Path | Owner | Purpose |
+
 | --- | --- | --- |
+
 | `apps/web` | Web | Next.js app, API routes, Prisma, UI assets. |
+
 | `cli` | CLI | Go CLI + LSP + VS Code extension. |
+
 | `packages/*` | Shared | Shared JS/TS packages (when present). |
+
 | `docs` | Product/Eng | Architecture, UX, runbooks, QA evidence. |
+
 | `infra` | Infra | Deployment, IaC, and environments. |
+
 | `scripts` | Platform | Repo-wide scripts and helpers. |
 
+
+
 Notes:
+
+
 - Keep `cli/vscode-extension` colocated with the CLI so the extension can bundle the matching binary.
 - Keep `apps/web` isolated from Go build artifacts to avoid noisy diffs.
 

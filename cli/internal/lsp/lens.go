@@ -25,42 +25,52 @@ func (s *Server) codeLens(_ *glsp.Context, params *protocol.CodeLensParams) ([]p
 func (s *Server) lensForPath(path string) ([]protocol.CodeLens, error) {
 	repoRoot := repoRootForPath(s.rootPath, path)
 
-	repoOnly := true
-	var userRoots []string
-	if userRoot, ok := userRootForPath(path); ok {
-		repoOnly = false
-		userRoots = []string{userRoot}
-	} else if _, ok := relativeRepoPath(repoRoot, path); !ok {
-		repoOnly = false
-		userRoots = []string{filepath.Dir(path)}
-	}
+	s.scanCacheMu.RLock()
+	result, ok := s.scanCache[repoRoot]
+	s.scanCacheMu.RUnlock()
 
-	registry, _, err := scan.LoadRegistry()
-	if err != nil {
-		return nil, nil
-	}
-
-	var stdinPaths []string
-	if _, err := s.overlay.Stat(path); err == nil {
-		if _, err := s.base.Stat(path); err != nil {
-			stdinPaths = append(stdinPaths, path)
+	if !ok {
+		repoOnly := true
+		var userRoots []string
+		if userRoot, ok := userRootForPath(path); ok {
+			repoOnly = false
+			userRoots = []string{userRoot}
+		} else if _, ok := relativeRepoPath(repoRoot, path); !ok {
+			repoOnly = false
+			userRoots = []string{filepath.Dir(path)}
 		}
-	}
 
-	result, err := scan.Scan(scan.Options{
-		RepoRoot:       repoRoot,
-		RepoOnly:       repoOnly,
-		IncludeContent: false,
-		StdinPaths:     stdinPaths,
-		UserRoots:      userRoots,
-		Registry:       registry,
-		Fs:             s.fs,
-	})
-	if err != nil {
-		return nil, nil
-	}
-	if updated, err := scan.ApplyGitignore(result, repoRoot); err == nil {
-		result = updated
+		registry, _, err := scan.LoadRegistry()
+		if err != nil {
+			return nil, nil
+		}
+
+		var stdinPaths []string
+		if _, err := s.overlay.Stat(path); err == nil {
+			if _, err := s.base.Stat(path); err != nil {
+				stdinPaths = append(stdinPaths, path)
+			}
+		}
+
+		result, err = scan.Scan(scan.Options{
+			RepoRoot:       repoRoot,
+			RepoOnly:       repoOnly,
+			IncludeContent: false,
+			StdinPaths:     stdinPaths,
+			UserRoots:      userRoots,
+			Registry:       registry,
+			Fs:             s.fs,
+		})
+		if err != nil {
+			return nil, nil
+		}
+		if updated, err := scan.ApplyGitignore(result, repoRoot); err == nil {
+			result = updated
+		}
+
+		s.scanCacheMu.Lock()
+		s.scanCache[repoRoot] = result
+		s.scanCacheMu.Unlock()
 	}
 
 	entry := scan.EntryForPath(result, path)

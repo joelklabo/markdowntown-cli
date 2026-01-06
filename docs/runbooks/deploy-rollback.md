@@ -111,9 +111,16 @@ Different components can be rolled back independently:
      --query "properties.template.containers[0].image"
    ```
 
-### Manual Docker Deployment
+### Manual Image Push
 
-Similar to web app rollback above, using `markdowntown-cli/worker` image.
+If CI is failing, you can push manually to ACR:
+
+```bash
+# Example for markdowntown-web
+az acr login --name $ACR_NAME
+docker build -t $ACR_NAME.azurecr.io/markdowntown-web:manual .
+docker push $ACR_NAME.azurecr.io/markdowntown-web:manual
+```
 
 ## Database Migration Rollback
 

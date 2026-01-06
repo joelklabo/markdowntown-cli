@@ -69,4 +69,17 @@ These caches are populated during fetches and used in `--offline` mode.
 - The pipeline fetches the registry from `DOC_REGISTRY_URL`/`DOC_REGISTRY_PATH` (defaults to `cli/data/doc-sources.json` if present) and validates HTTPS URLs, allowlist hosts, and refresh cadences before publishing.
 - Last-good snapshots are stored under `.cache/docs/registry/last-good.json` (configurable via `DOC_STORE_PATH`) and are served when a refresh attempt fails to keep the CLI/Web flows fail-stale.
 - Corrupt or oversized payloads are rejected; validation mirrors the CLI registry rules (unique IDs, HTTPS only, host allowlist enforcement).
-- Operational guidance and alerting steps live in `docs/runbooks/docs-refresh.md`.
+## Fetch Bridge (WASM)
+
+The WASM engine uses a fetch bridge to retrieve external sources while in the browser or Node environments.
+
+- **Direct Bridge**: Used when the environment allows direct HTTPS fetches (e.g., CLI).
+- **Proxy Bridge**: Used when CORS or other restrictions prevent direct access (e.g., Browser). Requests are routed through `GET /api/engine/fetch?url=...`.
+
+### Delivery Optimization
+
+The WASM engine is served with the following optimizations:
+
+- **Compression**: Pre-compressed with Brotli (`.wasm.br`) for reduced payload size.
+- **Caching**: Configured with immutable cache headers in production (`public, max-age=31536000, immutable`).
+- **WASM Loader**: A dedicated loader handles decompression and streaming instantiation where supported.

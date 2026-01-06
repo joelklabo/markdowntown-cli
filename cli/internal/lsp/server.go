@@ -65,6 +65,8 @@ type Server struct {
 	// Cache state
 	cacheMu          sync.Mutex
 	frontmatterCache map[string]*scan.ParsedFrontmatter
+	scanCacheMu      sync.RWMutex
+	scanCache        map[string]scan.Result
 	versionMu        sync.Mutex
 	documentVersions map[string]protocol.Integer
 }
@@ -79,6 +81,7 @@ func NewServer(version string) *Server {
 		Debounce:         0,
 		settings:         DefaultSettings(),
 		frontmatterCache: make(map[string]*scan.ParsedFrontmatter),
+		scanCache:        make(map[string]scan.Result),
 		documentVersions: make(map[string]protocol.Integer),
 	}
 	s.fs = afero.NewCopyOnWriteFs(s.base, s.overlay)
@@ -165,6 +168,9 @@ func (s *Server) didChangeConfiguration(context *glsp.Context, params *protocol.
 		return nil
 	}
 	s.applySettings(params.Settings)
+	s.scanCacheMu.Lock()
+	s.scanCache = make(map[string]scan.Result)
+	s.scanCacheMu.Unlock()
 	s.cacheMu.Lock()
 	uris := make([]string, 0, len(s.frontmatterCache))
 	for uri := range s.frontmatterCache {
@@ -233,6 +239,10 @@ func (s *Server) didOpen(context *glsp.Context, params *protocol.DidOpenTextDocu
 		return err
 	}
 
+	s.scanCacheMu.Lock()
+	s.scanCache = make(map[string]scan.Result)
+	s.scanCacheMu.Unlock()
+
 	s.versionMu.Lock()
 	s.documentVersions[params.TextDocument.URI] = params.TextDocument.Version
 	s.versionMu.Unlock()
@@ -293,6 +303,9 @@ func (s *Server) didChange(context *glsp.Context, params *protocol.DidChangeText
 		if err := afero.WriteFile(s.overlay, path, []byte(currentContent), 0644); err != nil {
 			return err
 		}
+		s.scanCacheMu.Lock()
+		s.scanCache = make(map[string]scan.Result)
+		s.scanCacheMu.Unlock()
 	}
 
 	if updated {
@@ -320,12 +333,17 @@ func (s *Server) didClose(_ *glsp.Context, params *protocol.DidCloseTextDocument
 	if timer, ok := s.diagnosticTimers[params.TextDocument.URI]; ok {
 		timer.Stop()
 		delete(s.diagnosticTimers, params.TextDocument.URI)
+		commonlog.GetLogger(serverName).Debugf("Debounce timer canceled on close for %s", params.TextDocument.URI)
 	}
 	s.diagnosticsMu.Unlock()
 
 	s.versionMu.Lock()
 	delete(s.documentVersions, params.TextDocument.URI)
 	s.versionMu.Unlock()
+
+	s.scanCacheMu.Lock()
+	s.scanCache = make(map[string]scan.Result)
+	s.scanCacheMu.Unlock()
 
 	return s.overlay.Remove(path)
 }
@@ -439,6 +457,7 @@ func (s *Server) triggerDiagnostics(context *glsp.Context, uri string) {
 
 	if timer, ok := s.diagnosticTimers[uri]; ok {
 		timer.Stop()
+		commonlog.GetLogger(serverName).Debugf("Debounce timer canceled for %s", uri)
 	}
 
 	delay := s.Debounce
@@ -461,6 +480,7 @@ func (s *Server) triggerDiagnostics(context *glsp.Context, uri string) {
 		}
 		delete(s.diagnosticTimers, uri)
 		s.diagnosticsMu.Unlock()
+		commonlog.GetLogger(serverName).Debugf("Debounce timer fired for %s", uri)
 		s.runDiagnostics(context, uri)
 	})
 	s.diagnosticTimers[uri] = timer

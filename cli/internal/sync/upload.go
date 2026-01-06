@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"markdowntown-cli/internal/config"
 	"mime"
 	"os"
 	"path/filepath"
@@ -52,6 +53,7 @@ type UploadOptions struct {
 	MaxFiles          int
 	MaxTotalBytes     int64
 	MaxFileBytes      int64
+	MaxBase64Bytes    int64
 	UploadConcurrency int
 	Metadata          any
 	Progress          UploadProgressFunc
@@ -65,6 +67,7 @@ type UploadResult struct {
 	UploadedBlobs int
 	UploadedBytes int64
 	Preflight     PreflightResult
+	Resumed       bool
 }
 
 // UploadSnapshot builds a manifest, uploads missing blobs, and finalizes the snapshot.
@@ -106,6 +109,18 @@ func UploadSnapshot(ctx context.Context, client *Client, opts UploadOptions) (Up
 		opts.Progress(UploadProgress{Stage: UploadStageHandshake})
 	}
 
+	// Check for existing checkpoint to resume
+	checkpoint, err := config.LoadCheckpoint(opts.RepoRoot)
+	if err == nil && checkpoint.ManifestHash == manifest.Hash {
+		result.Resumed = true
+		if opts.BaseSnapshotID == "" {
+			opts.BaseSnapshotID = checkpoint.SnapshotID
+		}
+		if opts.IdempotencyKey == "" {
+			opts.IdempotencyKey = checkpoint.ManifestHash
+		}
+	}
+
 	handshake := UploadHandshakeRequest{
 		ProjectID:       opts.ProjectID,
 		ProjectSlug:     opts.ProjectSlug,
@@ -126,6 +141,15 @@ func UploadSnapshot(ctx context.Context, client *Client, opts UploadOptions) (Up
 	if err != nil {
 		return result, err
 	}
+
+	// Save or update checkpoint
+	_ = config.SaveCheckpoint(config.UploadCheckpoint{
+		RepoRoot:     opts.RepoRoot,
+		SnapshotID:   resp.SnapshotID,
+		ManifestHash: manifest.Hash,
+		MissingBlobs: resp.MissingBlobs,
+		UploadURL:    resp.Upload.URL,
+	})
 
 	if opts.Progress != nil {
 		opts.Progress(UploadProgress{
@@ -153,6 +177,9 @@ func UploadSnapshot(ctx context.Context, client *Client, opts UploadOptions) (Up
 	if err != nil {
 		return result, err
 	}
+
+	// Clear checkpoint on success
+	_ = config.RemoveCheckpoint(opts.RepoRoot)
 
 	return result, nil
 }
@@ -233,7 +260,7 @@ func uploadMissingBlobs(
 				return
 			}
 
-			if err := uploadBlobDirect(ctx, client, resp.Upload.URL, resp.SnapshotID, entry); err != nil {
+			if err := uploadBlobDirect(ctx, client, resp.Upload.URL, resp.SnapshotID, entry, opts.MaxBase64Bytes); err != nil {
 				select {
 				case errCh <- err:
 				default:
@@ -288,10 +315,14 @@ func uploadMissingBlobs(
 	return uploaded, uploadedSize, nil
 }
 
-func uploadBlobDirect(ctx context.Context, client *Client, endpoint string, snapshotID string, entry uploadEntry) error {
+func uploadBlobDirect(ctx context.Context, client *Client, endpoint string, snapshotID string, entry uploadEntry, maxBase64 int64) error {
 	content, contentType, err := readBlobContent(entry)
 	if err != nil {
 		return fmt.Errorf("read blob %s: %w", entry.entry.Path, err)
+	}
+
+	if maxBase64 > 0 && int64(len(content)) > maxBase64 {
+		return fmt.Errorf("blob %s exceeds base64 upload limit (%d > %d bytes)", entry.entry.Path, len(content), maxBase64)
 	}
 
 	req := UploadBlobRequest{

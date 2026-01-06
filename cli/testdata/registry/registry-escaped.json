@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "patterns": [
+    {
+      "id": "escaped-test",
+      "toolId": "quoted\"tool",
+      "toolName": "Escaped Test CLI",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": ["ESCAPED.md"],
+      "docs": ["https://example.com"]
+    },
+    {
+      "id": "unicode-escaped-test",
+      "toolId": "uni\u1234tool",
+      "toolName": "Unicode Escaped Test CLI",
+      "kind": "instructions",
+      "scope": "repo",
+      "paths": ["UNICODE.md"],
+      "docs": ["https://example.com"]
+    }
+  ]
+}

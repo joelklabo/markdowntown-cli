@@ -29,6 +29,27 @@ rm "$(go env GOPATH)/bin/markdowntown"
 - `markdowntown scan` → see `cli/docs/scan-spec-v1.md` for flags and schema.
 - `markdowntown audit` → see `cli/docs/audit-spec-v1.md` for flags and schema.
 - `markdowntown suggest` → see `cli/docs/suggest-spec-v1.md` for flags and schema.
+- `markdowntown sync upload` → Uploads a snapshot of the current repository to the web app. Requires login.
+- `markdowntown pull` → Pulls patches from the web app.
+
+## Global Scope and Parallelism
+
+Use these flags to control the breadth and performance of the scan.
+
+### Global Scope (Opt-in)
+The `--global-scope` flag includes system-wide configuration roots (e.g., `/etc` on Unix).
+
+- **Guardrails**:
+  - `--global-max-files <n>`: Stop after scanning `<n>` files in global scope.
+  - `--global-max-bytes <n>`: Stop after scanning `<n>` bytes in global scope.
+  - `--global-xdev`: Do not cross filesystem boundaries when traversing global roots.
+
+On Windows, global scope is currently unsupported and will emit a warning.
+
+### Parallelism
+The scanner uses concurrent workers for file I/O and hashing.
+
+- `--scan-workers <n>`: Number of parallel workers (default is `runtime.NumCPU()`). Set to `1` for serial execution.
 
 ## Authentication
 

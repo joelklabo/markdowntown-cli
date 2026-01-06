@@ -43,6 +43,33 @@ describe('cliSnapshot helpers', () => {
     expect(result.error).toBe('Status must be ready or pending.');
   });
 
+  it('parses valid CLI snapshot params with uppercase status', () => {
+    const result = parseCliSnapshotContext({
+      cliRepoId: 'repo-1',
+      cliStatus: 'READY',
+    });
+
+    expect(result.context?.status).toBe('ready');
+  });
+
+  it('rejects whitespace-only values as empty', () => {
+    const result = parseCliSnapshotContext({
+      cliRepoId: '   ',
+    });
+
+    expect(result.context).toBeNull();
+    expect(result.errorCode).toBe('empty_param');
+  });
+
+  it('rejects values exceeding max length', () => {
+    const result = parseCliSnapshotContext({
+      cliRepoId: 'a'.repeat(201),
+    });
+
+    expect(result.context).toBeNull();
+    expect(result.errorCode).toBe('too_long');
+  });
+
   it('ignores unrelated query params', () => {
     const result = parseCliSnapshotContext({
       cliRepoId: 'demo-repo',

@@ -32,6 +32,7 @@ func (err *commandError) Unwrap() error {
 }
 
 func runGit(dir string, stdin io.Reader, args ...string) (string, error) {
+	// Optimization: we could check version once globally, but runGit is low-level.
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
 	cmd.Stdin = stdin

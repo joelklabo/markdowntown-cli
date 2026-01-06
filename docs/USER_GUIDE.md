@@ -24,15 +24,43 @@ The markdowntown VS Code extension provides real-time diagnostics and quick fixe
 - **Metadata Support**: Diagnostics include links to documentation and related information for complex conflicts.
 
 ### Settings
+
+Configure the extension via `settings.json` or the Settings UI.
+
 | Setting | Default | Description |
 | --- | --- | --- |
-| `markdowntown.serverPath` | `markdowntown` | Path to the CLI binary. |
-| `markdowntown.diagnostics.enabled` | `true` | Toggle real-time diagnostics. |
+| `markdowntown.serverPath` | `markdowntown` | Path to the `markdowntown` binary. |
+| `markdowntown.diagnostics.enabled` | `true` | Enable or disable real-time diagnostics. |
+| `markdowntown.diagnostics.delayMs` | `500` | Debounce delay in milliseconds after changes before running diagnostics. |
+| `markdowntown.diagnostics.rulesEnabled` | `[]` | List of rule IDs to exclusively enable. If empty, all non-disabled rules are run. |
 | `markdowntown.diagnostics.rulesDisabled` | `[]` | List of rule IDs to suppress (e.g., `["MD002"]`). |
-| `markdowntown.diagnostics.includeRelatedInfo` | `true` | Show supporting details for diagnostics. |
+| `markdowntown.diagnostics.severityOverrides` | `{}` | Map of rule IDs to severity levels (e.g., `{"MD005": "error"}`). |
+| `markdowntown.diagnostics.includeRelatedInfo` | `true` | Show supporting details and cross-file references. |
+| `markdowntown.diagnostics.includeEvidence` | `true` | Include rule-specific evidence in the diagnostic message. |
+| `markdowntown.diagnostics.redactPaths` | `auto` | Path redaction mode (`auto`, `always`, `never`). |
+
+### Configuration Example
+
+```json
+{
+  "markdowntown.diagnostics.rulesDisabled": ["MD002"],
+  "markdowntown.diagnostics.severityOverrides": {
+    "MD005": "error"
+  },
+  "markdowntown.diagnostics.delayMs": 1000
+}
+```
+
+### Metadata and Payloads
+Settings like `includeRelatedInfo` and `includeEvidence` control the richness of the diagnostic output. Disabling `includeRelatedInfo` removes links to other configuration files that might be causing a conflict, while `includeEvidence` removes the specific triggers (like byte size or specific keys) from the error message.
 
 ### Diagnostics in Action
+
+
 ![VS Code Diagnostics](./screenshots/lsp-diagnostics/diagnostics.png)
+
+### Packaging
+The extension is packaged with platform-specific binaries for the `markdowntown` server to ensure zero-install functionality. Download the appropriate VSIX for your platform from the Releases page.
 
 ## CLI sync flow
 1. Run a CLI sync command to upload or reference a snapshot (see CLI docs).
