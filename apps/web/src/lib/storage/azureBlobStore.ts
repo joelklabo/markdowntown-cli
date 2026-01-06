@@ -24,10 +24,32 @@ function buildBlobUrl(storageKey: string): string {
   return base.toString();
 }
 
+/**
+ * Redacts SAS token query parameters from a URL string.
+ * Removes common Azure SAS parameters (sig, se, sp, sv, etc.) to prevent leaking tokens in logs.
+ */
+function redactSasToken(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const sasParams = ["sig", "se", "sp", "sv", "sr", "st", "spr", "sip", "si"];
+    for (const param of sasParams) {
+      if (parsed.searchParams.has(param)) {
+        parsed.searchParams.set(param, "[REDACTED]");
+      }
+    }
+    return parsed.toString();
+  } catch {
+    // If URL parsing fails, redact entire query string as fallback
+    const queryIndex = url.indexOf("?");
+    return queryIndex >= 0 ? url.slice(0, queryIndex) + "?[REDACTED]" : url;
+  }
+}
+
 async function assertOk(response: Response, action: string): Promise<void> {
   if (response.ok) return;
   const text = await response.text().catch(() => "");
-  throw new Error(`${action} failed (${response.status}): ${text || response.statusText}`);
+  const safeUrl = redactSasToken(response.url);
+  throw new Error(`${action} failed (${response.status}) for ${safeUrl}: ${text || response.statusText}`);
 }
 
 export function createAzureBlobStore(): BlobStore {

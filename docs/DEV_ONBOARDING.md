@@ -61,3 +61,33 @@ See `apps/web/docs/DEV_ONBOARDING.md` for web-specific details and `cli/docs/USE
 - Repo guidance: `AGENTS.md` (root) and `cli/AGENTS.md` (CLI-only).
 - Codex skills: `codex/skills/` (monorepo + CLI skills).
 - Prompt templates: `codex/prompts/` (common scan/test flows).
+
+## Azure Blob Storage configuration
+
+The `AZURE_BLOB_CONTAINER_URL` environment variable configures blob storage for CLI sync snapshots.
+
+### Format
+```
+AZURE_BLOB_CONTAINER_URL=https://<account>.blob.core.windows.net/<container>?<sas-token>
+```
+
+Components:
+- `<account>`: Azure storage account name
+- `<container>`: Blob container name (e.g., `snapshots`)
+- `<sas-token>`: SAS token with required permissions (read, write, delete)
+
+### Example
+```bash
+# Using a SAS token (recommended for local dev)
+AZURE_BLOB_CONTAINER_URL="https://myaccount.blob.core.windows.net/snapshots?sv=2022-11-02&ss=b&srt=o&sp=rwdlacu&se=2024-12-31T23:59:59Z&sig=..."
+```
+
+### SAS token requirements
+- **Permissions**: Read (r), Write (w), Delete (d), List (l) on blob objects
+- **Resource type**: Object (o)
+- **Expiry**: Set appropriate expiry; rotate before it expires
+
+### Security notes
+- **Never commit SAS tokens** to source control; use environment variables or secrets management
+- Errors from this module automatically redact SAS token parameters from logs
+- For production, use Managed Identity instead of SAS tokens when possible
