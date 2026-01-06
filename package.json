@@ -16,6 +16,7 @@
     "prisma:validate": "pnpm -C apps/web prisma:validate",
     "build": "pnpm -C apps/web build",
     "type-check": "pnpm -C apps/web type-check",
+    "test:coverage": "pnpm -C apps/web test:coverage",
     "bundle:check": "pnpm -C apps/web bundle:check",
     "atlas:validate": "pnpm -C apps/web atlas:validate",
     "compile": "pnpm -C apps/web compile",

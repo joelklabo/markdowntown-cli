@@ -26,7 +26,9 @@ describe("audit cleanup", () => {
   });
 
   it("removes expired audit issues by TTL", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.auditIssue.deleteMany).mockResolvedValue({ count: 10 } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.project.findMany).mockResolvedValue([]);
 
     const result = await cleanupAuditIssues();
@@ -45,9 +47,11 @@ describe("audit cleanup", () => {
 
   it("enforces per-project snapshot limits", async () => {
     // 1. No expired issues by TTL
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.auditIssue.deleteMany).mockResolvedValueOnce({ count: 0 } as any);
     
     // 2. One project found
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.project.findMany).mockResolvedValue([{ id: "proj_1" }] as any);
     
     // 3. Project has 52 snapshots with issues (limit is 50)
@@ -55,9 +59,11 @@ describe("audit cleanup", () => {
       id: `snap_${i}`,
       createdAt: new Date(Date.now() - i * 1000),
     }));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.snapshot.findMany).mockResolvedValue(snapshots as any);
     
     // 4. Delete issues for the 2 oldest snapshots
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.auditIssue.deleteMany).mockResolvedValueOnce({ count: 200 } as any);
 
     const result = await cleanupAuditIssues();
@@ -76,7 +82,9 @@ describe("audit cleanup", () => {
   });
 
   it("returns 0 when no issues to clean up", async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.auditIssue.deleteMany).mockResolvedValue({ count: 0 } as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(prisma.project.findMany).mockResolvedValue([]);
 
     const result = await cleanupAuditIssues();
