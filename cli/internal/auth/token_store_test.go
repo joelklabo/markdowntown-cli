@@ -104,6 +104,7 @@ func TestFileTokenStoreFilePermissionError(t *testing.T) {
 
 	tempDir := t.TempDir()
 	t.Setenv("HOME", tempDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tempDir, ".config"))
 	configDir := filepath.Join(tempDir, ".config", "markdowntown")
 	if err := os.MkdirAll(configDir, 0o750); err != nil {
 		t.Fatalf("failed to create config dir: %v", err)
