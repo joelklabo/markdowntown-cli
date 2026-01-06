@@ -107,6 +107,7 @@ func offsetForPositionTest(content []byte, pos protocol.Position) int {
 	line := 0
 	col := 0
 	for i := 0; i < len(content); {
+		// #nosec G115 -- test position conversion is safe
 		if uint32(line) == pos.Line && uint32(col) == pos.Character {
 			return i
 		}
@@ -125,6 +126,7 @@ func offsetForPositionTest(content []byte, pos protocol.Position) int {
 			width = utf16.RuneLen(r)
 		}
 
+		// #nosec G115 -- test position conversion is safe
 		if uint32(line) == pos.Line && uint32(col+width) > pos.Character {
 			return i
 		}

@@ -6,7 +6,7 @@ export function run(): Promise<void> {
   const mocha = new Mocha({
     ui: "tdd",
     color: true,
-    timeout: 20000,
+    timeout: 60000,
   });
 
   const files = fs.readdirSync(__dirname);

@@ -1010,7 +1010,8 @@ func TestDiagnosticsRapidOpenClose(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
-				URI:     uri,
+				URI: uri,
+				// #nosec G115 -- safe conversion for test version
 				Version: protocol.Integer(i),
 				Text:    content,
 			},
@@ -2205,15 +2206,15 @@ func TestCodeLensCacheInvalidation(t *testing.T) {
 	defer cancel()
 
 	rootURI := pathToURL(repoRoot)
-	initializeLSPClient(t, ctx, clientRPC, rootURI)
+	initializeLSPClient(ctx, t, clientRPC, rootURI)
 
 	uri := pathToURL(agentsPath)
-	testCodeLensCacheActive(t, ctx, clientRPC, diagnostics, uri, agentsPath)
-	testCodeLensCacheShadowed(t, ctx, clientRPC, diagnostics, uri, overridePath)
-	testCodeLensCacheActiveAfterRemoval(t, ctx, clientRPC, diagnostics, uri, overridePath)
+	testCodeLensCacheActive(ctx, t, clientRPC, diagnostics, uri)
+	testCodeLensCacheShadowed(ctx, t, clientRPC, diagnostics, uri, overridePath)
+	testCodeLensCacheActiveAfterRemoval(ctx, t, clientRPC, diagnostics, uri, overridePath)
 }
 
-func initializeLSPClient(t *testing.T, ctx context.Context, clientRPC *jsonrpc2.Conn, rootURI string) {
+func initializeLSPClient(ctx context.Context, t *testing.T, clientRPC *jsonrpc2.Conn, rootURI string) {
 	t.Helper()
 	var initResult protocol.InitializeResult
 	if err := clientRPC.Call(ctx, protocol.MethodInitialize, protocol.InitializeParams{
@@ -2239,7 +2240,7 @@ func initializeLSPClient(t *testing.T, ctx context.Context, clientRPC *jsonrpc2.
 	}
 }
 
-func testCodeLensCacheActive(t *testing.T, ctx context.Context, clientRPC *jsonrpc2.Conn, diagnostics chan protocol.PublishDiagnosticsParams, uri, agentsPath string) {
+func testCodeLensCacheActive(ctx context.Context, t *testing.T, clientRPC *jsonrpc2.Conn, diagnostics chan protocol.PublishDiagnosticsParams, uri string) {
 	t.Helper()
 	// Open document and drain diagnostics
 	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
@@ -2257,7 +2258,7 @@ func testCodeLensCacheActive(t *testing.T, ctx context.Context, clientRPC *jsonr
 	assertCodeLensTitle(t, ctx, clientRPC, uri, "Active", "2nd")
 }
 
-func testCodeLensCacheShadowed(t *testing.T, ctx context.Context, clientRPC *jsonrpc2.Conn, diagnostics chan protocol.PublishDiagnosticsParams, uri, overridePath string) {
+func testCodeLensCacheShadowed(ctx context.Context, t *testing.T, clientRPC *jsonrpc2.Conn, diagnostics chan protocol.PublishDiagnosticsParams, uri, overridePath string) {
 	t.Helper()
 	// Create override file to shadow AGENTS.md
 	if err := os.WriteFile(overridePath, []byte("---\ntoolId: claude-3-opus\n---\n# Override"), 0o600); err != nil {
@@ -2279,7 +2280,7 @@ func testCodeLensCacheShadowed(t *testing.T, ctx context.Context, clientRPC *jso
 	assertCodeLensTitle(t, ctx, clientRPC, uri, "Shadowed", "3rd")
 }
 
-func testCodeLensCacheActiveAfterRemoval(t *testing.T, ctx context.Context, clientRPC *jsonrpc2.Conn, diagnostics chan protocol.PublishDiagnosticsParams, uri, overridePath string) {
+func testCodeLensCacheActiveAfterRemoval(ctx context.Context, t *testing.T, clientRPC *jsonrpc2.Conn, diagnostics chan protocol.PublishDiagnosticsParams, uri, overridePath string) {
 	t.Helper()
 	overrideURI := pathToURL(overridePath)
 	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidClose, protocol.DidCloseTextDocumentParams{
@@ -2356,7 +2357,7 @@ func TestConfigChangeDebounceAndFallback(t *testing.T) {
 	defer cancel()
 
 	rootURI := pathToURL(repoRoot)
-	initializeLSPClient(t, ctx, clientRPC, rootURI)
+	initializeLSPClient(ctx, t, clientRPC, rootURI)
 
 	uri := pathToURL(agentsPath)
 	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{

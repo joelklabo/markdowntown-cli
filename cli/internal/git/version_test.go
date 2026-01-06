@@ -82,6 +82,7 @@ func TestValidateGitVersionTooOld(t *testing.T) {
 		t.Fatalf("failed to write mock git: %v", err)
 	}
 	if runtime.GOOS != "windows" {
+		// #nosec G302 -- execution bit required for mock git script
 		if err := os.Chmod(gitBin, 0700); err != nil {
 			t.Fatalf("failed to chmod mock git: %v", err)
 		}
