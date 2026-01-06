@@ -20,19 +20,30 @@ describe("CLI sync dashboard", () => {
 
   const maybe = baseURL ? it : it.skip;
 
-  maybe("cli-sync-dashboard renders and captures screenshot", { timeout: 45000 }, async () => {
+  maybe("gates access for unauthenticated users", { timeout: 30000 }, async () => {
+    await withE2EPage(browser, { baseURL }, async (page) => {
+      await page.goto("/cli");
+      await page.waitForURL(/\/signin/);
+    }, "cli-sync-auth-gate");
+  });
+
+  maybe("renders for authenticated user and captures screenshot", { timeout: 45000 }, async () => {
     await withE2EPage(
       browser,
       { baseURL, viewport: { width: 1280, height: 900 } },
       async (page) => {
+        // 1. Sign in
+        await page.goto("/signin");
+        await page.fill('input[type="password"]', "demo-login");
+        await page.click('button:has-text("Demo login")');
+        await page.waitForURL("/");
+
+        // 2. Go to CLI dashboard
         await page.goto("/cli", { waitUntil: "domcontentloaded" });
         await page.getByRole("heading", { name: /snapshots and patch queues/i }).waitFor({ state: "visible" });
-        await page.getByRole("link", { name: /markdowntown-cli/i }).first().waitFor({ state: "visible" });
 
         const screenshotPath = path.join(
           process.cwd(),
-          "..",
-          "..",
           "docs",
           "screenshots",
           "cli-sync",

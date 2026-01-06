@@ -1,46 +1,46 @@
+import { redirect } from "next/navigation";
 import { Container } from "@/components/ui/Container";
 import { Heading } from "@/components/ui/Heading";
 import { Stack } from "@/components/ui/Stack";
 import { Text } from "@/components/ui/Text";
-import { RepoList, type RepoListItem } from "@/components/cli-sync/RepoList";
+import { RepoList, type RepoListItem, type RepoSyncStatus } from "@/components/cli-sync/RepoList";
 import { SyncStatusCard, type SyncAuthStatus } from "@/components/cli-sync/SyncStatusCard";
+import { auth } from "@/lib/auth";
+import { getUserProjects } from "@/lib/api/projects";
+import { getUserCliTokens } from "@/lib/auth/cliToken";
+import { timeAgo, isStale } from "@/lib/time";
 
-const repoItems: RepoListItem[] = [
-  {
-    id: "markdowntown-cli",
-    name: "markdowntown-cli",
-    path: "~/code/markdowntown-cli",
-    status: "synced",
-    lastSync: "Synced 12 minutes ago",
-    snapshots: 14,
-    issues: 3,
-    branch: "main",
-  },
-  {
-    id: "atlas-engine",
-    name: "atlas-engine",
-    path: "~/code/atlas-engine",
-    status: "syncing",
-    lastSync: "Uploading snapshot now",
-    snapshots: 8,
+function deriveAuthStatus(tokens: any[]): SyncAuthStatus {
+  if (tokens.length === 0) return "missing";
+  const active = tokens.some(t => !t.expiresAt || new Date(t.expiresAt) > new Date());
+  return active ? "connected" : "expired";
+}
+
+export default async function CliDashboardPage() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/signin?callbackUrl=/cli");
+  }
+
+  const [projects, tokens] = await Promise.all([
+    getUserProjects(session.user.id),
+    getUserCliTokens(session.user.id),
+  ]);
+
+  const authStatus = deriveAuthStatus(tokens);
+  const latestToken = tokens[0];
+
+  const repoItems: RepoListItem[] = projects.map(p => ({
+    id: p.id,
+    name: p.name,
+    path: p.repoRoot || "Local repo",
+    status: isStale(p.updatedAt) ? "attention" : "synced",
+    lastSync: timeAgo(p.updatedAt),
+    snapshots: p._count.snapshots,
     issues: 0,
-    branch: "develop",
-  },
-  {
-    id: "audit-kit",
-    name: "audit-kit",
-    path: "~/code/audit-kit",
-    status: "attention",
-    lastSync: "Sync failed 2 days ago",
-    snapshots: 22,
-    issues: 6,
-    branch: "main",
-  },
-];
+    branch: undefined,
+  }));
 
-const authStatus: SyncAuthStatus = "connected";
-
-export default function CliDashboardPage() {
   return (
     <Container className="py-mdt-10 md:py-mdt-12">
       <Stack gap={8}>
@@ -57,10 +57,10 @@ export default function CliDashboardPage() {
 
         <SyncStatusCard
           status={authStatus}
-          deviceName="Codex CLI"
-          userLabel="honk"
-          lastHandshake="8 minutes ago"
-          tokenRefresh="in 26 days"
+          deviceName={latestToken?.label || undefined}
+          userLabel={session.user.username || session.user.email || undefined}
+          lastHandshake={latestToken?.lastUsedAt ? timeAgo(latestToken.lastUsedAt) : undefined}
+          tokenRefresh={latestToken?.expiresAt ? `in ${Math.ceil((new Date(latestToken.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days` : undefined}
         />
 
         <RepoList items={repoItems} />
