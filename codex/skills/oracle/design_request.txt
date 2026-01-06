@@ -1,0 +1,8 @@
+Design 3 proposals for an 'Interactive Pre-flight Clarification' step in Oracle.
+Goal: Oracle should be able to ask for more info before running the expensive research swarm.
+
+1. Proposal 1: Separate CLI flag (e.g. --check).
+2. Proposal 2: Embedded in the main flow (Decomposition can return questions).
+3. Proposal 3: Post-synthesis follow-ups.
+
+Evaluate implementation cost vs UX value for each. Provide a technical plan.
