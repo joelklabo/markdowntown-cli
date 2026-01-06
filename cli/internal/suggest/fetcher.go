@@ -29,6 +29,11 @@ type FetchSource struct {
 	URL string
 }
 
+// FetchBridge defines an interface for fetching external content.
+type FetchBridge interface {
+	Fetch(ctx context.Context, url string) ([]byte, error)
+}
+
 // FetchResult captures a single fetch response.
 type FetchResult struct {
 	URL          string
@@ -68,6 +73,7 @@ type Cache interface {
 // Fetcher fetches sources with robots and conditional GET handling.
 type Fetcher struct {
 	client    *http.Client
+	bridge    FetchBridge
 	userAgent string
 	allowlist map[string]struct{}
 	store     MetadataWriter
@@ -79,6 +85,7 @@ type Fetcher struct {
 // FetcherOptions configures a Fetcher.
 type FetcherOptions struct {
 	Client    *http.Client
+	Bridge    FetchBridge
 	UserAgent string
 	Allowlist []string
 	Store     MetadataWriter
@@ -116,6 +123,7 @@ func NewFetcher(opts FetcherOptions) (*Fetcher, error) {
 
 	return &Fetcher{
 		client:    client,
+		bridge:    opts.Bridge,
 		userAgent: ua,
 		allowlist: allowlist,
 		store:     opts.Store,
@@ -149,6 +157,17 @@ func (f *Fetcher) Fetch(ctx context.Context, source FetchSource) (FetchResult, e
 	if !robotsRules.Allows(parsed.Path) {
 		result.Skipped = true
 		result.SkipReason = "robots disallow"
+		return result, nil
+	}
+
+	if f.bridge != nil {
+		body, err := f.bridge.Fetch(ctx, source.URL)
+		if err != nil {
+			return result, err
+		}
+		result.Body = body
+		result.Status = http.StatusOK
+		f.updateMetadata(source, result)
 		return result, nil
 	}
 
@@ -231,39 +250,52 @@ func (f *Fetcher) robotsRules(ctx context.Context, parsed *url.URL) (RobotsRules
 
 	info := robotsInfo{}
 	robotsURL := &url.URL{Scheme: parsed.Scheme, Host: parsed.Host, Path: "/robots.txt"}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, robotsURL.String(), nil)
-	if err != nil {
-		info.Warnings = append(info.Warnings, fmt.Sprintf("robots request build failed: %v", err))
-		rules := RobotsRules{}
-		f.robots[host] = rules
-		return rules, info
-	}
-	req.Header.Set("User-Agent", f.userAgent)
 
-	resp, err := f.client.Do(req)
-	if err != nil {
-		info.Warnings = append(info.Warnings, fmt.Sprintf("robots fetch failed: %v", err))
-		rules := RobotsRules{}
-		f.robots[host] = rules
-		return rules, info
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
+	var data []byte
+	if f.bridge != nil {
+		var err error
+		data, err = f.bridge.Fetch(ctx, robotsURL.String())
+		if err != nil {
+			info.Warnings = append(info.Warnings, fmt.Sprintf("robots fetch failed via bridge: %v", err))
+			rules := RobotsRules{}
+			f.robots[host] = rules
+			return rules, info
+		}
+	} else {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, robotsURL.String(), nil)
+		if err != nil {
+			info.Warnings = append(info.Warnings, fmt.Sprintf("robots request build failed: %v", err))
+			rules := RobotsRules{}
+			f.robots[host] = rules
+			return rules, info
+		}
+		req.Header.Set("User-Agent", f.userAgent)
 
-	if resp.StatusCode != http.StatusOK {
-		info.Warnings = append(info.Warnings, fmt.Sprintf("robots status %d", resp.StatusCode))
-		rules := RobotsRules{}
-		f.robots[host] = rules
-		return rules, info
-	}
+		resp, err := f.client.Do(req)
+		if err != nil {
+			info.Warnings = append(info.Warnings, fmt.Sprintf("robots fetch failed: %v", err))
+			rules := RobotsRules{}
+			f.robots[host] = rules
+			return rules, info
+		}
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		info.Warnings = append(info.Warnings, fmt.Sprintf("robots read failed: %v", err))
-		rules := RobotsRules{}
-		f.robots[host] = rules
-		return rules, info
+		if resp.StatusCode != http.StatusOK {
+			info.Warnings = append(info.Warnings, fmt.Sprintf("robots status %d", resp.StatusCode))
+			rules := RobotsRules{}
+			f.robots[host] = rules
+			return rules, info
+		}
+
+		data, err = io.ReadAll(resp.Body)
+		if err != nil {
+			info.Warnings = append(info.Warnings, fmt.Sprintf("robots read failed: %v", err))
+			rules := RobotsRules{}
+			f.robots[host] = rules
+			return rules, info
+		}
 	}
 
 	parsedRobots := ParseRobots(data)

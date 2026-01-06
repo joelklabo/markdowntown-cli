@@ -90,7 +90,7 @@ func runSuggestWithIO(stdout, _ io.Writer, args []string) error {
 		format = "json"
 	}
 
-	clientID, err := parseClient(client)
+	clientID, err := instructions.ParseClient(client)
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func runResolveWithIO(stdout, _ io.Writer, args []string) error {
 		format = "json"
 	}
 
-	clientID, err := parseClient(client)
+	clientID, err := instructions.ParseClient(client)
 	if err != nil {
 		return err
 	}
@@ -422,23 +422,6 @@ func formatFromURL(rawURL string) string {
 		return "markdown"
 	default:
 		return "markdown"
-	}
-}
-
-func parseClient(value string) (instructions.Client, error) {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "codex":
-		return instructions.ClientCodex, nil
-	case "copilot":
-		return instructions.ClientCopilot, nil
-	case "vscode":
-		return instructions.ClientVSCode, nil
-	case "claude":
-		return instructions.ClientClaude, nil
-	case "gemini":
-		return instructions.ClientGemini, nil
-	default:
-		return "", fmt.Errorf("unknown client: %s", value)
 	}
 }
 

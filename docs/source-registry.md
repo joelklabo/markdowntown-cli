@@ -76,6 +76,8 @@ The WASM engine uses a fetch bridge to retrieve external sources while in the br
 - **Direct Bridge**: Used when the environment allows direct HTTPS fetches (e.g., CLI).
 - **Proxy Bridge**: Used when CORS or other restrictions prevent direct access (e.g., Browser). Requests are routed through `GET /api/engine/fetch?url=...`.
 
+Both bridges enforce the `allowlistHosts` defined in the registry. The Proxy Bridge (Node) reads the allowlist from `cli/data/doc-sources.json` and rejects unauthorized hosts with a `403 Forbidden` response.
+
 ### Delivery Optimization
 
 The WASM engine is served with the following optimizations:

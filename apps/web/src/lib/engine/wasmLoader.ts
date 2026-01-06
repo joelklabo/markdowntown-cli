@@ -5,9 +5,17 @@ import {
   type WasmEngine,
   type WasmScanAuditRequest,
   type WasmScanAuditResponse,
+  type WasmSuggestRequest,
+  type WasmSuggestResponse,
 } from "@markdowntown/engine-js";
 
-export type { WasmEngine, WasmScanAuditRequest, WasmScanAuditResponse };
+export type {
+  WasmEngine,
+  WasmScanAuditRequest,
+  WasmScanAuditResponse,
+  WasmSuggestRequest,
+  WasmSuggestResponse,
+};
 
 const WASM_FILE = "markdowntown_engine.wasm";
 const WASM_EXEC_FILE = "wasm_exec.js";

@@ -4,8 +4,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(__filename), "..");
-const wasmDir = path.join(repoRoot, "cli", "dist", "wasm");
-const wasmPath = path.join(wasmDir, "markdowntown_scan_audit.wasm");
+const wasmDir = path.join(repoRoot, "apps/web/public/engine");
+const wasmPath = path.join(wasmDir, "markdowntown_engine.wasm");
 const wasmExecPath = path.join(wasmDir, "wasm_exec.js");
 const registryPath = path.join(repoRoot, "cli", "data", "ai-config-patterns.json");
 
@@ -31,7 +31,7 @@ const request = {
   files: [
     {
       path: "/repo/AGENTS.md",
-      content: "---\nkey: value\ninvalid: [\n---\n",
+      content: "---\ntoolId: claude-3-opus\n---\n# Test",
     },
   ],
 };
@@ -48,7 +48,30 @@ if (!response.ok) {
 }
 
 const issues = response.output?.issues ?? [];
-console.log(`WASM smoke ok. Issues: ${issues.length}`);
+console.log(`WASM audit ok. Issues: ${issues.length}`);
+
+const sourcesPath = path.join(repoRoot, "cli", "data", "doc-sources.json");
+const sourcesRegistry = JSON.parse(await fs.readFile(sourcesPath, "utf8"));
+const suggestRequest = {
+  client: "codex",
+  registry: sourcesRegistry,
+  explain: true,
+  offline: true,
+};
+
+const suggest = globalThis.markdowntownSuggest;
+if (typeof suggest !== "function") {
+  throw new Error("markdowntownSuggest export not available");
+}
+
+const sResponseRaw = suggest(JSON.stringify(suggestRequest));
+const sResponse = typeof sResponseRaw === "string" ? JSON.parse(sResponseRaw) : sResponseRaw;
+if (!sResponse.ok) {
+  throw new Error(sResponse.error || "WASM suggest failed");
+}
+
+const suggestions = sResponse.output?.suggestions ?? [];
+console.log(`WASM suggest ok. Suggestions: ${suggestions.length}`);
 
 async function ensureFile(filePath, message) {
   try {

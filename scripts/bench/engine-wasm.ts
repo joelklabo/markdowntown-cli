@@ -63,8 +63,40 @@ async function main() {
   const totalMs = end - start;
   const avgMs = totalMs / iterations;
 
-  console.log(`Total time: ${totalMs.toFixed(2)}ms`);
-  console.log(`Average time per call: ${avgMs.toFixed(2)}ms`);
+  console.log(`Scan/Audit: Total time: ${totalMs.toFixed(2)}ms`);
+  console.log(`Scan/Audit: Average time per call: ${avgMs.toFixed(2)}ms`);
+
+  const sourcesPath = path.join(repoRoot, "cli", "data", "doc-sources.json");
+  const sourcesRegistry = JSON.parse(await fs.readFile(sourcesPath, "utf8"));
+  const suggestRequest = {
+    client: "codex",
+    registry: sourcesRegistry,
+    explain: true,
+    offline: true, // Use offline mode for bench
+  };
+
+  const suggest = (globalThis as any).markdowntownSuggest;
+  if (typeof suggest !== "function") {
+    throw new Error("markdowntownSuggest export not available");
+  }
+
+  console.log(`Benchmarking WASM suggest over ${iterations} iterations...`);
+  const suggestRequestStr = JSON.stringify(suggestRequest);
+  const sStart = performance.now();
+  for (let i = 0; i < iterations; i++) {
+    const responseRaw = suggest(suggestRequestStr);
+    const response = typeof responseRaw === "string" ? JSON.parse(responseRaw) : responseRaw;
+    if (!response.ok) {
+      throw new Error(response.error || "WASM suggest failed");
+    }
+  }
+  const sEnd = performance.now();
+
+  const sTotalMs = sEnd - sStart;
+  const sAvgMs = sTotalMs / iterations;
+
+  console.log(`Suggest: Total time: ${sTotalMs.toFixed(2)}ms`);
+  console.log(`Suggest: Average time per call: ${sAvgMs.toFixed(2)}ms`);
 }
 
 async function exists(path: string) {

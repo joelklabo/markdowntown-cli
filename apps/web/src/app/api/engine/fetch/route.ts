@@ -1,7 +1,21 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rateLimiter";
+import fs from "node:fs";
+import path from "node:path";
 
 export const dynamic = "force-dynamic";
+
+function getAllowlist(): string[] {
+  try {
+    const registryPath = path.resolve(process.cwd(), "../../cli/data/doc-sources.json");
+    const content = fs.readFileSync(registryPath, "utf8");
+    const registry = JSON.parse(content);
+    return registry.allowlistHosts || [];
+  } catch (error) {
+    console.error("Failed to load fetch allowlist:", error);
+    return [];
+  }
+}
 
 export async function GET(request: Request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -20,11 +34,14 @@ export async function GET(request: Request) {
     if (targetUrl.protocol !== "https:") {
       return NextResponse.json({ error: "Only https allowed" }, { status: 400 });
     }
-    
-    // We should probably check an allowlist here too, similar to the CLI logic.
-    // Ideally share the allowlist logic or use the same registry.
-    // For now, let's assume the client (WASM) does validation, but server-side check is safer.
-    // If we skip it here, we rely on the caller.
+
+    const allowlist = getAllowlist();
+    const host = targetUrl.hostname.toLowerCase();
+    const isAllowed = allowlist.some(allowed => host === allowed.toLowerCase());
+
+    if (!isAllowed) {
+      return NextResponse.json({ error: `Host not allowlisted: ${host}` }, { status: 403 });
+    }
     
     const response = await fetch(target, {
         headers: {

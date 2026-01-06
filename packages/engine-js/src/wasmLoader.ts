@@ -41,8 +41,28 @@ export type WasmScanAuditResponse = {
   };
 };
 
+export type WasmSuggestRequest = {
+  client: string;
+  explain?: boolean;
+  refresh?: boolean;
+  offline?: boolean;
+  proxyUrl?: string;
+  registry: {
+    version: string;
+    allowlistHosts: string[];
+    sources: Array<Record<string, unknown>>;
+  };
+};
+
+export type WasmSuggestResponse = {
+  ok: boolean;
+  error?: string;
+  output?: unknown;
+};
+
 export type WasmEngine = {
   runScanAudit(request: WasmScanAuditRequest): WasmScanAuditResponse;
+  runSuggest(request: WasmSuggestRequest): WasmSuggestResponse;
 };
 
 export type WasmEngineOptions = {
@@ -85,6 +105,8 @@ async function initializeEngine(options: WasmEngineOptions): Promise<WasmEngine>
     throw new Error("markdowntownScanAudit export not found after initializing WASM");
   }
 
+  const suggest = (globalThis as WasmGlobal).markdowntownSuggest;
+
   return {
     runScanAudit(request: WasmScanAuditRequest): WasmScanAuditResponse {
       const payload = scanAudit(JSON.stringify(request));
@@ -94,6 +116,14 @@ async function initializeEngine(options: WasmEngineOptions): Promise<WasmEngine>
         response.output.issues = normalizeIssues(response.output.issues);
       }
       return response;
+    },
+    runSuggest(request: WasmSuggestRequest): WasmSuggestResponse {
+      if (typeof suggest !== "function") {
+        return { ok: false, error: "markdowntownSuggest export not found" };
+      }
+      const payload = suggest(JSON.stringify(request));
+      const json = typeof payload === "string" ? payload : JSON.stringify(payload);
+      return JSON.parse(json) as WasmSuggestResponse;
     },
   };
 }

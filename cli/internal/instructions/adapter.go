@@ -1,6 +1,11 @@
 // Package instructions resolves effective instruction chains for supported clients.
 package instructions
 
+import (
+	"fmt"
+	"strings"
+)
+
 // Client identifies a supported instruction client.
 type Client string
 
@@ -16,6 +21,24 @@ const (
 	// ClientGemini identifies the Gemini client.
 	ClientGemini Client = "gemini"
 )
+
+// ParseClient converts a string into a Client identifier.
+func ParseClient(value string) (Client, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "codex":
+		return ClientCodex, nil
+	case "copilot":
+		return ClientCopilot, nil
+	case "vscode":
+		return ClientVSCode, nil
+	case "claude":
+		return ClientClaude, nil
+	case "gemini":
+		return ClientGemini, nil
+	default:
+		return "", fmt.Errorf("unknown client: %s", value)
+	}
+}
 
 // OrderGuarantee describes whether a merge order is deterministic.
 type OrderGuarantee string

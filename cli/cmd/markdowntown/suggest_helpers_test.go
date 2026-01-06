@@ -25,16 +25,16 @@ func TestParseClient(t *testing.T) {
 		{input: "gemini", want: instructions.ClientGemini},
 	}
 	for _, tc := range cases {
-		client, err := parseClient(tc.input)
+		client, err := instructions.ParseClient(tc.input)
 		if err != nil {
-			t.Fatalf("parseClient %s: %v", tc.input, err)
+			t.Fatalf("ParseClient %s: %v", tc.input, err)
 		}
 		if client != tc.want {
 			t.Fatalf("expected %s, got %s", tc.want, client)
 		}
 	}
 
-	if _, err := parseClient("nope"); err == nil {
+	if _, err := instructions.ParseClient("nope"); err == nil {
 		t.Fatalf("expected error for unknown client")
 	}
 }

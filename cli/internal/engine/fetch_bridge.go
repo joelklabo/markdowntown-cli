@@ -11,12 +11,7 @@ import (
 	"markdowntown-cli/internal/suggest"
 )
 
-// FetchBridge defines the interface for fetching external sources.
-type FetchBridge interface {
-	Fetch(ctx context.Context, url string) ([]byte, error)
-}
-
-// NativeFetchBridge implements FetchBridge using the internal suggest fetcher.
+// NativeFetchBridge implements suggest.FetchBridge using the internal suggest fetcher.
 type NativeFetchBridge struct {
 	fetcher *suggest.Fetcher
 }
