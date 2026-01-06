@@ -2,6 +2,7 @@ const url = process.env.MCP_HEALTH_URL ?? "http://localhost:3000";
 const timeoutMs = Number(process.env.MCP_HEALTH_TIMEOUT ?? "2000");
 const retryCount = Number(process.env.MCP_HEALTH_RETRIES ?? "2");
 const retryDelayMs = Number(process.env.MCP_HEALTH_RETRY_DELAY ?? "300");
+const chromeDebugUrl = process.env.MCP_CHROME_URL ?? "http://localhost:9222/json/version";
 
 const formatMs = (value) => `${Math.round(value)}ms`;
 
@@ -15,12 +16,12 @@ const logSection = (title) => {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const attemptFetch = async (attempt) => {
+const attemptFetch = async (targetUrl, attempt) => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const start = Date.now();
   try {
-    const response = await fetch(url, {
+    const response = await fetch(targetUrl, {
       method: "HEAD",
       signal: controller.signal,
     });
@@ -37,18 +38,39 @@ const attemptFetch = async (attempt) => {
   }
 };
 
+const checkChromeDebug = async () => {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1000);
+    const response = await fetch(chromeDebugUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
+
 let lastFailure = null;
 const totalAttempts = Math.max(1, retryCount + 1);
 
 for (let attempt = 1; attempt <= totalAttempts; attempt += 1) {
-  const result = await attemptFetch(attempt);
+  const result = await attemptFetch(url, attempt);
   if (result.ok) {
     const statusLine = `HTTP ${result.response.status} (${formatMs(result.durationMs)})`;
     if (result.response.ok) {
-      log(`MCP health check OK: ${statusLine}`);
-      log("Next: open a fresh DevTools MCP page and capture console/network.");
+      log(`App health check OK: ${statusLine}`);
+      
+      const chromeOk = await checkChromeDebug();
+      if (chromeOk) {
+        log("Chrome remote debugging (port 9222) is reachable.");
+        log("Next: open a fresh DevTools MCP page and capture console/network.");
+      } else {
+        log("WARNING: Chrome remote debugging (port 9222) is NOT reachable.");
+        log("DevTools MCP will likely fail (Transport closed).");
+        log("Fallback: Manual QA via F12.");
+      }
     } else {
-      log(`MCP health check warning: ${statusLine}`);
+      log(`App health check warning: ${statusLine}`);
       log("If the app is expected to be running, restart the dev server.");
     }
     logSection("Troubleshooting");

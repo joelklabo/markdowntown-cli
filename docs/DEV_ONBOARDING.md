@@ -62,6 +62,9 @@ See `apps/web/docs/DEV_ONBOARDING.md` for web-specific details and `cli/docs/USE
 - Codex skills: `codex/skills/` (monorepo + CLI skills).
 - Prompt templates: `codex/prompts/` (common scan/test flows).
 
+## QA & Troubleshooting
+- **DevTools MCP**: If you encounter "Transport closed" errors with the DevTools MCP, see `docs/qa/devtools-troubleshooting.md` for recovery steps and manual fallback instructions.
+
 ## Azure Blob Storage configuration
 
 The `AZURE_BLOB_CONTAINER_URL` environment variable configures blob storage for CLI sync snapshots.
