@@ -40,12 +40,37 @@ Provide a Language Server Protocol (LSP) server backed by markdowntown-cli scan 
 - **Diagnostics pipeline**: scan → gitignore filter → audit rules → diagnostics (with optional evidence + related info).
 - **Settings** come from initialization options and `workspace/didChangeConfiguration` and apply live.
 - **Document symbols** provide a `DocumentSymbol` tree per file, rooted at config blocks with children for key fields (toolId, model, scope, etc.).
+  - Symbols are built from parsed frontmatter with precise UTF-16 ranges for VS Code navigation
+  - Nested objects and arrays are represented as child symbols (e.g., `metadata.owner`, `excludeAgents[0]`)
+  - Files without frontmatter return null (no symbols)
+  - Malformed frontmatter is handled gracefully (no panic, may return empty or partial symbols)
+  - Works with CRLF line endings and multibyte characters (emoji, Unicode)
 - **Definition (registry-aware)** resolves toolId to `ai-config-patterns.json` when available, with multiple locations for duplicated IDs.
+  - Click on toolId value → jump to registry entry with full tool metadata
+  - Fallback to repo `AGENTS.md` if registry is not configured or toolId not found
+  - Returns null when registry path is invalid or file cannot be read (no error thrown)
+  - Supports duplicate toolIds by returning multiple Location[] entries
+  - UTF-16 range precision for correct selection highlighting
+
+## Behavior: Registry missing or unavailable
+
+When the registry is missing or cannot be loaded:
+
+- **Hover**: Shows generic "toolId" hover with no registry notes
+- **Definition**: Falls back to repo `AGENTS.md` if it exists, otherwise returns null
+- **Completion**: Returns empty completion list (no toolId suggestions)
+- **Diagnostics**: May show MD000 diagnostic ("LSP error: Registry not found") if scan fails
+
+Registry is considered missing when:
+- `MARKDOWNTOWN_REGISTRY` env var is not set or points to non-existent file
+- `markdowntown.registryPath` setting is invalid or empty
+- Registry JSON is malformed or unreadable
+
+LSP continues to provide diagnostics, code actions, and symbols even without a registry.
 
 ## Open questions + assumptions
 
 - Document symbols should only surface AI config files (assume `AGENTS.md` + tool config files).
-- Registry resolution prefers `markdowntown.registryPath` or `MARKDOWNTOWN_REGISTRY` when present.
 - Definition requests should be tolerant when scans are incomplete (return null rather than error).
 - If registry lookups ever become remote, they must be time-bounded and async.
 
