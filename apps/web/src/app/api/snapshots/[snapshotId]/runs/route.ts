@@ -60,7 +60,7 @@ export async function GET(request: Request, context: RouteContext) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    const limitResponse = checkRateLimit(`cli-runs:list:${ip}`, RUN_LIMITS.list);
+    const limitResponse = await checkRateLimit(`cli-runs:list:${ip}`, RUN_LIMITS.list);
     if (limitResponse) {
       logAbuseSignal({ ip, reason: "cli-runs-list-rate-limit", traceId });
       return limitResponse;
@@ -73,7 +73,7 @@ export async function GET(request: Request, context: RouteContext) {
     const { token, response } = await requireCliToken(request, ["cli:read"]);
     if (response) return response;
 
-    const userLimitResponse = checkRateLimit(`cli-runs:list:user:${token.userId}`, RUN_LIMITS.list);
+    const userLimitResponse = await checkRateLimit(`cli-runs:list:user:${token.userId}`, RUN_LIMITS.list);
     if (userLimitResponse) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-runs-list-user-rate-limit", traceId });
       return userLimitResponse;
@@ -108,7 +108,7 @@ export async function POST(request: Request, context: RouteContext) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    const limitResponse = checkRateLimit(`cli-runs:create:${ip}`, RUN_LIMITS.create);
+    const limitResponse = await checkRateLimit(`cli-runs:create:${ip}`, RUN_LIMITS.create);
     if (limitResponse) {
       logAbuseSignal({ ip, reason: "cli-runs-create-rate-limit", traceId });
       return limitResponse;
@@ -121,7 +121,7 @@ export async function POST(request: Request, context: RouteContext) {
     const { token, response } = await requireCliToken(request, ["cli:run"]);
     if (response) return response;
 
-    const userLimitResponse = checkRateLimit(`cli-runs:create:user:${token.userId}`, RUN_LIMITS.create);
+    const userLimitResponse = await checkRateLimit(`cli-runs:create:user:${token.userId}`, RUN_LIMITS.create);
     if (userLimitResponse) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-runs-create-user-rate-limit", traceId });
       return userLimitResponse;

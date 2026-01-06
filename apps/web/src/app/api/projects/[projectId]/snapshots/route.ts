@@ -80,7 +80,7 @@ export async function GET(request: Request, context: RouteContext) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    const limitResponse = checkRateLimit(`cli-snapshots:list:${ip}`, CLI_SNAPSHOT_LIMITS.list);
+    const limitResponse = await checkRateLimit(`cli-snapshots:list:${ip}`, CLI_SNAPSHOT_LIMITS.list);
     if (limitResponse) {
       logAbuseSignal({ ip, reason: "cli-snapshots-list-rate-limit", traceId });
       return limitResponse;
@@ -93,7 +93,7 @@ export async function GET(request: Request, context: RouteContext) {
     const { token, response } = await requireCliToken(request, ["cli:read"]);
     if (response) return response;
 
-    const userLimitResponse = checkRateLimit(`cli-snapshots:list:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.list);
+    const userLimitResponse = await checkRateLimit(`cli-snapshots:list:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.list);
     if (userLimitResponse) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-snapshots-list-user-rate-limit", traceId });
       return userLimitResponse;
@@ -154,7 +154,7 @@ export async function POST(request: Request, context: RouteContext) {
     const ip = getClientIp(request);
     const traceId = request.headers.get("x-trace-id") ?? undefined;
 
-    const limitResponse = checkRateLimit(`cli-snapshots:create:${ip}`, CLI_SNAPSHOT_LIMITS.create);
+    const limitResponse = await checkRateLimit(`cli-snapshots:create:${ip}`, CLI_SNAPSHOT_LIMITS.create);
     if (limitResponse) {
       logAbuseSignal({ ip, reason: "cli-snapshots-create-rate-limit", traceId });
       return limitResponse;
@@ -167,7 +167,7 @@ export async function POST(request: Request, context: RouteContext) {
     const { token, response } = await requireCliToken(request, ["cli:upload"]);
     if (response) return response;
 
-    const userLimitResponse = checkRateLimit(`cli-snapshots:create:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.create);
+    const userLimitResponse = await checkRateLimit(`cli-snapshots:create:user:${token.userId}`, CLI_SNAPSHOT_LIMITS.create);
     if (userLimitResponse) {
       logAbuseSignal({ ip, userId: token.userId, reason: "cli-snapshots-create-user-rate-limit", traceId });
       return userLimitResponse;

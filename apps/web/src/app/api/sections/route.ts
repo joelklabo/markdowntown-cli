@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
   const ip = request.headers.get("x-forwarded-for") ?? "unknown";
   const traceId = request.headers.get("x-trace-id") ?? undefined;
-  if (!rateLimit(`post:${ip}`)) {
+  if (!(await rateLimit(`post:${ip}`))) {
     logAbuseSignal({ ip, userId: session.user.id, reason: "rate-limit-post", traceId });
     return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }

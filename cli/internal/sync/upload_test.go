@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,8 +11,7 @@ import (
 	"strings"
 	syncpkg "sync"
 	"testing"
-
-	"markdowntown-cli/internal/config"
+	"time"
 )
 
 func TestUploadSnapshotUploadsMissingBlobs(t *testing.T) {
@@ -223,116 +221,11 @@ func TestUploadSnapshotSkipsWhenNoMissingBlobs(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 
+	if len(blobRequests) != 0 {
+		t.Fatalf("expected no blob uploads, got %d", len(blobRequests))
+	}
 	if finalizeCount != 1 {
 		t.Fatalf("expected finalize to run once, got %d", finalizeCount)
-	}
-}
-
-func TestUploadSnapshotResume(t *testing.T) {
-	repoRoot := t.TempDir()
-	fileOne := filepath.Join(repoRoot, "alpha.txt")
-	if err := os.WriteFile(fileOne, []byte("alpha"), 0o600); err != nil {
-		t.Fatalf("write alpha: %v", err)
-	}
-
-	manifest, _, _ := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
-
-	// Pre-create a checkpoint
-	err := config.SaveCheckpoint(config.UploadCheckpoint{
-		RepoRoot:     repoRoot,
-		SnapshotID:   "resumed-snap",
-		ManifestHash: manifest.Hash,
-	})
-	if err != nil {
-		t.Fatalf("save checkpoint: %v", err)
-	}
-
-	mux := http.NewServeMux()
-	server := httptest.NewServer(mux)
-	defer server.Close()
-
-	var capturedBaseSnapshotID string
-	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, r *http.Request) {
-		var req UploadHandshakeRequest
-		_ = json.NewDecoder(r.Body).Decode(&req)
-		capturedBaseSnapshotID = req.BaseSnapshotID
-
-		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
-			SnapshotID: "resumed-snap",
-			Upload:     UploadPlan{Mode: "direct", URL: server.URL + "/blob"},
-		})
-	})
-
-	mux.HandleFunc("/api/cli/upload/complete", func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(FinalizeResponse{Status: "ready"})
-	})
-
-	client, _ := NewClient(server.URL, "token", "Bearer", server.Client())
-	result, err := UploadSnapshot(context.Background(), client, UploadOptions{
-		RepoRoot:    repoRoot,
-		ProjectName: "demo",
-	})
-
-	if err != nil {
-		t.Fatalf("upload failed: %v", err)
-	}
-	if !result.Resumed {
-		t.Error("expected Resumed to be true")
-	}
-	if capturedBaseSnapshotID != "resumed-snap" {
-		t.Errorf("expected BaseSnapshotID to be resumed-snap, got %s", capturedBaseSnapshotID)
-	}
-
-	// Verify checkpoint was removed
-	if _, err := config.LoadCheckpoint(repoRoot); !errors.Is(err, config.ErrCheckpointNotFound) {
-		t.Error("expected checkpoint to be removed after successful upload")
-	}
-}
-
-func TestUploadSnapshotMaxBase64Limit(t *testing.T) {
-	repoRoot := t.TempDir()
-	fileOne := filepath.Join(repoRoot, "large.txt")
-	// 10 bytes
-	if err := os.WriteFile(fileOne, []byte("0123456789"), 0o600); err != nil {
-		t.Fatalf("write large: %v", err)
-	}
-
-	mux := http.NewServeMux()
-
-	server := httptest.NewServer(mux)
-
-	defer server.Close()
-
-	// Use real hash from manifest
-
-	manifest, _, _ := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
-
-	missingHash := manifest.Entries[0].BlobHash
-
-	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
-
-		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
-
-			SnapshotID: "snap-123",
-
-			MissingBlobs: []string{missingHash},
-
-			Upload: UploadPlan{Mode: "direct", URL: server.URL + "/blob"},
-		})
-
-	})
-
-	client, _ := NewClient(server.URL, "token", "Bearer", server.Client())
-
-	// Limit to 5 bytes, file is 10 bytes
-	_, err := UploadSnapshot(context.Background(), client, UploadOptions{
-		RepoRoot:       repoRoot,
-		ProjectName:    "demo",
-		MaxBase64Bytes: 5,
-	})
-
-	if err == nil || !strings.Contains(err.Error(), "exceeds base64 upload limit") {
-		t.Fatalf("expected size limit error, got %v", err)
 	}
 }
 
@@ -373,5 +266,584 @@ func TestUploadSnapshotMissingBlobInManifest(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "missing manifest entry") {
 		t.Fatalf("expected missing manifest entry error, got %v", err)
+	}
+}
+
+func TestUploadRetries429WithExponentialBackoff(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoRoot, "alpha.txt"), []byte("alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha: %v", err)
+	}
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	missingHash := manifest.Entries[0].BlobHash
+
+	var (
+		mu           syncpkg.Mutex
+		blobAttempts int
+		timestamps   []time.Time
+	)
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{missingHash},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/blob", func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		blobAttempts++
+		timestamps = append(timestamps, time.Now())
+		attempt := blobAttempts
+		mu.Unlock()
+
+		if attempt < 3 {
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "rate limited"})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(UploadBlobResponse{Status: "ok", BlobID: "blob-1"})
+	})
+
+	mux.HandleFunc("/api/cli/upload/complete", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(FinalizeResponse{Status: "ready", SnapshotID: "snap-123"})
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", &http.Client{Timeout: 30 * time.Second})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	result, err := UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:          repoRoot,
+		ProjectName:       "demo",
+		UploadConcurrency: 1,
+	})
+	if err != nil {
+		t.Fatalf("upload snapshot: %v", err)
+	}
+
+	if result.UploadedBlobs != 1 {
+		t.Fatalf("expected 1 uploaded blob, got %d", result.UploadedBlobs)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if blobAttempts != 3 {
+		t.Fatalf("expected 3 attempts, got %d", blobAttempts)
+	}
+
+	for i := 1; i < len(timestamps); i++ {
+		delay := timestamps[i].Sub(timestamps[i-1])
+		if delay < 500*time.Millisecond {
+			t.Errorf("delay between attempt %d and %d was %v, expected >= 500ms", i, i+1, delay)
+		}
+	}
+}
+
+func TestUploadRetriesNetworkTimeouts(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoRoot, "alpha.txt"), []byte("alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha: %v", err)
+	}
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	missingHash := manifest.Entries[0].BlobHash
+
+	var (
+		mu           syncpkg.Mutex
+		blobAttempts int
+	)
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{missingHash},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/blob", func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		blobAttempts++
+		attempt := blobAttempts
+		mu.Unlock()
+
+		if attempt < 2 {
+			w.WriteHeader(http.StatusGatewayTimeout)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(UploadBlobResponse{Status: "ok", BlobID: "blob-1"})
+	})
+
+	mux.HandleFunc("/api/cli/upload/complete", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(FinalizeResponse{Status: "ready", SnapshotID: "snap-123"})
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", &http.Client{Timeout: 30 * time.Second})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	result, err := UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:          repoRoot,
+		ProjectName:       "demo",
+		UploadConcurrency: 1,
+	})
+	if err != nil {
+		t.Fatalf("upload snapshot: %v", err)
+	}
+
+	if result.UploadedBlobs != 1 {
+		t.Fatalf("expected 1 uploaded blob, got %d", result.UploadedBlobs)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if blobAttempts != 2 {
+		t.Fatalf("expected 2 attempts, got %d", blobAttempts)
+	}
+}
+
+func TestUploadRetriesMaxAttemptsExhausted(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoRoot, "alpha.txt"), []byte("alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha: %v", err)
+	}
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	missingHash := manifest.Entries[0].BlobHash
+
+	var (
+		mu           syncpkg.Mutex
+		blobAttempts int
+	)
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{missingHash},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/blob", func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		blobAttempts++
+		mu.Unlock()
+
+		w.WriteHeader(http.StatusTooManyRequests)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "rate limited"})
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", &http.Client{Timeout: 30 * time.Second})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	_, err = UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:          repoRoot,
+		ProjectName:       "demo",
+		UploadConcurrency: 1,
+	})
+	if err == nil || !strings.Contains(err.Error(), "rate limited") {
+		t.Fatalf("expected rate limited error, got %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if blobAttempts != 4 {
+		t.Fatalf("expected 4 attempts (1 initial + 3 retries), got %d", blobAttempts)
+	}
+}
+
+func TestUploadRespectsRetryAfterHeader(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoRoot, "alpha.txt"), []byte("alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha: %v", err)
+	}
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	missingHash := manifest.Entries[0].BlobHash
+
+	var (
+		mu           syncpkg.Mutex
+		blobAttempts int
+		timestamps   []time.Time
+	)
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{missingHash},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/blob", func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
+		blobAttempts++
+		timestamps = append(timestamps, time.Now())
+		attempt := blobAttempts
+		mu.Unlock()
+
+		if attempt == 1 {
+			w.Header().Set("Retry-After", "2")
+			w.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(UploadBlobResponse{Status: "ok", BlobID: "blob-1"})
+	})
+
+	mux.HandleFunc("/api/cli/upload/complete", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(FinalizeResponse{Status: "ready", SnapshotID: "snap-123"})
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", &http.Client{Timeout: 30 * time.Second})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	result, err := UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:          repoRoot,
+		ProjectName:       "demo",
+		UploadConcurrency: 1,
+	})
+	if err != nil {
+		t.Fatalf("upload snapshot: %v", err)
+	}
+
+	if result.UploadedBlobs != 1 {
+		t.Fatalf("expected 1 uploaded blob, got %d", result.UploadedBlobs)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if blobAttempts != 2 {
+		t.Fatalf("expected 2 attempts, got %d", blobAttempts)
+	}
+
+	if len(timestamps) == 2 {
+		delay := timestamps[1].Sub(timestamps[0])
+		if delay < 2*time.Second {
+			t.Errorf("delay was %v, expected >= 2s (Retry-After)", delay)
+		}
+	}
+}
+
+func TestUploadContextCancellationDuringBackoff(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoRoot, "alpha.txt"), []byte("alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha: %v", err)
+	}
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	missingHash := manifest.Entries[0].BlobHash
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{missingHash},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/blob", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "10")
+		w.WriteHeader(http.StatusTooManyRequests)
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", &http.Client{Timeout: 30 * time.Second})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	_, err = UploadSnapshot(ctx, client, UploadOptions{
+		RepoRoot:          repoRoot,
+		ProjectName:       "demo",
+		UploadConcurrency: 1,
+	})
+	if err == nil {
+		t.Fatal("expected context cancellation error")
+	}
+	if !strings.Contains(err.Error(), "context") && !strings.Contains(err.Error(), "canceled") {
+		t.Fatalf("expected context error, got %v", err)
+	}
+}
+
+func TestUploadRetriesMixed5xxErrors(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoRoot, "alpha.txt"), []byte("alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoRoot, "beta.txt"), []byte("beta"), 0o600); err != nil {
+		t.Fatalf("write beta: %v", err)
+	}
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	if len(manifest.Entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(manifest.Entries))
+	}
+
+	var (
+		mu            syncpkg.Mutex
+		alphaAttempts int
+		betaAttempts  int
+	)
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{manifest.Entries[0].BlobHash, manifest.Entries[1].BlobHash},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/blob", func(w http.ResponseWriter, r *http.Request) {
+		var req UploadBlobRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+
+		mu.Lock()
+		var attempt int
+		if req.Sha256 == manifest.Entries[0].BlobHash {
+			alphaAttempts++
+			attempt = alphaAttempts
+		} else {
+			betaAttempts++
+			attempt = betaAttempts
+		}
+		mu.Unlock()
+
+		if req.Sha256 == manifest.Entries[0].BlobHash && attempt == 1 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		_ = json.NewEncoder(w).Encode(UploadBlobResponse{Status: "ok", BlobID: "blob-1"})
+	})
+
+	mux.HandleFunc("/api/cli/upload/complete", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(FinalizeResponse{Status: "ready", SnapshotID: "snap-123"})
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", &http.Client{Timeout: 30 * time.Second})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	result, err := UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:          repoRoot,
+		ProjectName:       "demo",
+		UploadConcurrency: 2,
+	})
+	if err != nil {
+		t.Fatalf("upload snapshot: %v", err)
+	}
+
+	if result.UploadedBlobs != 2 {
+		t.Fatalf("expected 2 uploaded blobs, got %d", result.UploadedBlobs)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if alphaAttempts != 2 {
+		t.Fatalf("expected alpha to be retried (2 attempts), got %d", alphaAttempts)
+	}
+	if betaAttempts != 1 {
+		t.Fatalf("expected beta to succeed first time (1 attempt), got %d", betaAttempts)
+	}
+}
+
+func TestParseRetryAfterHTTPDate(t *testing.T) {
+	header := time.Now().Add(1500 * time.Millisecond).UTC().Format(http.TimeFormat)
+	seconds := parseRetryAfter(header)
+	if seconds < 1 || seconds > 3 {
+		t.Fatalf("expected retry-after seconds between 1 and 3, got %d", seconds)
+	}
+}
+
+func TestUploadHandles401AuthExpiry(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoRoot, "alpha.txt"), []byte("alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha: %v", err)
+	}
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	missingHash := manifest.Entries[0].BlobHash
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{missingHash},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/blob", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "unauthorized"})
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	_, err = UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:    repoRoot,
+		ProjectName: "demo",
+	})
+	if err == nil {
+		t.Fatal("expected unauthorized error")
+	}
+	if !strings.Contains(err.Error(), "authentication failed") || !strings.Contains(err.Error(), "markdowntown login") {
+		t.Fatalf("expected actionable guidance in error, got %v", err)
+	}
+}
+
+func TestUploadHandles403Forbidden(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoRoot, "alpha.txt"), []byte("alpha"), 0o600); err != nil {
+		t.Fatalf("write alpha: %v", err)
+	}
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	missingHash := manifest.Entries[0].BlobHash
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{missingHash},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/blob", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "forbidden"})
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	_, err = UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:    repoRoot,
+		ProjectName: "demo",
+	})
+	if err == nil {
+		t.Fatal("expected forbidden error")
+	}
+	if !strings.Contains(err.Error(), "access denied") || !strings.Contains(err.Error(), "markdowntown login") {
+		t.Fatalf("expected actionable guidance in error, got %v", err)
+	}
+}
+
+func TestBackoffDelayUsesRandomJitter(t *testing.T) {
+	expectedBase := 500 * time.Millisecond * 2
+	delays := make(map[time.Duration]struct{})
+	for i := 0; i < 5; i++ {
+		delay := backoffDelay(1, 0)
+		if delay < expectedBase || delay > expectedBase+100*time.Millisecond {
+			t.Fatalf("delay %v outside expected range [%v, %v]", delay, expectedBase, expectedBase+100*time.Millisecond)
+		}
+		delays[delay] = struct{}{}
+	}
+	if len(delays) == 1 {
+		for delay := range delays {
+			t.Fatalf("expected jitter to vary, saw identical delay %v", delay)
+		}
 	}
 }

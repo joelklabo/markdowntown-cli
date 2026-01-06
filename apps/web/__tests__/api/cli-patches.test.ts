@@ -122,6 +122,81 @@ describe("cli-patches API", () => {
     expect(json.nextCursor).toBeNull();
   });
 
+  it("supports pagination for listing patches", async () => {
+    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
+    listPatchesMock.mockResolvedValue([
+      { id: "p1", createdAt: new Date() },
+      { id: "p2", createdAt: new Date() },
+    ]);
+
+    const { GET } = await patchesRoute;
+    const res = await GET(new Request("http://localhost/api/cli/patches?snapshotId=snap-1&limit=2"));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.patches).toHaveLength(2);
+    expect(json.nextCursor).toBe("p2");
+    expect(listPatchesMock).toHaveBeenCalledWith(expect.objectContaining({
+      limit: 2,
+      cursor: undefined,
+    }));
+  });
+
+  it("clamps limit to max 100", async () => {
+    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
+    listPatchesMock.mockResolvedValue([]);
+
+    const { GET } = await patchesRoute;
+    await GET(new Request("http://localhost/api/cli/patches?snapshotId=snap-1&limit=200"));
+
+    expect(listPatchesMock).toHaveBeenCalledWith(expect.objectContaining({
+      limit: 100,
+    }));
+  });
+
+  it("clamps limit to min 1", async () => {
+    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
+    listPatchesMock.mockResolvedValue([]);
+
+    const { GET } = await patchesRoute;
+    await GET(new Request("http://localhost/api/cli/patches?snapshotId=snap-1&limit=0"));
+
+    expect(listPatchesMock).toHaveBeenCalledWith(expect.objectContaining({
+      limit: 1,
+    }));
+  });
+
+  it("returns null nextCursor when results < limit", async () => {
+    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
+    listPatchesMock.mockResolvedValue([{ id: "p1", createdAt: new Date() }]);
+
+    const { GET } = await patchesRoute;
+    const res = await GET(new Request("http://localhost/api/cli/patches?snapshotId=snap-1&limit=10"));
+    const json = await res.json();
+
+    expect(json.nextCursor).toBeNull();
+  });
+
+  it("passes cursor parameter correctly", async () => {
+    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
+    listPatchesMock.mockResolvedValue([]);
+
+    const { GET } = await patchesRoute;
+    await GET(new Request("http://localhost/api/cli/patches?snapshotId=snap-1&cursor=prev_cursor"));
+
+    expect(listPatchesMock).toHaveBeenCalledWith(expect.objectContaining({
+      cursor: "prev_cursor",
+    }));
+  });
+
+  it("propagates database errors", async () => {
+    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
+    listPatchesMock.mockRejectedValue(new Error("Database connection failed"));
+
+    const { GET } = await patchesRoute;
+    await expect(GET(new Request("http://localhost/api/cli/patches?snapshotId=snap-1"))).rejects.toThrow("Database connection failed");
+  });
+
   it("returns raw patch bodies", async () => {
     requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
     getPatchMock.mockResolvedValue({
@@ -175,6 +250,28 @@ describe("cli-patches API", () => {
 
     expect(res.status).toBe(200);
     expect(json.patch.id).toBe("patch-1");
+  });
+
+  it("rejects oversized patch bodies", async () => {
+    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
+
+    const { POST } = await patchesRoute;
+    const res = await POST(
+      new Request("http://localhost/api/cli/patches", {
+        method: "POST",
+        body: JSON.stringify({
+          snapshotId: "snap-1",
+          path: "README.md",
+          baseBlobHash: VALID_HASH,
+          patchFormat: "unified",
+          patchBody: "a".repeat(1024 * 1024 + 1),
+        }),
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(413);
+    expect(json.error).toMatch(/exceeds size limit/i);
   });
 
   it("surfaces patch create errors", async () => {

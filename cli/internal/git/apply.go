@@ -32,7 +32,8 @@ func (err *PatchConflictError) Is(target error) bool {
 
 // ApplyOptions configures patch application behavior.
 type ApplyOptions struct {
-	DryRun bool
+	DryRun  bool
+	Reverse bool
 }
 
 // ApplyPatch applies a unified diff patch in the provided repo root.
@@ -40,6 +41,9 @@ func ApplyPatch(repoRoot string, patch []byte, options ApplyOptions) error {
 	args := []string{"apply", "--whitespace=nowarn", "--binary"}
 	if options.DryRun {
 		args = append(args, "--check")
+	}
+	if options.Reverse {
+		args = append(args, "--reverse")
 	}
 
 	_, err := runGit(repoRoot, bytes.NewReader(patch), args...)

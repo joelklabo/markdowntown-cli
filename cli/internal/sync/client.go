@@ -4,11 +4,13 @@ package sync
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	"math"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -18,12 +20,7 @@ import (
 	"markdowntown-cli/internal/version"
 )
 
-const (
-	defaultClientTimeout = 30 * time.Second
-	maxRetries           = 5
-	baseRetryDelay       = 250 * time.Millisecond
-	maxRetryDelay        = 10 * time.Second
-)
+const defaultClientTimeout = 30 * time.Second
 
 // Client is a minimal API client for the CLI upload endpoints.
 type Client struct {
@@ -138,27 +135,6 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("request failed: %s (status %d)", e.Message, e.Status)
 }
 
-// AuthError indicates an authentication or authorization failure.
-type AuthError struct {
-	Status  int
-	Message string
-}
-
-func (e *AuthError) Error() string {
-	if e == nil {
-		return ""
-	}
-	msg := e.Message
-	if msg == "" {
-		if e.Status == http.StatusUnauthorized {
-			msg = "authentication required"
-		} else {
-			msg = "permission denied"
-		}
-	}
-	return fmt.Sprintf("%s (status %d). Please try logging in again with 'markdowntown login'.", msg, e.Status)
-}
-
 // MissingBlobsError indicates the finalize endpoint needs more blobs.
 type MissingBlobsError struct {
 	Missing []string
@@ -213,24 +189,59 @@ func (c *Client) Handshake(ctx context.Context, req UploadHandshakeRequest) (Upl
 
 // UploadBlob registers blob content using the provided endpoint.
 func (c *Client) UploadBlob(ctx context.Context, endpoint string, req UploadBlobRequest) error {
-	status, body, err := c.postJSON(ctx, endpoint, req)
-	if err != nil {
-		return err
-	}
-	if status >= http.StatusBadRequest {
-		return parseAPIError(status, body)
-	}
-	if len(body) == 0 {
+	return c.uploadBlobWithRetry(ctx, endpoint, req, 3)
+}
+
+func (c *Client) uploadBlobWithRetry(ctx context.Context, endpoint string, req UploadBlobRequest, maxRetries int) error {
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+		}
+
+		status, body, retryAfter, err := c.postJSONWithRetry(ctx, endpoint, req)
+		if err != nil {
+			lastErr = err
+			if !isRetryable(err, status) {
+				return err
+			}
+			delay := backoffDelay(attempt, retryAfter)
+			if err := sleepWithContext(ctx, delay); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if status >= http.StatusBadRequest {
+			lastErr = parseAPIError(status, body)
+			if !isRetryableStatus(status) {
+				return lastErr
+			}
+			delay := backoffDelay(attempt, retryAfter)
+			if err := sleepWithContext(ctx, delay); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if len(body) == 0 {
+			return nil
+		}
+		var resp UploadBlobResponse
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return err
+		}
+		if resp.Error != "" {
+			return &APIError{Status: status, Message: resp.Error}
+		}
 		return nil
 	}
-	var resp UploadBlobResponse
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return err
+	if lastErr != nil {
+		return lastErr
 	}
-	if resp.Error != "" {
-		return &APIError{Status: status, Message: resp.Error}
-	}
-	return nil
+	return errors.New("upload failed after retries")
 }
 
 // Finalize marks the snapshot as ready after uploads complete.
@@ -270,21 +281,23 @@ type apiErrorResponse struct {
 }
 
 func parseAPIError(status int, body []byte) error {
+	if status == http.StatusUnauthorized {
+		return &APIError{Status: status, Message: "authentication failed; your session may have expired. Please run 'markdowntown login' to re-authenticate."}
+	}
+	if status == http.StatusForbidden {
+		return &APIError{Status: status, Message: "access denied; you do not have permission to perform this action. Check your project access or run 'markdowntown login' if your session has changed."}
+	}
+
 	var parsed apiErrorResponse
 	if len(body) > 0 && json.Unmarshal(body, &parsed) == nil {
 		if len(parsed.MissingBlobs) > 0 {
 			return &MissingBlobsError{Missing: parsed.MissingBlobs, Status: status}
 		}
-		if status == http.StatusUnauthorized || status == http.StatusForbidden {
-			return &AuthError{Status: status, Message: parsed.Error}
-		}
 		if parsed.Error != "" {
 			return &APIError{Status: status, Message: parsed.Error}
 		}
 	}
-	if status == http.StatusUnauthorized || status == http.StatusForbidden {
-		return &AuthError{Status: status, Message: strings.TrimSpace(string(body))}
-	}
+
 	message := strings.TrimSpace(string(body))
 	if message == "" {
 		message = http.StatusText(status)
@@ -316,35 +329,123 @@ func (c *Client) postJSON(ctx context.Context, endpoint string, payload any) (in
 		return 0, nil, err
 	}
 
-	var lastStatus int
-	var lastBody []byte
-	var lastRetryAfter time.Duration
-	var lastErr error
-
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			delay := calculateDelay(attempt, lastStatus, lastRetryAfter)
-			select {
-			case <-ctx.Done():
-				return 0, nil, ctx.Err()
-			case <-time.After(delay):
-			}
-		}
-
-		lastStatus, lastBody, lastRetryAfter, lastErr = c.doRequest(ctx, http.MethodPost, urlStr, body)
-		if !shouldRetry(lastStatus, lastErr) {
-			return lastStatus, lastBody, lastErr
-		}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, urlStr, bytes.NewReader(body))
+	if err != nil {
+		return 0, nil, err
 	}
 
-	if lastErr != nil {
-		return lastStatus, lastBody, fmt.Errorf("request failed after %d attempts: %w", maxRetries, lastErr)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", fmt.Sprintf("markdowntown-cli/%s", version.ToolVersion))
+	if token := strings.TrimSpace(c.Token); token != "" {
+		req.Header.Set("Authorization", formatAuthHeader(c.TokenType, token))
 	}
-	return lastStatus, lastBody, nil
+
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp.StatusCode, nil, err
+	}
+
+	return resp.StatusCode, data, nil
 }
 
-func (c *Client) doRequest(ctx context.Context, method, urlStr string, body []byte) (int, []byte, time.Duration, error) {
-	req, err := http.NewRequestWithContext(ctx, method, urlStr, bytes.NewReader(body))
+func (c *Client) resolveEndpoint(endpoint string) (string, error) {
+	trimmed := strings.TrimSpace(endpoint)
+	if trimmed == "" {
+		return "", errors.New("endpoint required")
+	}
+	if strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://") {
+		return trimmed, nil
+	}
+	return url.JoinPath(c.BaseURL, trimmed)
+}
+
+func formatAuthHeader(tokenType, token string) string {
+	scheme := strings.TrimSpace(tokenType)
+	if scheme == "" {
+		scheme = "Bearer"
+	} else if strings.EqualFold(scheme, "bearer") {
+		scheme = "Bearer"
+	}
+	return fmt.Sprintf("%s %s", scheme, token)
+}
+
+func isRetryableStatus(status int) bool {
+	return status == http.StatusTooManyRequests ||
+		status == http.StatusRequestTimeout ||
+		status == http.StatusInternalServerError ||
+		status == http.StatusBadGateway ||
+		status == http.StatusServiceUnavailable ||
+		status == http.StatusGatewayTimeout
+}
+
+func isRetryable(err error, status int) bool {
+	if err == nil {
+		return false
+	}
+	if strings.Contains(err.Error(), "timeout") || strings.Contains(err.Error(), "connection") {
+		return true
+	}
+	return isRetryableStatus(status)
+}
+
+func backoffDelay(attempt int, retryAfter int) time.Duration {
+	if retryAfter > 0 {
+		maxRetryAfter := 30
+		if retryAfter > maxRetryAfter {
+			retryAfter = maxRetryAfter
+		}
+		return time.Duration(retryAfter) * time.Second
+	}
+	base := 500 * time.Millisecond
+	var shift uint
+	if attempt > 0 {
+		shift = uint(attempt)
+	}
+	// Cap shift to avoid overflow
+	if shift > 30 {
+		shift = 30
+	}
+	delay := base * (1 << shift)
+	maxDelay := 10 * time.Second
+	if delay > maxDelay {
+		delay = maxDelay
+	}
+	jitter := randomJitter(100 * time.Millisecond)
+	return delay + jitter
+}
+
+func sleepWithContext(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func (c *Client) postJSONWithRetry(ctx context.Context, endpoint string, payload any) (int, []byte, int, error) {
+	urlStr, err := c.resolveEndpoint(endpoint)
+	if err != nil {
+		return 0, nil, 0, err
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return 0, nil, 0, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, urlStr, bytes.NewReader(body))
 	if err != nil {
 		return 0, nil, 0, err
 	}
@@ -369,72 +470,33 @@ func (c *Client) doRequest(ctx context.Context, method, urlStr string, body []by
 		return resp.StatusCode, nil, 0, err
 	}
 
-	var retryAfter time.Duration
-	if resp.StatusCode == http.StatusTooManyRequests {
-		if val := resp.Header.Get("Retry-After"); val != "" {
-			if seconds, err := strconv.Atoi(val); err == nil {
-				retryAfter = time.Duration(seconds) * time.Second
-			} else if date, err := http.ParseTime(val); err == nil {
-				retryAfter = time.Until(date)
-			}
-		}
-	}
-
+	retryAfter := parseRetryAfter(resp.Header.Get("Retry-After"))
 	return resp.StatusCode, data, retryAfter, nil
 }
 
-func shouldRetry(status int, err error) bool {
+func parseRetryAfter(header string) int {
+	if header == "" {
+		return 0
+	}
+	if seconds, err := strconv.Atoi(header); err == nil && seconds > 0 {
+		return seconds
+	}
+	if t, err := http.ParseTime(header); err == nil {
+		seconds := int(math.Ceil(time.Until(t).Seconds()))
+		if seconds > 0 {
+			return seconds
+		}
+	}
+	return 0
+}
+
+func randomJitter(maxDuration time.Duration) time.Duration {
+	if maxDuration <= 0 {
+		return 0
+	}
+	n, err := rand.Int(rand.Reader, big.NewInt(maxDuration.Nanoseconds()))
 	if err != nil {
-		// Network errors are usually retryable
-		return true
+		return 0
 	}
-	// Retry on rate limit and server errors
-	return status == http.StatusTooManyRequests || (status >= 500 && status <= 599)
-}
-
-func calculateDelay(attempt int, status int, retryAfter time.Duration) time.Duration {
-	if status == http.StatusTooManyRequests && retryAfter > 0 {
-		return retryAfter
-	}
-
-	// Simple exponential backoff
-	shift := attempt - 1
-	if shift < 0 {
-		shift = 0
-	}
-	if shift > 31 {
-		shift = 31
-	}
-	// #nosec G115 -- shift is constrained between 0 and 31.
-	delay := baseRetryDelay * time.Duration(1<<uint(shift))
-	if delay > maxRetryDelay {
-		delay = maxRetryDelay
-	}
-
-	// Add jitter (up to 20%)
-	jitter := time.Duration(rand.Int63n(int64(delay / 5))) // #nosec G404 -- jitter doesn't need secure RNG
-	delay += jitter
-
-	return delay
-}
-
-func (c *Client) resolveEndpoint(endpoint string) (string, error) {
-	trimmed := strings.TrimSpace(endpoint)
-	if trimmed == "" {
-		return "", errors.New("endpoint required")
-	}
-	if strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://") {
-		return trimmed, nil
-	}
-	return url.JoinPath(c.BaseURL, trimmed)
-}
-
-func formatAuthHeader(tokenType, token string) string {
-	scheme := strings.TrimSpace(tokenType)
-	if scheme == "" {
-		scheme = "Bearer"
-	} else if strings.EqualFold(scheme, "bearer") {
-		scheme = "Bearer"
-	}
-	return fmt.Sprintf("%s %s", scheme, token)
+	return time.Duration(n.Int64())
 }

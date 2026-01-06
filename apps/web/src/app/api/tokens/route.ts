@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   const { session, response } = await requireSession();
   if (response) return response;
 
-  const limitResponse = checkRateLimit(`tokens:create:${session.user.id}`, {
+  const limitResponse = await checkRateLimit(`tokens:create:${session.user.id}`, {
     maxRequests: 10,
     windowMs: 60 * 60 * 1000,
   });

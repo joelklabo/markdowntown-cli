@@ -1,23 +1,25 @@
 #!/bin/bash
 set -e
 
-# Build CLI
-cd cli
-go build -o bin/markdowntown ./cmd/markdowntown
-cd ..
+# Usage: ./cli-upload-e2e.sh <repo-path> <base-url>
+REPO_PATH=$1
+BASE_URL=$2
 
-# Initialize test repo
-TEST_REPO="apps/web/.e2e-repo"
-rm -rf "$TEST_REPO"
-mkdir -p "$TEST_REPO"
-cd "$TEST_REPO"
-git init
-echo "# Hello E2E" > README.md
-git add README.md
-git commit -m "Initial commit"
+if [ -z "$REPO_PATH" ] || [ -z "$BASE_URL" ]; then
+  echo "Usage: $0 <repo-path> <base-url>"
+  exit 1
+fi
+
+# Locate CLI binary
+CLI_BIN="$(git rev-parse --show-toplevel)/cli/bin/markdowntown"
+
+if [ ! -f "$CLI_BIN" ]; then
+  echo "CLI binary not found at $CLI_BIN. Please run 'make build' in cli directory."
+  exit 1
+fi
 
 # Run upload
-../../cli/bin/markdowntown upload --repo .
-
-# Print success
-echo "Upload complete"
+# We assume the user is already logged in or token is configured.
+# We capture stdout to extract the URL.
+OUTPUT=$("$CLI_BIN" upload --repo "$REPO_PATH" --base-url "$BASE_URL" --project "e2e-auto" --quiet)
+echo "$OUTPUT"

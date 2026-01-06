@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const traceId = request.headers.get("x-trace-id") ?? undefined;
     
     // Rate limit by IP + user ID combination
-    if (!rateLimit(`cli-device-confirm:${ip}:${session.user.id}`)) {
+    if (!(await rateLimit(`cli-device-confirm:${ip}:${session.user.id}`))) {
       logAbuseSignal({ ip, userId: session.user.id, reason: "cli-device-confirm-rate-limit", traceId });
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     const userCodeHash = hashCode(normalizedCode);
     
     // Rate limit by user code hash to prevent brute-force attacks on codes
-    if (!rateLimit(`cli-device-confirm-code:${userCodeHash}`, { points: 5, duration: 60 })) {
+    if (!(await rateLimit(`cli-device-confirm-code:${userCodeHash}`, { points: 5, duration: 60 }))) {
       logAbuseSignal({ ip, userId: session.user.id, reason: "cli-device-confirm-code-rate-limit", traceId });
       return NextResponse.json({ error: "Too many attempts for this code" }, { status: 429 });
     }

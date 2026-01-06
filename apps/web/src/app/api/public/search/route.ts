@@ -19,7 +19,7 @@ function parseSort(input: string | null): "recent" | "views" | "copies" {
 export async function GET(request: Request) {
   return withAPM(request, async () => {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    if (!rateLimit(`public-search:${ip}`)) {
+    if (!(await rateLimit(`public-search:${ip}`))) {
       return NextResponse.json({ items: [], error: "Rate limit exceeded" }, { status: 429 });
     }
     const start = performance.now();

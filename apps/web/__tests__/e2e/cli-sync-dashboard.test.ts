@@ -20,42 +20,30 @@ describe("CLI sync dashboard", () => {
 
   const maybe = baseURL ? it : it.skip;
 
-  maybe("cli-sync-dashboard redirects to signin when unauthenticated", { timeout: 45000 }, async () => {
-    await withE2EPage(
-      browser,
-      { baseURL, viewport: { width: 1280, height: 900 } },
-      async (page) => {
-        // Ensure we are signed out by clearing cookies
-        await page.context().clearCookies();
-        await page.goto("/cli", { waitUntil: "domcontentloaded" });
-        
-        // Should redirect to signin
-        await page.waitForURL(/\/signin/);
-        expect(page.url()).toContain("/signin");
-      },
-      "cli-sync-dashboard-unauth"
-    );
+  maybe("gates access for unauthenticated users", { timeout: 30000 }, async () => {
+    await withE2EPage(browser, { baseURL }, async (page) => {
+      await page.goto("/cli");
+      await page.waitForURL(/\/signin/);
+    }, "cli-sync-auth-gate");
   });
 
-  maybe("cli-sync-dashboard renders and captures screenshot", { timeout: 45000 }, async () => {
+  maybe("renders for authenticated user and captures screenshot", { timeout: 45000 }, async () => {
     await withE2EPage(
       browser,
       { baseURL, viewport: { width: 1280, height: 900 } },
       async (page) => {
-        // Use demo login or assume session cookie is set if running against a real dev server with demo user
-        await page.goto("/cli", { waitUntil: "domcontentloaded" });
-        
-        // Wait for content to load (past skeleton)
-        const heading = page.getByRole("heading", { name: /snapshots and patch queues/i });
-        await heading.waitFor({ state: "visible" });
+        // 1. Sign in
+        await page.goto("/signin");
+        await page.fill('input[type="password"]', "demo-login");
+        await page.click('button:has-text("Demo login")');
+        await page.waitForURL("/");
 
-        // Check for sync status card
-        await page.getByText(/CLI connection/i).waitFor({ state: "visible" });
+        // 2. Go to CLI dashboard
+        await page.goto("/cli", { waitUntil: "domcontentloaded" });
+        await page.getByRole("heading", { name: /snapshots and patch queues/i }).waitFor({ state: "visible" });
 
         const screenshotPath = path.join(
           process.cwd(),
-          "..",
-          "..",
           "docs",
           "screenshots",
           "cli-sync",

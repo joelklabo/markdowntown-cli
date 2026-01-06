@@ -18,7 +18,7 @@ function parseSort(input: string | null): NonNullable<ListPublicSkillsInput["sor
 export async function GET(request: Request) {
   return withAPM(request, async () => {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    if (!rateLimit(`public-skills:${ip}`)) {
+    if (!(await rateLimit(`public-skills:${ip}`))) {
       return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
     }
 

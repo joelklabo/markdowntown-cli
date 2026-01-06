@@ -124,11 +124,37 @@ func ApplyPatches(repoRoot string, patches []Patch, options ApplyOptions) ([]App
 		return nil, err
 	}
 
+	// 1. Filter and pre-validate patches
+	toApply, results, err := filterAndValidatePatches(repoRoot, patches, state, options)
+	if err != nil || len(toApply) == 0 {
+		return results, err
+	}
+
+	// 2. Dry-run check for all candidate patches
+	if err := checkPatches(repoRoot, toApply, &results); err != nil {
+		return results, err
+	}
+
+	if options.DryRun {
+		for _, patch := range toApply {
+			results = append(results, ApplyResult{Patch: patch, Status: PatchDryRun})
+		}
+		return results, nil
+	}
+
+	// 3. Real apply (all checks passed)
+	results, err = executePatches(repoRoot, toApply, state, results)
+	return results, err
+}
+
+func filterAndValidatePatches(repoRoot string, patches []Patch, state patchState, options ApplyOptions) ([]Patch, []ApplyResult, error) {
+	toApply := make([]Patch, 0, len(patches))
 	results := make([]ApplyResult, 0, len(patches))
 	checkedClean := false
+
 	for _, patch := range patches {
 		if patch.ID == "" {
-			return results, errors.New("patch missing id")
+			return nil, results, errors.New("patch missing id")
 		}
 		if !strings.EqualFold(patch.Status, "PROPOSED") && patch.Status != "" {
 			results = append(results, ApplyResult{Patch: patch, Status: PatchSkipped})
@@ -139,54 +165,96 @@ func ApplyPatches(repoRoot string, patches []Patch, options ApplyOptions) ([]App
 			continue
 		}
 		if strings.TrimSpace(patch.PatchBody) == "" {
-			return results, fmt.Errorf("patch %s missing body", patch.ID)
+			return nil, results, fmt.Errorf("patch %s missing body", patch.ID)
 		}
-		if err := validatePatchPaths(patch.PatchBody); err != nil {
+		if err := validatePatchPaths(repoRoot, patch.PatchBody); err != nil {
 			wrapped := fmt.Errorf("patch %s has invalid paths: %w", patch.ID, err)
 			results = append(results, ApplyResult{Patch: patch, Status: PatchFailed, Err: wrapped})
-			return results, wrapped
+			return nil, results, wrapped
 		}
 		if !options.DryRun && !options.Force && !checkedClean {
 			clean, err := git.IsClean(repoRoot)
 			if err != nil {
-				results = append(results, ApplyResult{Patch: patch, Status: PatchFailed, Err: err})
-				return results, err
+				err = fmt.Errorf("failed to check git status: %w", err)
+				return nil, results, err
 			}
 			checkedClean = true
 			if !clean {
-				err := errors.New("working tree has uncommitted changes; commit/stash or use --force")
-				results = append(results, ApplyResult{Patch: patch, Status: PatchFailed, Err: err})
-				return results, err
+				err = errors.New("working tree has uncommitted changes; commit/stash or use --force")
+				return nil, results, err
 			}
 		}
+		toApply = append(toApply, patch)
+	}
+	return toApply, results, nil
+}
 
-		err := git.ApplyPatch(repoRoot, []byte(patch.PatchBody), git.ApplyOptions{DryRun: options.DryRun})
+func checkPatches(repoRoot string, toApply []Patch, results *[]ApplyResult) error {
+	for _, patch := range toApply {
+		err := git.ApplyPatch(repoRoot, []byte(patch.PatchBody), git.ApplyOptions{DryRun: true})
 		if err != nil {
 			status := PatchFailed
 			if errors.Is(err, git.ErrPatchConflict) {
 				status = PatchConflict
 			}
-			results = append(results, ApplyResult{Patch: patch, Status: status, Err: err})
-			return results, err
+			// Mark this one as failed/conflict
+			*results = append(*results, ApplyResult{Patch: patch, Status: status, Err: err})
+			// Mark others as skipped due to batch failure
+			for _, p := range toApply {
+				if p.ID == patch.ID {
+					continue
+				}
+				*results = append(*results, ApplyResult{Patch: p, Status: PatchSkipped})
+			}
+			return err
 		}
+	}
+	return nil
+}
 
-		status := PatchApplied
-		if options.DryRun {
-			status = PatchDryRun
-		} else {
-			state.record(patch)
-			if err := savePatchState(repoRoot, state); err != nil {
-				results = append(results, ApplyResult{Patch: patch, Status: PatchFailed, Err: err})
-				return results, err
+func executePatches(repoRoot string, toApply []Patch, state patchState, results []ApplyResult) ([]ApplyResult, error) {
+	appliedCount := 0
+	var lastErr error
+	for _, patch := range toApply {
+		err := git.ApplyPatch(repoRoot, []byte(patch.PatchBody), git.ApplyOptions{DryRun: false})
+		if err != nil {
+			lastErr = err
+			break
+		}
+		appliedCount++
+	}
+
+	if lastErr != nil {
+		rollbackFailed := false
+		for i := appliedCount - 1; i >= 0; i-- {
+			patch := toApply[i]
+			if rollbackErr := git.ApplyPatch(repoRoot, []byte(patch.PatchBody), git.ApplyOptions{Reverse: true}); rollbackErr != nil {
+				lastErr = fmt.Errorf("%w; additionally, rollback failed for patch %d: %v", lastErr, i+1, rollbackErr)
+				rollbackFailed = true
 			}
 		}
-		results = append(results, ApplyResult{Patch: patch, Status: status})
+
+		if !rollbackFailed {
+			if isClean, checkErr := git.IsClean(repoRoot); checkErr != nil || !isClean {
+				lastErr = fmt.Errorf("%w; repository left in dirty state after rollback", lastErr)
+			}
+		}
+		return results, fmt.Errorf("batch apply failed at patch %d: %w", appliedCount+1, lastErr)
+	}
+
+	for _, patch := range toApply {
+		state.record(patch)
+		results = append(results, ApplyResult{Patch: patch, Status: PatchApplied})
+	}
+
+	if err := savePatchState(repoRoot, state); err != nil {
+		return results, err
 	}
 
 	return results, nil
 }
 
-func validatePatchPaths(patchBody string) error {
+func validatePatchPaths(repoRoot string, patchBody string) error {
 	scanner := bufio.NewScanner(strings.NewReader(patchBody))
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -197,10 +265,10 @@ func validatePatchPaths(patchBody string) error {
 				return err
 			}
 			if len(fields) >= 4 {
-				if err := validatePatchPathToken(normalizePatchPath(fields[2])); err != nil {
+				if err := validatePatchPathToken(repoRoot, normalizePatchPath(fields[2])); err != nil {
 					return err
 				}
-				if err := validatePatchPathToken(normalizePatchPath(fields[3])); err != nil {
+				if err := validatePatchPathToken(repoRoot, normalizePatchPath(fields[3])); err != nil {
 					return err
 				}
 			}
@@ -214,7 +282,7 @@ func validatePatchPaths(patchBody string) error {
 				return err
 			}
 			if len(fields) >= 1 {
-				if err := validatePatchPathToken(normalizePatchPath(fields[0])); err != nil {
+				if err := validatePatchPathToken(repoRoot, normalizePatchPath(fields[0])); err != nil {
 					return err
 				}
 			}
@@ -280,7 +348,7 @@ func normalizePatchPath(token string) string {
 	return token
 }
 
-func validatePatchPathToken(token string) error {
+func validatePatchPathToken(repoRoot string, token string) error {
 	if token == "" {
 		return errors.New("patch path is empty")
 	}
@@ -304,7 +372,48 @@ func validatePatchPathToken(token string) error {
 	if lower == ".git" || strings.HasPrefix(lower, ".git/") {
 		return fmt.Errorf("patch path targets .git: %s", token)
 	}
+
+	// Symlink escape detection
+	return validateNoSymlinkEscape(repoRoot, clean)
+}
+
+func validateNoSymlinkEscape(repoRoot string, relPath string) error {
+	parts := strings.Split(relPath, "/")
+	current := repoRoot
+	for _, part := range parts {
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			if os.IsNotExist(err) {
+				// Path doesn't exist yet, which is fine for new files in patches.
+				// We still want to check parent directories if they exist.
+				continue
+			}
+			return err
+		}
+
+		if info.Mode()&os.ModeSymlink != 0 {
+			resolved, err := filepath.EvalSymlinks(current)
+			if err != nil {
+				return err
+			}
+			if !isWithinRoot(resolved, repoRoot) {
+				return fmt.Errorf("patch targets symlink resolving outside repo: %s", relPath)
+			}
+		}
+	}
 	return nil
+}
+
+func isWithinRoot(path string, root string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	return !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func (c *Client) getJSON(ctx context.Context, endpoint string, query url.Values) (int, []byte, error) {

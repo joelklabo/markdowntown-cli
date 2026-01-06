@@ -22,16 +22,8 @@ export type PatchQuery = {
   snapshotId: string;
   status?: PatchStatus;
   limit?: number;
-  cursor?: string;
+  cursor?: string | null;
 };
-
-export type PatchListResult = {
-  patches: Patch[];
-  nextCursor: string | null;
-};
-
-const MAX_PAGE_SIZE = 100;
-const DEFAULT_PAGE_SIZE = 50;
 
 export type PatchFetch = {
   userId: string;
@@ -175,26 +167,19 @@ export async function createPatch(options: { userId: string; input: PatchInput }
   }
 }
 
-export async function listPatches(options: PatchQuery): Promise<PatchListResult> {
-  const limit = Math.min(Math.max(options.limit ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
-  const take = limit + 1; // fetch one extra to determine if there's more
-
-  const patches = await prisma.patch.findMany({
+export async function listPatches(options: PatchQuery): Promise<Patch[]> {
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
+  return prisma.patch.findMany({
     where: {
       snapshotId: options.snapshotId,
       status: options.status,
       snapshot: { project: { userId: options.userId } },
-      ...(options.cursor ? { id: { gt: options.cursor } } : {}),
     },
-    orderBy: { id: "asc" },
-    take,
+    take: limit,
+    skip: options.cursor ? 1 : 0,
+    cursor: options.cursor ? { id: options.cursor } : undefined,
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   });
-
-  const hasMore = patches.length > limit;
-  const items = hasMore ? patches.slice(0, limit) : patches;
-  const nextCursor = hasMore && items.length > 0 ? items[items.length - 1]!.id : null;
-
-  return { patches: items, nextCursor };
 }
 
 export async function getPatch(options: PatchFetch): Promise<Patch | null> {
