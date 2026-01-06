@@ -67,7 +67,8 @@ See `apps/web/docs/DEV_ONBOARDING.md` for web-specific details and `cli/docs/USE
 The `AZURE_BLOB_CONTAINER_URL` environment variable configures blob storage for CLI sync snapshots.
 
 ### Format
-```
+
+```text
 AZURE_BLOB_CONTAINER_URL=https://<account>.blob.core.windows.net/<container>?<sas-token>
 ```
 
@@ -97,16 +98,18 @@ AZURE_BLOB_CONTAINER_URL="https://myaccount.blob.core.windows.net/snapshots?sv=2
 The CLI sync feature enforces storage limits at multiple levels to prevent abuse.
 
 ### Per-snapshot limits
-| Limit | Value | Description |
-|-------|-------|-------------|
-| `MAX_SNAPSHOT_FILES` | 5,000 | Max files per snapshot |
-| `MAX_SNAPSHOT_TOTAL_BYTES` | 50 MB | Max total size per snapshot |
-| `MAX_SNAPSHOT_FILE_BYTES` | 5 MB | Max size per individual file |
+
+| Limit                      | Value | Description                   |
+|----------------------------|-------|-------------------------------|
+| `MAX_SNAPSHOT_FILES`       | 5,000 | Max files per snapshot        |
+| `MAX_SNAPSHOT_TOTAL_BYTES` | 50 MB | Max total size per snapshot   |
+| `MAX_SNAPSHOT_FILE_BYTES`  | 5 MB  | Max size per individual file  |
 
 ### User-level quota
-| Limit | Value | Description |
-|-------|-------|-------------|
-| `MAX_USER_STORAGE_BYTES` | 500 MB | Max total storage across all user snapshots |
+
+| Limit                    | Value  | Description                                    |
+|--------------------------|--------|------------------------------------------------|
+| `MAX_USER_STORAGE_BYTES` | 500 MB | Max total storage across all user snapshots    |
 
 The user-level quota aggregates all non-deleted files across all snapshots for a given user. When a user approaches or exceeds their quota:
 - New uploads are rejected with HTTP 413 (Payload Too Large)
@@ -126,10 +129,10 @@ The blob storage system supports dual-read fallback for migration scenarios (e.g
 
 ### Environment variables
 
-| Variable | Values | Description |
-|----------|--------|-------------|
-| `BLOB_STORE_PRIMARY` | `azure`, `db` | Select primary store. Default: Azure if configured, otherwise DB |
-| `BLOB_STORE_FALLBACK` | `1`, `true` | Enable fallback reads from secondary store |
+| Variable               | Values         | Description                                                       |
+|------------------------|----------------|-------------------------------------------------------------------|
+| `BLOB_STORE_PRIMARY`   | `azure`, `db`  | Select primary store. Default: Azure if configured, otherwise DB  |
+| `BLOB_STORE_FALLBACK`  | `1`, `true`    | Enable fallback reads from secondary store                        |
 
 ### Behavior
 - **Writes**: Always go to the primary store
@@ -150,8 +153,10 @@ BLOB_STORE_PRIMARY=azure
 ```
 
 ### Observability
+
 Blob store operations are logged with the format:
-```
+
+```text
 [blob-store] blob:<hash-prefix> served from primary
 [blob-store] blob:<hash-prefix> served from secondary (fallback)
 [blob-store] blob:<hash-prefix> primary error: <message>
