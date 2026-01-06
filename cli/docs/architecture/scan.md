@@ -102,6 +102,55 @@ Shadowing only applies to tools with `loadBehavior: "replace"`. Tools that `merg
 - Config conflicts are inferred by tool+scope+kind with explicit override exceptions, excluding multi-file `loadBehavior` patterns.
 - Partial failures (e.g., one worker hits EACCES) do not abort the scan; they are recorded as warnings and the scan continues.
 
+## Safe-Open Security
+
+The scanner implements platform-specific safe-open techniques to prevent symlink escape attacks.
+
+### Implementation
+
+**Linux (kernel 5.6+)**:
+- Primary: `openat2(2)` with `RESOLVE_NO_SYMLINKS` flag
+- Fallback: O_NOFOLLOW with manual verification if openat2 unavailable
+- Verification: inode and device number comparison against expected parent
+
+**Other Unix**:
+- `open(2)` with `O_NOFOLLOW` to block final-component symlinks
+- Manual verification via `verifyFdWithinRoot` to confirm file is within scan root
+- Multi-step: stat parent, open file with O_NOFOLLOW, fstat file, compare dev/ino
+
+**Windows**:
+- Safe-open not currently supported
+- Scanner warns when symlinks detected
+
+### Residual Risks
+
+Even with safe-open, certain attack vectors remain:
+
+1. **Intermediate path symlinks**: openat2/O_NOFOLLOW only blocks the final path component. Intermediate directory components can still be symlinks. This will be addressed when Linux path-walk support lands.
+
+2. **Hardlink escapes**: An attacker with write access to the repo can create hardlinks to files outside the repo root. Safe-open cannot prevent this as hardlinks don't redirect path resolution.
+
+3. **Mount pivots**: If an attacker can manipulate mount points within the repo, they can redirect paths to unexpected locations.
+
+4. **TOCTOU gaps**: Small time-of-check-to-time-of-use windows exist between path verification and file opening, though verification minimizes the attack surface.
+
+### Security Envelope
+
+Safe-open provides defense-in-depth for repos where:
+- The repo may contain untrusted symlinks (e.g., public repos, unreviewed PRs)
+- The scanner runs with elevated privileges
+- Confidential files exist outside the repo that should not be accessed
+
+Safe-open **does not** protect against:
+- Attackers with arbitrary write access to the repo (can use hardlinks/mounts)
+- Kernel vulnerabilities in openat2 or path resolution
+- Race conditions in highly concurrent environments
+
+Operators should combine safe-open with:
+- Proper filesystem permissions
+- Sandboxing (containers, VMs)
+- Regular security audits of scan roots
+
 ## Test Plan
 
 - **Global scope safety**: fixtures under a global-root test directory; ensure scope ordering and `scans[]` entries.

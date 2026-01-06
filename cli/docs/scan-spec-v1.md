@@ -125,6 +125,30 @@ Checked with `exists: bool` in output:
 - Report warning for circular symlinks, skip the cycle
 - Include external targets (symlinks pointing outside scan roots)
 
+### Safe-Open Behavior
+
+The scanner uses platform-specific safe-open techniques to prevent symlink escapes during file access:
+
+**Linux (kernel 5.6+)**:
+- Uses `openat2` with `RESOLVE_NO_SYMLINKS` to block all symlinks in the path resolution
+- Falls back to Unix-style O_NOFOLLOW if openat2 is unavailable
+
+**Other Unix-like systems**:
+- Uses `O_NOFOLLOW` flag to block final-component symlinks
+- Performs manual verification via inode/device comparison to ensure file is within repo root
+- Multi-step verification to prevent TOCTOU attacks
+
+**Windows and non-Unix platforms**:
+- Safe-open is not supported
+- Scanner issues warnings when symlinks are encountered
+
+**Residual risks**:
+- Intermediate path components can still be symlinks until path-walk support lands in the kernel
+- Attackers with repo write access could create hardlinks or mount pivots
+- Small TOCTOU window exists between path verification and file opening
+
+For detailed security considerations, see `cli/docs/architecture/scan.md`.
+
 ### Global Scope Guardrails
 
 - Global scope is opt-in via `--global-scope` and defaults to `/etc` on Unix-like systems.
