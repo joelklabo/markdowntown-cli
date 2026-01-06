@@ -40,6 +40,11 @@ param acrName string = ''
 param acrSkuName string = 'Basic'
 param acrAdminEnabled bool = false
 
+param enableNetworkIsolation bool = false
+param vnetAddressPrefix string = '10.0.0.0/16'
+param acaSubnetAddressPrefix string = '10.0.0.0/23'
+param endpointsSubnetAddressPrefix string = '10.0.2.0/24'
+
 param containerAppCpu int = 1
 param containerAppMemory string = '1Gi'
 param containerAppMinReplicas int = 1
@@ -63,6 +68,7 @@ var appInsightsName = toLower('${namePrefix}-${environmentName}-appi-${substring
 var logAnalyticsName = toLower('${namePrefix}-${environmentName}-logs-${substring(suffix, 0, 6)}')
 var acrNameResolved = acrName != '' ? acrName : toLower('${take(base, 12)}acr${substring(suffix, 0, 6)}')
 var acrEnabled = acrCreate || acrName != ''
+var vnetName = toLower('${namePrefix}-${environmentName}-vnet')
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: logAnalyticsName
@@ -73,6 +79,35 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
       name: 'PerGB2018'
     }
     retentionInDays: 30
+  }
+}
+
+module network 'modules/network.bicep' = if (enableNetworkIsolation) {
+  name: 'network'
+  params: {
+    name: vnetName
+    location: location
+    tags: tags
+    addressPrefix: vnetAddressPrefix
+    subnets: [
+      {
+        name: 'aca'
+        addressPrefix: acaSubnetAddressPrefix
+        delegations: [
+          {
+            name: 'aca-delegation'
+            properties: {
+              serviceName: 'Microsoft.App/environments'
+            }
+          }
+        ]
+      }
+      {
+        name: 'endpoints'
+        addressPrefix: endpointsSubnetAddressPrefix
+        delegations: []
+      }
+    ]
   }
 }
 
@@ -88,6 +123,10 @@ resource managedEnv 'Microsoft.App/managedEnvironments@2023-05-01' = {
         sharedKey: logAnalytics.listKeys().primarySharedKey
       }
     }
+    vnetConfiguration: enableNetworkIsolation ? {
+      infrastructureSubnetId: network.outputs.acaSubnetId
+      internal: false
+    } : null
   }
 }
 
@@ -172,6 +211,22 @@ module postgres 'modules/postgres.bicep' = {
     storageSizeGb: postgresStorageGb
     version: postgresVersion
     databaseName: postgresDatabaseName
+  }
+}
+
+module privateEndpoints 'modules/private-endpoints.bicep' = if (enableNetworkIsolation) {
+  name: 'privateEndpoints'
+  params: {
+    location: location
+    tags: tags
+    subnetId: network.outputs.endpointsSubnetId
+    vnetId: network.outputs.id
+    postgresServerId: postgres.outputs.id
+    postgresServerName: postgres.outputs.name
+    storageAccountId: storage.outputs.accountId
+    storageAccountName: storage.outputs.accountName
+    keyVaultId: keyvault.outputs.id
+    keyVaultName: keyvault.outputs.name
   }
 }
 
@@ -295,3 +350,5 @@ output postgresServerName string = postgres.outputs.name
 output postgresDatabaseName string = postgres.outputs.databaseName
 output acrName string = acrEnabled ? acrNameResolved : ''
 output acrLoginServer string = acrEnabled ? acrLoginServer : ''
+output vnetName string = enableNetworkIsolation ? network.outputs.name : ''
+output vnetId string = enableNetworkIsolation ? network.outputs.id : ''

@@ -43,3 +43,40 @@
 - Bicep validation fails: run `az bicep build infra/main.bicep` and fix schema errors.
 - Name collisions: bump `namePrefix` or redeploy in a new resource group.
 - Container App not starting: check image tag + logs (`az containerapp logs show -g <rg> -n <app>`).
+
+## Network isolation (optional)
+
+Enable VNet + private endpoints by setting `enableNetworkIsolation = true` in your parameter file.
+
+### What gets created
+- VNet with two subnets:
+  - `aca` (delegated to Container Apps environment)
+  - `endpoints` (for private endpoints)
+- Private endpoints for Postgres, Storage Blob, and Key Vault
+- Private DNS zones for each service:
+  - `privatelink.postgres.database.azure.com`
+  - `privatelink.blob.core.windows.net`
+  - `privatelink.vaultcore.azure.net`
+
+### DNS resolution
+Private DNS zones are automatically linked to the VNet. Services within the VNet resolve the private endpoint IPs. External clients continue using public endpoints (if enabled).
+
+To verify DNS resolution from within the VNet:
+```bash
+# From a VM or container in the VNet
+nslookup <postgres-server>.postgres.database.azure.com
+# Should return the private IP (10.0.2.x)
+```
+
+### Customizing address spaces
+Override defaults in your parameter file:
+```bicep
+param vnetAddressPrefix = '10.1.0.0/16'
+param acaSubnetAddressPrefix = '10.1.0.0/23'
+param endpointsSubnetAddressPrefix = '10.1.2.0/24'
+```
+
+### Post-deploy verification
+1. Check private endpoints created: `az network private-endpoint list -g <rg>`
+2. Check DNS zones linked: `az network private-dns zone list -g <rg>`
+3. Verify Container App uses VNet: `az containerapp env show -g <rg> -n <env> --query properties.vnetConfiguration`

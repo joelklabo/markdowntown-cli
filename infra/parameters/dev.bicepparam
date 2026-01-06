@@ -16,3 +16,4 @@ param containerAppCpu = 1
 param containerAppMemory = '1Gi'
 param containerAppMinReplicas = 1
 param containerAppMaxReplicas = 2
+param enableNetworkIsolation = false
