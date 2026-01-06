@@ -184,6 +184,96 @@ func TestPatchApplyConflict(t *testing.T) {
 	}
 }
 
+func TestApplyPatchesAtomicRollback(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := runGitCommand(repoRoot, "init"); err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			t.Skip("git not available")
+		}
+		t.Fatalf("git init: %v", err)
+	}
+	if err := runGitCommand(repoRoot, "config", "user.email", "test@example.com"); err != nil {
+		t.Fatalf("git config email: %v", err)
+	}
+	if err := runGitCommand(repoRoot, "config", "user.name", "Test User"); err != nil {
+		t.Fatalf("git config name: %v", err)
+	}
+
+	filePath := filepath.Join(repoRoot, "README.md")
+	if err := os.WriteFile(filePath, []byte("line1\nline2\n"), 0o600); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	if err := runGitCommand(repoRoot, "add", "README.md"); err != nil {
+		t.Fatalf("git add: %v", err)
+	}
+	if err := runGitCommand(repoRoot, "commit", "-m", "init"); err != nil {
+		t.Fatalf("git commit: %v", err)
+	}
+
+	// Patch 1: change line 1 to "changed1"
+	if err := os.WriteFile(filePath, []byte("changed1\nline2\n"), 0o600); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	patch1Text, _ := runGitCommandOutput(repoRoot, "diff")
+	if err := runGitCommand(repoRoot, "checkout", "--", "README.md"); err != nil {
+		t.Fatalf("git checkout: %v", err)
+	}
+
+	// Patch 2: change line 1 to "changed2" (conflicts with patch 1 if applied sequentially)
+	if err := os.WriteFile(filePath, []byte("changed2\nline2\n"), 0o600); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	patch2Text, _ := runGitCommandOutput(repoRoot, "diff")
+	if err := runGitCommand(repoRoot, "checkout", "--", "README.md"); err != nil {
+		t.Fatalf("git checkout: %v", err)
+	}
+
+	patches := []Patch{
+		{ID: "p1", SnapshotID: "s1", Path: "README.md", PatchFormat: "unified", PatchBody: patch1Text, Status: "PROPOSED"},
+		{ID: "p2", SnapshotID: "s1", Path: "README.md", PatchFormat: "unified", PatchBody: patch2Text, Status: "PROPOSED"},
+	}
+
+	// Both patches apply cleanly to the base state, so DryRun should pass.
+	// But P2 conflicts with P1's changes, so Real Apply should fail at P2 and rollback P1.
+	results, err := ApplyPatches(repoRoot, patches, ApplyOptions{DryRun: false, Force: false})
+	if err == nil {
+		t.Fatalf("expected error from conflicting patches")
+	}
+
+	// Verify p1 was rolled back (file should be back to original)
+	// #nosec G304 -- test reads temp file in repo fixture.
+	content, _ := os.ReadFile(filePath)
+	if string(content) != "line1\nline2\n" {
+		t.Fatalf("expected p1 to be rolled back to 'line1\\nline2\\n', got %q", string(content))
+	}
+
+	// Verify state does not have p1 or p2
+	state, _ := loadPatchState(repoRoot)
+	if state.has("p1") || state.has("p2") {
+		t.Fatalf("expected no patches in state")
+	}
+
+	// Verify results contain success for p1 (before rollback) and failure for p2?
+	// Actually, ApplyPatches returns results processed so far.
+	// If it fails at P2, it might return P1=Applied?
+	// The implementation returns `results` as they were *before* the loop broke?
+	// Let's check the implementation details:
+	// "results" is populated in Step 1 (skipped). Step 2 (dry run) doesn't append to results if successful.
+	// Step 3 (real apply) appends to results *after* successful apply?
+	// No, Step 3:
+	//   for _, patch := range toApply {
+	//       err := apply...
+	//       if err != nil { break }
+	//       // DOES NOT APPEND TO RESULTS HERE
+	//   }
+	//   Step 4: record state and return success.
+	// So if it fails in Step 3, `results` only contains Step 1 skipped items.
+	// P1 is NOT in results. This is consistent with "batch failed".
+	if len(results) != 0 {
+		t.Fatalf("expected 0 results (since all were candidates and batch failed), got %d", len(results))
+	}
+}
+
 func TestValidatePatchPaths(t *testing.T) {
 	cases := []struct {
 		name      string
