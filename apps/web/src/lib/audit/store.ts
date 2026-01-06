@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { normalizeRepoPath } from "@/lib/cli/patches";
 import { MAX_AUDIT_MESSAGE_LENGTH, MAX_AUDIT_RULE_ID_LENGTH } from "@/lib/validation";
 
+const MAX_PAGE_SIZE = 100;
+const DEFAULT_PAGE_SIZE = 50;
+
 export type AuditIssueInput = {
   ruleId: string;
   severity: AuditSeverity;
@@ -76,17 +79,37 @@ export async function storeAuditIssues(options: {
   return { stored: normalized.length };
 }
 
-export async function listAuditIssues(options: {
+export type AuditIssueListOptions = {
   userId: string;
   snapshotId: string;
   severity?: AuditSeverity;
-}): Promise<AuditIssue[]> {
-  return prisma.auditIssue.findMany({
+  limit?: number;
+  cursor?: string;
+};
+
+export type AuditIssueListResult = {
+  issues: AuditIssue[];
+  nextCursor: string | null;
+};
+
+export async function listAuditIssues(options: AuditIssueListOptions): Promise<AuditIssueListResult> {
+  const limit = Math.min(Math.max(options.limit ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
+  const take = limit + 1;
+
+  const issues = await prisma.auditIssue.findMany({
     where: {
       snapshotId: options.snapshotId,
       severity: options.severity,
       snapshot: { project: { userId: options.userId } },
+      ...(options.cursor ? { id: { gt: options.cursor } } : {}),
     },
-    orderBy: [{ severity: "desc" }, { path: "asc" }],
+    orderBy: { id: "asc" },
+    take,
   });
+
+  const hasMore = issues.length > limit;
+  const items = hasMore ? issues.slice(0, limit) : issues;
+  const nextCursor = hasMore && items.length > 0 ? items[items.length - 1]!.id : null;
+
+  return { issues: items, nextCursor };
 }

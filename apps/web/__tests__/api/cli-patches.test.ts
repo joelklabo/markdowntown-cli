@@ -96,19 +96,22 @@ describe("cli-patches API", () => {
 
   it("lists patches for a snapshot", async () => {
     requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
-    listPatchesMock.mockResolvedValue([
-      {
-        id: "patch-1",
-        snapshotId: "snap-1",
-        path: "README.md",
-        baseBlobHash: VALID_HASH,
-        patchFormat: "unified",
-        patchBody: "diff",
-        status: PatchStatus.PROPOSED,
-        createdAt: new Date(),
-        appliedAt: null,
-      },
-    ]);
+    listPatchesMock.mockResolvedValue({
+      patches: [
+        {
+          id: "patch-1",
+          snapshotId: "snap-1",
+          path: "README.md",
+          baseBlobHash: VALID_HASH,
+          patchFormat: "unified",
+          patchBody: "diff",
+          status: PatchStatus.PROPOSED,
+          createdAt: new Date(),
+          appliedAt: null,
+        },
+      ],
+      nextCursor: null,
+    });
 
     const { GET } = await patchesRoute;
     const res = await GET(new Request("http://localhost/api/cli/patches?snapshotId=snap-1"));
@@ -116,6 +119,7 @@ describe("cli-patches API", () => {
 
     expect(res.status).toBe(200);
     expect(json.patches).toHaveLength(1);
+    expect(json.nextCursor).toBeNull();
   });
 
   it("returns raw patch bodies", async () => {
@@ -219,5 +223,37 @@ describe("cli-patches API", () => {
     expect(res.status).toBe(400);
     expect(json.error).toBe("Invalid payload");
     expect(json.details[0].message).toMatch(/too large/);
+  });
+
+  it("supports pagination params in list", async () => {
+    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
+    listPatchesMock.mockResolvedValue({
+      patches: [
+        {
+          id: "patch-2",
+          snapshotId: "snap-1",
+          path: "src/index.ts",
+          baseBlobHash: VALID_HASH,
+          patchFormat: "unified",
+          patchBody: "diff2",
+          status: PatchStatus.PROPOSED,
+          createdAt: new Date(),
+          appliedAt: null,
+        },
+      ],
+      nextCursor: "patch-2",
+    });
+
+    const { GET } = await patchesRoute;
+    const res = await GET(new Request("http://localhost/api/cli/patches?snapshotId=snap-1&limit=1&cursor=patch-1"));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.patches).toHaveLength(1);
+    expect(json.patches[0].id).toBe("patch-2");
+    expect(json.nextCursor).toBe("patch-2");
+    expect(listPatchesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 1, cursor: "patch-1" })
+    );
   });
 });

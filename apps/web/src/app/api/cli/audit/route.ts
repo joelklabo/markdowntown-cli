@@ -67,13 +67,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Invalid severity" }, { status: 400 });
     }
 
-    const issues = await listAuditIssues({
+    const limit = url.searchParams.get("limit");
+    const cursor = url.searchParams.get("cursor");
+
+    const { issues, nextCursor } = await listAuditIssues({
       userId: token.userId,
       snapshotId,
       severity,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      cursor: cursor ?? undefined,
     });
 
-    return NextResponse.json({ issues });
+    return NextResponse.json({ issues, nextCursor });
   });
 }
 

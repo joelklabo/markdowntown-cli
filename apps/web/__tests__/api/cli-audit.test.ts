@@ -147,4 +147,44 @@ describe("cli-audit API", () => {
     expect(json.error).toBe("Invalid payload");
     expect(json.details[0].message).toMatch(/Too big/i);
   });
+
+  it("lists audit issues with pagination", async () => {
+    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
+    listAuditIssuesMock.mockResolvedValue({
+      issues: [
+        {
+          id: "issue-1",
+          snapshotId: "snap-1",
+          ruleId: "MD001",
+          severity: "ERROR",
+          path: "README.md",
+          message: "Test issue",
+        },
+      ],
+      nextCursor: null,
+    });
+
+    const { GET } = await auditRoute;
+    const res = await GET(new Request("http://localhost/api/cli/audit?snapshotId=snap-1"));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.issues).toHaveLength(1);
+    expect(json.nextCursor).toBeNull();
+  });
+
+  it("passes pagination params to list", async () => {
+    requireCliTokenMock.mockResolvedValue({ token: { userId: "user-1", scopes: [] } });
+    listAuditIssuesMock.mockResolvedValue({
+      issues: [],
+      nextCursor: null,
+    });
+
+    const { GET } = await auditRoute;
+    await GET(new Request("http://localhost/api/cli/audit?snapshotId=snap-1&limit=10&cursor=issue-0"));
+
+    expect(listAuditIssuesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 10, cursor: "issue-0" })
+    );
+  });
 });

@@ -100,6 +100,8 @@ export async function GET(request: Request) {
     const includeBody = wantsBody(url.searchParams.get("includeBody"));
     const format = url.searchParams.get("format");
     const status = parsePatchStatus(url.searchParams.get("status"));
+    const limit = url.searchParams.get("limit");
+    const cursor = url.searchParams.get("cursor");
 
     if (!snapshotId && !patchId) {
       return NextResponse.json({ error: "Missing snapshotId or patchId" }, { status: 400 });
@@ -124,14 +126,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ patch: serializePatch(patch, true) });
     }
 
-    const patches = await listPatches({
+    const { patches, nextCursor } = await listPatches({
       userId: token.userId,
       snapshotId: snapshotId ?? "",
       status,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      cursor: cursor ?? undefined,
     });
 
     return NextResponse.json({
       patches: patches.map((patch) => serializePatch(patch, includeBody)),
+      nextCursor,
     });
   });
 }
