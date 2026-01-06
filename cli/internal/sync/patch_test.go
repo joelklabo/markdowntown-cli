@@ -274,7 +274,48 @@ func TestApplyPatchesAtomicRollback(t *testing.T) {
 	}
 }
 
+func TestApplyPatchesSymlinkEscape(t *testing.T) {
+	repoRoot := t.TempDir()
+	if err := runGitCommand(repoRoot, "init"); err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			t.Skip("git not available")
+		}
+		t.Fatalf("git init: %v", err)
+	}
+
+	// Create a symlink pointing outside the repo
+	externalDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(externalDir, "secret.txt"), []byte("secret"), 0o600); err != nil {
+		t.Fatalf("write secret: %v", err)
+	}
+
+	linkPath := filepath.Join(repoRoot, "escaped_link")
+	if err := os.Symlink(externalDir, linkPath); err != nil {
+		t.Fatalf("create symlink: %v", err)
+	}
+
+	patchText := "diff --git a/escaped_link/secret.txt b/escaped_link/secret.txt\n--- a/escaped_link/secret.txt\n+++ b/escaped_link/secret.txt\n@@ -1 +1 @@\n-secret\n+pwned\n"
+
+	patch := Patch{
+		ID:          "p1",
+		SnapshotID:  "s1",
+		Path:        "escaped_link/secret.txt",
+		PatchFormat: "unified",
+		PatchBody:   patchText,
+		Status:      "PROPOSED",
+	}
+
+	_, err := ApplyPatches(repoRoot, []Patch{patch}, ApplyOptions{DryRun: false, Force: true})
+	if err == nil {
+		t.Fatalf("expected error from symlink escape")
+	}
+	if !strings.Contains(err.Error(), "symlink resolving outside repo") {
+		t.Fatalf("expected symlink escape error, got: %v", err)
+	}
+}
+
 func TestValidatePatchPaths(t *testing.T) {
+	repoRoot := t.TempDir()
 	cases := []struct {
 		name      string
 		patchBody string
@@ -324,7 +365,7 @@ func TestValidatePatchPaths(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validatePatchPaths(tc.patchBody)
+			err := validatePatchPaths(repoRoot, tc.patchBody)
 			if tc.wantErr && err == nil {
 				t.Fatalf("expected error")
 			}

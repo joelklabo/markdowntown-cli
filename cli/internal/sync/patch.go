@@ -167,7 +167,7 @@ func filterAndValidatePatches(repoRoot string, patches []Patch, state patchState
 		if strings.TrimSpace(patch.PatchBody) == "" {
 			return nil, results, fmt.Errorf("patch %s missing body", patch.ID)
 		}
-		if err := validatePatchPaths(patch.PatchBody); err != nil {
+		if err := validatePatchPaths(repoRoot, patch.PatchBody); err != nil {
 			wrapped := fmt.Errorf("patch %s has invalid paths: %w", patch.ID, err)
 			results = append(results, ApplyResult{Patch: patch, Status: PatchFailed, Err: wrapped})
 			return nil, results, wrapped
@@ -254,7 +254,7 @@ func executePatches(repoRoot string, toApply []Patch, state patchState, results 
 	return results, nil
 }
 
-func validatePatchPaths(patchBody string) error {
+func validatePatchPaths(repoRoot string, patchBody string) error {
 	scanner := bufio.NewScanner(strings.NewReader(patchBody))
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -265,10 +265,10 @@ func validatePatchPaths(patchBody string) error {
 				return err
 			}
 			if len(fields) >= 4 {
-				if err := validatePatchPathToken(normalizePatchPath(fields[2])); err != nil {
+				if err := validatePatchPathToken(repoRoot, normalizePatchPath(fields[2])); err != nil {
 					return err
 				}
-				if err := validatePatchPathToken(normalizePatchPath(fields[3])); err != nil {
+				if err := validatePatchPathToken(repoRoot, normalizePatchPath(fields[3])); err != nil {
 					return err
 				}
 			}
@@ -282,7 +282,7 @@ func validatePatchPaths(patchBody string) error {
 				return err
 			}
 			if len(fields) >= 1 {
-				if err := validatePatchPathToken(normalizePatchPath(fields[0])); err != nil {
+				if err := validatePatchPathToken(repoRoot, normalizePatchPath(fields[0])); err != nil {
 					return err
 				}
 			}
@@ -348,7 +348,7 @@ func normalizePatchPath(token string) string {
 	return token
 }
 
-func validatePatchPathToken(token string) error {
+func validatePatchPathToken(repoRoot string, token string) error {
 	if token == "" {
 		return errors.New("patch path is empty")
 	}
@@ -372,7 +372,48 @@ func validatePatchPathToken(token string) error {
 	if lower == ".git" || strings.HasPrefix(lower, ".git/") {
 		return fmt.Errorf("patch path targets .git: %s", token)
 	}
+
+	// Symlink escape detection
+	return validateNoSymlinkEscape(repoRoot, clean)
+}
+
+func validateNoSymlinkEscape(repoRoot string, relPath string) error {
+	parts := strings.Split(relPath, "/")
+	current := repoRoot
+	for _, part := range parts {
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			if os.IsNotExist(err) {
+				// Path doesn't exist yet, which is fine for new files in patches.
+				// We still want to check parent directories if they exist.
+				continue
+			}
+			return err
+		}
+
+		if info.Mode()&os.ModeSymlink != 0 {
+			resolved, err := filepath.EvalSymlinks(current)
+			if err != nil {
+				return err
+			}
+			if !isWithinRoot(resolved, repoRoot) {
+				return fmt.Errorf("patch targets symlink resolving outside repo: %s", relPath)
+			}
+		}
+	}
 	return nil
+}
+
+func isWithinRoot(path string, root string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	return !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 func (c *Client) getJSON(ctx context.Context, endpoint string, query url.Values) (int, []byte, error) {
