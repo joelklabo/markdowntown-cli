@@ -128,95 +128,63 @@ func main() {
 		return
 	}
 
-	switch args[0] {
-	case "-h", "--help", "help":
-		printUsage(os.Stdout)
+	cmd := args[0]
+	handler, ok := commands[cmd]
+	if !ok {
+		// Handle flags like --version or --help at root
+		if cmd == "--version" {
+			printVersion(os.Stdout)
+			return
+		}
+		if cmd == "-h" || cmd == "--help" || cmd == "help" {
+			printUsage(os.Stdout)
+			return
+		}
+		exitWithError(fmt.Errorf("unknown command: %s", cmd))
 		return
-	case "--version":
-		printVersion(os.Stdout)
-		return
-	case "scan":
+	}
+
+	if err := handler(args[1:]); err != nil {
+		exitWithError(err)
+	}
+}
+
+var commands = map[string]func([]string) error{
+	"scan": func(args []string) error {
 		if err := git.ValidateGitVersion(); err != nil {
-			exitWithError(err)
+			return err
 		}
-		if err := runScan(args[1:]); err != nil {
-			exitWithError(err)
-		}
-		return
-	case "login":
-		if err := runLogin(args[1:]); err != nil {
-			exitWithError(err)
-		}
-		return
-	case "logout":
-		if err := runLogout(args[1:]); err != nil {
-			exitWithError(err)
-		}
-		return
-	case "upload":
-		if err := runUpload(args[1:]); err != nil {
-			exitWithError(err)
-		}
-		return
-	case "sync":
+		return runScan(args)
+	},
+	"login":  runLogin,
+	"logout": runLogout,
+	"upload": runUpload,
+	"sync": func(args []string) error {
 		if err := git.ValidateGitVersion(); err != nil {
-			exitWithError(err)
+			return err
 		}
 		cmd := newSyncCmd()
-		cmd.SetArgs(args[1:])
-		if err := cmd.Execute(); err != nil {
-			exitWithError(err)
-		}
-		return
-	case "pull":
+		cmd.SetArgs(args)
+		return cmd.Execute()
+	},
+	"pull": func(args []string) error {
 		if err := git.ValidateGitVersion(); err != nil {
-			exitWithError(err)
+			return err
 		}
-		if err := runPull(args[1:]); err != nil {
-			exitWithError(err)
-		}
-		return
-	case "scan-remote":
+		return runPull(args)
+	},
+	"scan-remote": func(args []string) error {
 		if err := git.ValidateGitVersion(); err != nil {
-			exitWithError(err)
+			return err
 		}
-		if err := runScanRemote(args[1:]); err != nil {
-			exitWithError(err)
-		}
-		return
-	case "suggest":
-		if err := runSuggest(args[1:]); err != nil {
-			exitWithError(err)
-		}
-		return
-	case "resolve":
-		if err := runResolve(args[1:]); err != nil {
-			exitWithError(err)
-		}
-		return
-	case "audit":
-		if err := runAudit(args[1:]); err != nil {
-			exitWithError(err)
-		}
-		return
-	case "serve":
-		if err := runServe(args[1:]); err != nil {
-			exitWithError(err)
-		}
-		return
-	case "registry":
-		if err := runRegistry(args[1:]); err != nil {
-			exitWithError(err)
-		}
-		return
-	case "tools":
-		if err := runTools(args[1:]); err != nil {
-			exitWithError(err)
-		}
-		return
-	default:
-		exitWithError(fmt.Errorf("unknown command: %s", args[0]))
-	}
+		return runScanRemote(args)
+	},
+	"suggest":  runSuggest,
+	"resolve":  runResolve,
+	"audit":    runAudit,
+	"serve":    runServe,
+	"registry": runRegistry,
+	"tools":    runTools,
 }
 
 func printUsage(w io.Writer) {

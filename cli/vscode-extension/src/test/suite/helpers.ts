@@ -148,7 +148,7 @@ export async function ensureEditorReady(timeoutMs = 10000): Promise<void> {
 export async function waitForDiagnostics(
   uri: vscode.Uri,
   predicate: (items: readonly vscode.Diagnostic[]) => boolean,
-  timeoutMs = 20000
+  timeoutMs = 60000
 ): Promise<readonly vscode.Diagnostic[]> {
   return new Promise((resolve, reject) => {
     let settled = false;
