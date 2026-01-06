@@ -61,15 +61,20 @@ async function main(): Promise<void> {
     const testFile = path.join(workspaceDir, "AGENTS.md");
     fs.writeFileSync(testFile, "# Test\n");
 
-    const frontmatterFile = path.join(workspaceDir, "frontmatter.md");
+    // Use GEMINI.md for frontmatter tests (recognized by registry)
+    const frontmatterFile = path.join(workspaceDir, "GEMINI.md");
     fs.writeFileSync(frontmatterFile, "---\nkey: value\n---\n");
 
-    const emptyFile = path.join(workspaceDir, "empty.md");
+    // Use .github/copilot-instructions.md for empty file tests (recognized by registry)
+    const githubDir = path.join(workspaceDir, ".github");
+    fs.mkdirSync(githubDir, { recursive: true });
+    const emptyFile = path.join(githubDir, "copilot-instructions.md");
     fs.writeFileSync(emptyFile, "");
 
-    const gitignoredFile = path.join(workspaceDir, "ignored.md");
+    // Use AGENTS.override.md for gitignored tests (recognized by registry)
+    const gitignoredFile = path.join(workspaceDir, "AGENTS.override.md");
     fs.writeFileSync(gitignoredFile, "# Ignored\n");
-    fs.writeFileSync(path.join(workspaceDir, ".gitignore"), "ignored.md\n");
+    fs.writeFileSync(path.join(workspaceDir, ".gitignore"), "AGENTS.override.md\n");
 
     // MD005 Setup: User config exists, but no repo config for the same tool.
     // We'll use Claude Code for this.
