@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import type { Project, Snapshot } from "@prisma/client";
 import { cleanupAuditIssues } from "@/lib/audit/store";
 import { prisma } from "@/lib/prisma";
 
@@ -26,9 +27,7 @@ describe("audit cleanup", () => {
   });
 
   it("removes expired audit issues by TTL", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.auditIssue.deleteMany).mockResolvedValue({ count: 10 } as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.auditIssue.deleteMany).mockResolvedValue({ count: 10 });
     vi.mocked(prisma.project.findMany).mockResolvedValue([]);
 
     const result = await cleanupAuditIssues();
@@ -47,24 +46,20 @@ describe("audit cleanup", () => {
 
   it("enforces per-project snapshot limits", async () => {
     // 1. No expired issues by TTL
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.auditIssue.deleteMany).mockResolvedValueOnce({ count: 0 } as any);
+    vi.mocked(prisma.auditIssue.deleteMany).mockResolvedValueOnce({ count: 0 });
     
     // 2. One project found
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.project.findMany).mockResolvedValue([{ id: "proj_1" }] as any);
+    vi.mocked(prisma.project.findMany).mockResolvedValue([{ id: "proj_1" }] as unknown as Project[]);
     
     // 3. Project has 52 snapshots with issues (limit is 50)
     const snapshots = Array.from({ length: 52 }, (_, i) => ({
       id: `snap_${i}`,
       createdAt: new Date(Date.now() - i * 1000),
     }));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.snapshot.findMany).mockResolvedValue(snapshots as any);
+    vi.mocked(prisma.snapshot.findMany).mockResolvedValue(snapshots as unknown as Snapshot[]);
     
     // 4. Delete issues for the 2 oldest snapshots
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.auditIssue.deleteMany).mockResolvedValueOnce({ count: 200 } as any);
+    vi.mocked(prisma.auditIssue.deleteMany).mockResolvedValueOnce({ count: 200 });
 
     const result = await cleanupAuditIssues();
 
@@ -82,9 +77,7 @@ describe("audit cleanup", () => {
   });
 
   it("returns 0 when no issues to clean up", async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vi.mocked(prisma.auditIssue.deleteMany).mockResolvedValue({ count: 0 } as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(prisma.auditIssue.deleteMany).mockResolvedValue({ count: 0 });
     vi.mocked(prisma.project.findMany).mockResolvedValue([]);
 
     const result = await cleanupAuditIssues();
