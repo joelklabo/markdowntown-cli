@@ -10,3 +10,13 @@ tsconfig.json
 test-results/**
 playwright.config.ts
 *.vsix
+package-lock.json
+node_modules/.package-lock.json
+node_modules/**/*.md
+node_modules/**/*.txt
+node_modules/**/LICENSE*
+node_modules/**/.github/**
+node_modules/**/test/**
+node_modules/**/tests/**
+node_modules/**/*.d.ts
+**/.git/**

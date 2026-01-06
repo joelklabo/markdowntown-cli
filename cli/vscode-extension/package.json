@@ -21,12 +21,6 @@
     "onLanguage:toml",
     "onLanguage:instructions"
   ],
-  "files": [
-    "out/extension.js",
-    "package.json",
-    "README.md",
-    "bin/markdowntown*"
-  ],
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
