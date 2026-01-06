@@ -11,7 +11,8 @@ import { Text } from '@/components/ui/Text';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/Sheet';
 import { COMMAND_PALETTE_OPEN_EVENT } from '@/components/CommandPalette';
-import { track } from '@/lib/analytics';
+import { track, trackCliPatchApply } from '@/lib/analytics';
+import { emitUiTelemetryEvent } from '@/lib/telemetry';
 import type { WorkbenchEntrySource } from '@/components/workbench/workbenchEntry';
 import { buildCliSnapshotCommand, formatCliSnapshotLabel, type CliSnapshotContext } from '@/lib/workbench/cliSnapshot';
 
@@ -143,25 +144,49 @@ export function WorkbenchHeader({ session, cliSnapshotContext, entrySource = 'di
                 Export patch
               </Button>
               {cliCommand ? (
-                <Button
-                  size="xs"
-                  variant="secondary"
-                  onClick={async () => {
-                    try {
-                      await navigator.clipboard.writeText(cliCommand);
-                      setCliCopied(true);
-                      window.setTimeout(() => setCliCopied(false), 1200);
-                      track('workbench_cli_patch_copy', {
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    onClick={async () => {
+                      if (!cliSnapshotContext || !cliCommand) return;
+                      const telemetryProps = {
                         repoId: cliSnapshotContext.repoId,
                         snapshotId: cliSnapshotContext.snapshotId ?? undefined,
                         entrySource,
-                      });
-                    } catch {
-                      // ignore clipboard failures
-                    }
-                  }}
-                >
-                  {cliCopied ? 'Copied' : 'Copy CLI command'}
+                      };
+                      emitUiTelemetryEvent({ name: 'cli_patch_apply_start', properties: telemetryProps });
+                      trackCliPatchApply('start', telemetryProps);
+
+                      const clipboard = navigator.clipboard;
+                      if (!clipboard?.writeText) {
+                        emitUiTelemetryEvent({
+                          name: 'cli_patch_apply_failure',
+                          properties: { ...telemetryProps, errorCode: 'clipboard_unavailable' },
+                        });
+                        trackCliPatchApply('failure', telemetryProps, 'clipboard_unavailable');
+                        return;
+                      }
+
+                      try {
+                        await clipboard.writeText(cliCommand);
+                        setCliCopied(true);
+                        window.setTimeout(() => setCliCopied(false), 1200);
+                        emitUiTelemetryEvent({ name: 'cli_patch_apply_success', properties: telemetryProps });
+                        trackCliPatchApply('success', telemetryProps);
+                      } catch (error) {
+                        const errorCode = error instanceof Error ? error.name || 'clipboard_error' : 'clipboard_error';
+                        emitUiTelemetryEvent({
+                          name: 'cli_patch_apply_failure',
+                          properties: {
+                            ...telemetryProps,
+                            errorCode,
+                          },
+                        });
+                        trackCliPatchApply('failure', telemetryProps, errorCode);
+                      }
+                    }}
+                  >
+                    {cliCopied ? 'Copied' : 'Copy CLI command'}
                 </Button>
               ) : null}
             </div>
