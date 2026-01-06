@@ -6,7 +6,7 @@ GO ?= go
 PYTHON ?= python3
 GOLANGCI_LINT ?= golangci-lint
 
-.PHONY: build test lint fmt check clean install coverage coverage-report coverage-html release snapshot run watch dev lsp-vscode lsp-vscode-test
+.PHONY: build test lint fmt check clean install coverage coverage-report coverage-html release snapshot run watch dev lsp-vscode lsp-vscode-test bench-lsp
 
 build:
 	@mkdir -p $(BIN_DIR)
@@ -92,3 +92,6 @@ lsp-vscode:
 
 lsp-vscode-test:
 	cd vscode-extension && if [ ! -d node_modules ]; then npm install; fi && npm test
+
+bench-lsp:
+	$(GO) test ./internal/lsp -bench BenchmarkDiagnosticsLargeMarkdown -run ^$$ -benchmem -benchtime=100ms

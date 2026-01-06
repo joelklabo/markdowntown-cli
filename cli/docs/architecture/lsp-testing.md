@@ -129,8 +129,52 @@ If the negative test passes, goleak is not configured correctly.
 
 ## 4. Performance benchmarks
 
-- Track latency from `didChange` → `publishDiagnostics` for large files.
-- Establish a baseline for scan + audit throughput under load.
+### Overview
+
+LSP diagnostics performance is critical for real-time feedback. We track baseline performance to catch regressions early.
+
+### Benchmarks
+
+**BenchmarkDiagnosticsLargeMarkdown** measures end-to-end diagnostics generation for a large markdown file:
+- Fixture: `testdata/lsp/large.md` (AI config file with multiple blocks)
+- Measures: scan + audit + diagnostic generation
+- Tracks: latency, allocations, throughput
+
+**Baseline (Linux / i9-9900K / Go 1.25):**
+```
+BenchmarkDiagnosticsLargeMarkdown-16    74    1484488 ns/op    214830 B/op    1430 allocs/op
+```
+
+This baseline represents ~1.5ms per diagnostics cycle for a typical large config file.
+
+### Running locally
+
+```bash
+# Run LSP diagnostics benchmark
+make bench-lsp
+
+# Run with longer benchtime for stability
+go test ./internal/lsp -bench BenchmarkDiagnosticsLargeMarkdown -run ^$ -benchmem -benchtime=1s
+
+# Compare before/after changes
+go test ./internal/lsp -bench BenchmarkDiagnosticsLargeMarkdown -run ^$ -benchmem -count=5 | tee old.txt
+# (make changes)
+go test ./internal/lsp -bench BenchmarkDiagnosticsLargeMarkdown -run ^$ -benchmem -count=5 | tee new.txt
+benchstat old.txt new.txt
+```
+
+### CI integration
+
+The `cli-benchmark` job runs on pushes to `main`:
+- Runs `make bench-lsp` to establish baseline
+- Non-blocking (failures don't fail CI)
+- Only runs on main branch to avoid slowing down PRs
+- Results visible in GitHub Actions logs for manual review
+
+**Future work:**
+- Add benchstat comparison against previous runs
+- Store baseline results and alert on >20% regression
+- Expand coverage to other LSP operations (hover, completion, code actions)
 
 ## 5. Deprecation Warnings
 
