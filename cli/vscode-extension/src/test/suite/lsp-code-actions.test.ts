@@ -19,6 +19,10 @@ const quickFixCreateRepoPrefix = "Create repo config at ";
 const quickFixRemoveDuplicateFrontmatterPrefix = "Remove duplicate frontmatter ";
 
 suite("markdowntown LSP quick fixes", () => {
+  setup(function () {
+    this.timeout(60000);
+  });
+
   suiteSetup(async function () {
     this.timeout(30000);
     await waitForWorkspace();

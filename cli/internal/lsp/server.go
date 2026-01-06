@@ -673,9 +673,7 @@ func (s *Server) scanForDiagnostics(path string, repoRoot string) (scan.Result, 
 
 	var stdinPaths []string
 	if _, err := s.overlay.Stat(path); err == nil {
-		if _, err := s.base.Stat(path); err != nil {
-			stdinPaths = append(stdinPaths, path)
-		}
+		stdinPaths = append(stdinPaths, path)
 	}
 
 	result, err := scan.Scan(scan.Options{

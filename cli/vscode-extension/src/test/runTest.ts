@@ -6,9 +6,6 @@ import { runTests } from "@vscode/test-electron";
 
 async function main(): Promise<void> {
   // Suppress punycode deprecation warning from transitive dependencies
-  // The warning comes from VS Code's Electron dependencies and cannot be easily fixed
-  // by updating our direct dependencies. This is a known issue across VS Code extensions.
-  // See: https://github.com/nodejs/node/issues/47228
   const originalEmitWarning = process.emitWarning;
   process.emitWarning = (warning, ...args: any[]) => {
     if (
@@ -28,6 +25,7 @@ async function main(): Promise<void> {
   };
 
   let workspaceDir = "";
+  let fakeHome = "";
   let logFile = "";
 
   try {
@@ -37,6 +35,9 @@ async function main(): Promise<void> {
 
     workspaceDir = fs.mkdtempSync(
       path.join(os.tmpdir(), "markdowntown-lsp-test-")
+    );
+    fakeHome = fs.mkdtempSync(
+      path.join(os.tmpdir(), "markdowntown-home-")
     );
 
     const binDir = path.join(workspaceDir, "bin");
@@ -56,6 +57,7 @@ async function main(): Promise<void> {
       JSON.stringify({ "markdowntown.serverPath": binPath }, null, 2)
     );
 
+    // MD001/MD003/MD004/MD006/MD012 etc.
     const testFile = path.join(workspaceDir, "AGENTS.md");
     fs.writeFileSync(testFile, "# Test\n");
 
@@ -69,11 +71,22 @@ async function main(): Promise<void> {
     fs.writeFileSync(gitignoredFile, "# Ignored\n");
     fs.writeFileSync(path.join(workspaceDir, ".gitignore"), "ignored.md\n");
 
-    const userFile = path.join(workspaceDir, "user.md");
-    fs.writeFileSync(userFile, "# User\n");
+    // MD005 Setup: User config exists, but no repo config for the same tool.
+    // We'll use Claude Code for this.
+    const userClaudeDir = path.join(fakeHome, ".claude");
+    fs.mkdirSync(userClaudeDir, { recursive: true });
+    const userFile = path.join(userClaudeDir, "CLAUDE.md");
+    fs.writeFileSync(userFile, "# User Instructions\n");
 
-    const duplicateSkillFile = path.join(workspaceDir, "duplicate.md");
-    fs.writeFileSync(duplicateSkillFile, "---\nskill: a\nskill: b\n---\n");
+    // MD007 Setup: Multiple skill configs with same name.
+    const skill1Dir = path.join(workspaceDir, ".codex", "skills", "one");
+    const skill2Dir = path.join(workspaceDir, ".codex", "skills", "two");
+    fs.mkdirSync(skill1Dir, { recursive: true });
+    fs.mkdirSync(skill2Dir, { recursive: true });
+    const duplicateSkillFile = path.join(skill1Dir, "SKILL.md");
+    const duplicateSkillFile2 = path.join(skill2Dir, "SKILL.md");
+    fs.writeFileSync(duplicateSkillFile, "---\nname: shared\n---\n# Skill 1\n");
+    fs.writeFileSync(duplicateSkillFile2, "---\nname: shared\n---\n# Skill 2\n");
 
     logFile = path.join(workspaceDir, "test.log");
 
@@ -82,6 +95,8 @@ async function main(): Promise<void> {
       extensionTestsPath,
       launchArgs: [workspaceDir, "--disable-extensions"],
       extensionTestsEnv: {
+        HOME: fakeHome,
+        USERPROFILE: fakeHome, // Windows
         MARKDOWNTOWN_TEST_WORKSPACE: workspaceDir,
         MARKDOWNTOWN_TEST_FILE: testFile,
         MARKDOWNTOWN_TEST_FRONTMATTER_FILE: frontmatterFile,

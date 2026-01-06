@@ -59,13 +59,13 @@ func BenchmarkSafeOpenDepth(b *testing.B) {
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
-									// #nosec G304 -- benchmark uses trusted local files
-												// #nosec G304 -- benchmark uses trusted local files
-												data, err := os.ReadFile(fullPath)
-												if err != nil {
-													b.Fatalf("os.ReadFile: %v", err)
-												}
-														if len(data) != len(content) {
+					// #nosec G304 -- benchmark uses trusted local files
+					// #nosec G304 -- benchmark uses trusted local files
+					data, err := os.ReadFile(fullPath)
+					if err != nil {
+						b.Fatalf("os.ReadFile: %v", err)
+					}
+					if len(data) != len(content) {
 						b.Fatalf("wrong length: got %d, want %d", len(data), len(content))
 					}
 				}
@@ -144,6 +144,7 @@ func BenchmarkSafeOpenSize(b *testing.B) {
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
+					// #nosec G304 -- benchmark uses trusted local files
 					data, err := os.ReadFile(fullPath)
 					if err != nil {
 						b.Fatalf("os.ReadFile: %v", err)

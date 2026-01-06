@@ -2254,8 +2254,8 @@ func testCodeLensCacheActive(ctx context.Context, t *testing.T, clientRPC *jsonr
 	drainDiagnostics(diagnostics, 200*time.Millisecond)
 
 	// First and second CodeLens requests should show "Active" (using cache on 2nd)
-	assertCodeLensTitle(t, ctx, clientRPC, uri, "Active", "1st")
-	assertCodeLensTitle(t, ctx, clientRPC, uri, "Active", "2nd")
+	assertCodeLensTitle(ctx, t, clientRPC, uri, "Active", "1st")
+	assertCodeLensTitle(ctx, t, clientRPC, uri, "Active", "2nd")
 }
 
 func testCodeLensCacheShadowed(ctx context.Context, t *testing.T, clientRPC *jsonrpc2.Conn, diagnostics chan protocol.PublishDiagnosticsParams, uri, overridePath string) {
@@ -2277,7 +2277,7 @@ func testCodeLensCacheShadowed(ctx context.Context, t *testing.T, clientRPC *jso
 	drainDiagnostics(diagnostics, 200*time.Millisecond)
 
 	// Third CodeLens request should now show "Shadowed"
-	assertCodeLensTitle(t, ctx, clientRPC, uri, "Shadowed", "3rd")
+	assertCodeLensTitle(ctx, t, clientRPC, uri, "Shadowed", "3rd")
 }
 
 func testCodeLensCacheActiveAfterRemoval(ctx context.Context, t *testing.T, clientRPC *jsonrpc2.Conn, diagnostics chan protocol.PublishDiagnosticsParams, uri, overridePath string) {
@@ -2295,11 +2295,11 @@ func testCodeLensCacheActiveAfterRemoval(ctx context.Context, t *testing.T, clie
 	}
 
 	// Fourth CodeLens request should be "Active" again
-	assertCodeLensTitle(t, ctx, clientRPC, uri, "Active", "4th")
+	assertCodeLensTitle(ctx, t, clientRPC, uri, "Active", "4th")
 	drainDiagnostics(diagnostics, 100*time.Millisecond)
 }
 
-func assertCodeLensTitle(t *testing.T, ctx context.Context, clientRPC *jsonrpc2.Conn, uri, expectedTitle, callDesc string) {
+func assertCodeLensTitle(ctx context.Context, t *testing.T, clientRPC *jsonrpc2.Conn, uri, expectedTitle, callDesc string) {
 	t.Helper()
 	var lenses []protocol.CodeLens
 	if err := clientRPC.Call(ctx, protocol.MethodTextDocumentCodeLens, protocol.CodeLensParams{
