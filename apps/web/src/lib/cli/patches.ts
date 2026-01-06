@@ -2,11 +2,35 @@ import path from "node:path";
 import { Prisma } from "@prisma/client";
 import type { Patch, PatchStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { validatePatchBody } from "@/lib/validation";
 
 const SHA256_REGEX = /^[a-f0-9]{64}$/i;
 const PATCH_FORMAT_REGEX = /^[a-z0-9][a-z0-9+._-]{0,63}$/i;
 const MAX_PATH_LENGTH = 4096;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 120;
+
+/**
+ * Patch Storage Strategy
+ *
+ * Patches are stored directly in the database as text (patchBody: String).
+ *
+ * Rationale:
+ * - Patches are typically small (unified diff format, 1MB limit enforced)
+ * - Text storage enables searchability and indexing
+ * - No need for blob deduplication (patches are unique per path/snapshot)
+ * - Simpler implementation without separate blob storage layer
+ * - Size limit (1MB) prevents abuse while allowing for large diffs
+ *
+ * Size Limits:
+ * - MAX_PATCH_BODY_BYTES: 1MB (enforced via validatePatchBody)
+ * - Large binary diffs are discouraged; prefer full file replacement
+ *
+ * Alternative Considered:
+ * - Blob storage with deduplication was considered but rejected due to:
+ *   - Added complexity for minimal benefit
+ *   - Patches are rarely identical across snapshots
+ *   - 1MB limit makes blob storage overhead unnecessary
+ */
 
 export type PatchInput = {
   snapshotId: string;
@@ -100,6 +124,11 @@ function normalizePatchInput(input: PatchInput): {
 
   if (!input.patchBody) {
     throw new Error("Patch body is required");
+  }
+
+  const patchBodyError = validatePatchBody(input.patchBody);
+  if (patchBodyError) {
+    throw new Error(patchBodyError);
   }
 
   return {

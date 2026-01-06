@@ -73,6 +73,28 @@ describe("cli-patches", () => {
     });
     expect(error).toMatch(/format/i);
   });
+
+  it("rejects oversized patch bodies (>1MB)", () => {
+    const error = validatePatchInput({
+      snapshotId: "snap_123",
+      path: "README.md",
+      baseBlobHash: VALID_HASH,
+      patchFormat: "unified",
+      patchBody: "x".repeat(1024 * 1024 + 1), // 1MB + 1 byte
+    });
+    expect(error).toMatch(/exceeds size limit/i);
+  });
+
+  it("accepts patch bodies at max size (1MB)", () => {
+    const error = validatePatchInput({
+      snapshotId: "snap_123",
+      path: "README.md",
+      baseBlobHash: VALID_HASH,
+      patchFormat: "unified",
+      patchBody: "x".repeat(1024 * 1024), // Exactly 1MB
+    });
+    expect(error).toBeNull();
+  });
 });
 
 describe("cli-patches API", () => {
