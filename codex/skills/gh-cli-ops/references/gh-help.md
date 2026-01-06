@@ -130,8 +130,8 @@ INHERITED FLAGS
 
 ARGUMENTS
   A repository can be supplied as an argument in any of the following formats:
-  - "OWNER/REPO"
-  - by URL, e.g. "https://github.com/OWNER/REPO"
+- "OWNER/REPO"
+- by URL, e.g. "https://github.com/OWNER/REPO"
 
 EXAMPLES
   $ gh repo create
@@ -209,8 +209,8 @@ INHERITED FLAGS
 
 ARGUMENTS
   An issue can be supplied as argument in any of the following formats:
-  - by number, e.g. "123"; or
-  - by URL, e.g. "https://github.com/OWNER/REPO/issues/123".
+- by number, e.g. "123"; or
+- by URL, e.g. "https://github.com/OWNER/REPO/issues/123".
 
 EXAMPLES
   $ gh issue list
@@ -259,9 +259,9 @@ INHERITED FLAGS
 
 ARGUMENTS
   A pull request can be supplied as argument in any of the following formats:
-  - by number, e.g. "123";
-  - by URL, e.g. "https://github.com/OWNER/REPO/pull/123"; or
-  - by the name of its head branch, e.g. "patch-1" or "OWNER:patch-1".
+- by number, e.g. "123";
+- by URL, e.g. "https://github.com/OWNER/REPO/pull/123"; or
+- by the name of its head branch, e.g. "patch-1" or "OWNER:patch-1".
 
 EXAMPLES
   $ gh pr checkout 353
@@ -492,39 +492,39 @@ INHERITED FLAGS
   --help   Show help for command
 
 EXAMPLES
-  # List releases in the current repository
+# List releases in the current repository
   $ gh api repos/{owner}/{repo}/releases
   
-  # Post an issue comment
+# Post an issue comment
   $ gh api repos/{owner}/{repo}/issues/123/comments -f body='Hi from CLI'
   
-  # Post nested parameter read from a file
+# Post nested parameter read from a file
   $ gh api gists -F 'files[myfile.txt][content]=@myfile.txt'
   
-  # Add parameters to a GET request
+# Add parameters to a GET request
   $ gh api -X GET search/issues -f q='repo:cli/cli is:open remote'
   
-  # Set a custom HTTP header
+# Set a custom HTTP header
   $ gh api -H 'Accept: application/vnd.github.v3.raw+json' ...
   
-  # Opt into GitHub API previews
+# Opt into GitHub API previews
   $ gh api --preview baptiste,nebula ...
   
-  # Print only specific fields from the response
+# Print only specific fields from the response
   $ gh api repos/{owner}/{repo}/issues --jq '.[].title'
   
-  # Use a template for the output
+# Use a template for the output
   $ gh api repos/{owner}/{repo}/issues --template \
     '{{range .}}{{.title}} ({{.labels | pluck "name" | join ", " | color "yellow"}}){{"\n"}}{{end}}'
   
-  # Update allowed values of the "environment" custom property in a deeply nested array
+# Update allowed values of the "environment" custom property in a deeply nested array
   $ gh api -X PATCH /orgs/{org}/properties/schema \
      -F 'properties[][property_name]=environment' \
      -F 'properties[][default_value]=production' \
      -F 'properties[][allowed_values][]=staging' \
      -F 'properties[][allowed_values][]=production'
   
-  # List releases with GraphQL
+# List releases with GraphQL
   $ gh api graphql -F owner='{owner}' -F name='{repo}' -f query='
     query($name: String!, $owner: String!) {
       repository(owner: $owner, name: $name) {
@@ -535,7 +535,7 @@ EXAMPLES
     }
   '
   
-  # List all repositories for a user
+# List all repositories for a user
   $ gh api graphql --paginate -f query='
     query($endCursor: String) {
       viewer {
@@ -550,7 +550,7 @@ EXAMPLES
     }
   '
   
-  # Get the percentage of forks for the current user
+# Get the percentage of forks for the current user
   $ gh api graphql --paginate --slurp -f query='
     query($endCursor: String) {
       viewer {

@@ -88,7 +88,7 @@ Keep the prompt clear, explicit, and actionable.
 
 ## Output Template (minimal)
 
-```
+```text
 <Desktop>/<bundle>/
   PROMPT.md
   MANIFEST.md

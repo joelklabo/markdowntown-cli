@@ -50,6 +50,12 @@ make lsp-vscode
 make lsp-vscode-test
 ```
 
+### VS Code Release Guardrails
+The VS Code extension release workflow (`.github/workflows/release-vscode.yml`) includes several safety checks:
+- **Version Validation**: On tag push (`vscode-v*`), the workflow ensures the tag matches the version in `cli/vscode-extension/package.json`.
+- **Manual Approval**: Publishing to the VS Code Marketplace requires manual approval in the `VS Code Marketplace` GitHub Environment.
+- **Binary Verification**: The workflow explicitly validates that the Go CLI binary for the target platform was built and is available before packaging the extension.
+
 ## CLI sync flow (local)
 1. Run the web app on http://localhost:3000.
 2. Use the CLI sync flow to generate a Workbench link (or open Workbench with query params such as `cliRepoId`, `cliSnapshotId`, `cliBranch`, `cliStatus`).

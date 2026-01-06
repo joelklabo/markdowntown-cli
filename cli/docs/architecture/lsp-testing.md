@@ -61,11 +61,11 @@ go test -race ./internal/lsp
 go test ./internal/lsp -run Leak
 ```
 
-**Interpreting failures:**
+Interpreting failures:
 
 If goleak detects a leak, you'll see output like:
 
-```
+```text
 goleak: Errors on successful test run: found unexpected goroutines:
 [Goroutine 42 in state chan receive, with markdowntown-cli/internal/lsp.(*Server).runDiagnostics on top of the stack:
 ...stack trace...]
@@ -129,7 +129,7 @@ If the negative test passes, goleak is not configured correctly.
 
 ## 4. Performance benchmarks
 
-### Overview
+### Benchmark Overview
 
 LSP diagnostics performance is critical for real-time feedback. We track baseline performance to catch regressions early.
 
@@ -141,7 +141,7 @@ LSP diagnostics performance is critical for real-time feedback. We track baselin
 - Tracks: latency, allocations, throughput
 
 **Baseline (Linux / i9-9900K / Go 1.25):**
-```
+```text
 BenchmarkDiagnosticsLargeMarkdown-16    74    1484488 ns/op    214830 B/op    1430 allocs/op
 ```
 

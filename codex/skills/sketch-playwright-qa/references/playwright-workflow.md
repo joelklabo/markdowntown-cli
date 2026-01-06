@@ -3,17 +3,17 @@
 ## Standard Commands
 
 ### Mobile flow
-```
+```bash
 PLAYWRIGHT_PORT=3020 pnpm test:e2e tests/e2e/mobile-flow.spec.ts
 ```
 
 ### Visual baselines
-```
+```bash
 PLAYWRIGHT_PORT=3021 pnpm test:e2e tests/e2e/visual.spec.ts
 ```
 
 ### Update snapshots
-```
+```bash
 PLAYWRIGHT_PORT=3021 pnpm test:e2e tests/e2e/visual.spec.ts --update-snapshots
 ```
 

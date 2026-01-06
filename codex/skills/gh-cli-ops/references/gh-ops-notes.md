@@ -33,7 +33,7 @@ Use this file to capture new patterns, gotchas, and team conventions discovered 
 - For quick local retries, prefix the command with an empty token: `GITHUB_TOKEN= gh workflow run "<workflow>" -f key=value`.
 
 ## Follow-ups
-- 
+-
 
 ## 2026-01-02 notes
 - `gh run list --json` does not support `htmlUrl`; use `url` for run links.
