@@ -355,7 +355,7 @@ func TestManifestHashTOCTOU(t *testing.T) {
 
 	// We can't easily mock the walk vs read gap without manual control,
 	// but we can test that if HashFileWithLimit fails, BuildManifest fails.
-	
+
 	// Set a limit that is smaller than the file.
 	opts := ManifestOptions{
 		RepoRoot:     repoRoot,

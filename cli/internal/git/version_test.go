@@ -69,7 +69,7 @@ func TestValidateGitVersionTooOld(t *testing.T) {
 	// Let's use a small Go source and compile it for the test if we wanted to be robust,
 	// but writing a script is easier if we can assume a shell.
 	// Actually, we can just use a helper that echoes.
-	
+
 	content := ""
 	if runtime.GOOS == "windows" {
 		content = "@echo off\nif \"%1\"==\"version\" echo git version 1.7.0\n"
@@ -77,13 +77,13 @@ func TestValidateGitVersionTooOld(t *testing.T) {
 	} else {
 		content = "#!/bin/sh\nif [ \"$1\" = \"version\" ]; then echo \"git version 1.7.0\"; fi\n"
 	}
-	
+
 	if err := os.WriteFile(gitBin, []byte(content), 0755); err != nil {
 		t.Fatalf("failed to write mock git: %v", err)
 	}
 
 	oldPath := os.Getenv("PATH")
-	t.Setenv("PATH", binDir + string(os.PathListSeparator) + oldPath)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+oldPath)
 
 	err := ValidateGitVersion()
 	if !errors.Is(err, ErrGitTooOld) {

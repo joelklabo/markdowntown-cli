@@ -35,6 +35,7 @@ type Result struct {
 	ScanResult    scan.Result
 	UploadedBlobs int
 	UploadedBytes int64
+	Resumed       bool
 }
 
 // Run performs a scan and uploads the snapshot with scan results as metadata.
@@ -99,6 +100,7 @@ func Run(ctx context.Context, client *syncer.Client, opts Options) (Result, erro
 	result.ScanResult = scanResult
 	result.UploadedBlobs = syncResult.UploadedBlobs
 	result.UploadedBytes = syncResult.UploadedBytes
+	result.Resumed = syncResult.Resumed
 
 	return result, nil
 }

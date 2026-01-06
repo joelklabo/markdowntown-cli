@@ -13,13 +13,13 @@ import (
 func TestPositionForOffsetUTF16(t *testing.T) {
 	// 🚀 is 4 bytes in UTF-8, 2 code units in UTF-16.
 	content := []byte("A\n🚀B")
-	
+
 	// 'A' is at (0,0)
 	// '\n' is at (0,1)
 	// '🚀' is at (1,0)
 	// 'B' is at (1,2) in UTF-16
-	
-tests := []struct {
+
+	tests := []struct {
 		offset int
 		line   uint32
 		col    uint32
@@ -41,26 +41,25 @@ tests := []struct {
 
 func TestFindToolIDRangeInRegistryJSON(t *testing.T) {
 	wd, _ := os.Getwd()
-	
+
 	t.Run("UTF-16 emoji", func(t *testing.T) {
-	
+
 		path := filepath.Join(wd, "..", "..", "testdata", "registry", "registry-utf16.json")
-	
+
 		content, err := os.ReadFile(path)
-	
 
 		if err != nil {
 			t.Fatalf("failed to read registry: %v", err)
 		}
-		
+
 		rng := findToolIDRangeInRegistryJSON(content, "🚀-cli")
 		if rng == nil {
 			t.Fatal("expected range for 🚀-cli")
 		}
-		
+
 		// The toolId value in registry-utf16.json is "🚀-cli"
 		// We want to verify the characters are correct.
-		val := string(content[offsetForPositionTest(content, rng.Start) : offsetForPositionTest(content, rng.End)])
+		val := string(content[offsetForPositionTest(content, rng.Start):offsetForPositionTest(content, rng.End)])
 		if val != "🚀-cli" {
 			t.Errorf("expected 🚀-cli, got %q", val)
 		}
@@ -72,13 +71,13 @@ func TestFindToolIDRangeInRegistryJSON(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to read registry: %v", err)
 		}
-		
+
 		rng := findToolIDRangeInRegistryJSON(content, "quoted\"tool")
 		if rng == nil {
 			t.Fatal("expected range for quoted\"tool")
 		}
-		
-		val := string(content[offsetForPositionTest(content, rng.Start) : offsetForPositionTest(content, rng.End)])
+
+		val := string(content[offsetForPositionTest(content, rng.Start):offsetForPositionTest(content, rng.End)])
 		// The raw content will have \"
 		if val != `quoted\"tool` {
 			t.Errorf("expected quoted\\\"tool, got %q", val)
@@ -91,14 +90,14 @@ func TestFindToolIDRangeInRegistryJSON(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to read registry: %v", err)
 		}
-		
+
 		// \u1234 is Ethiopia character
 		rng := findToolIDRangeInRegistryJSON(content, "uni\u1234tool")
 		if rng == nil {
 			t.Fatal("expected range for uni\u1234tool")
 		}
-		
-		val := string(content[offsetForPositionTest(content, rng.Start) : offsetForPositionTest(content, rng.End)])
+
+		val := string(content[offsetForPositionTest(content, rng.Start):offsetForPositionTest(content, rng.End)])
 		if val != `uni\u1234tool` {
 			t.Errorf("expected uni\\u1234tool, got %q", val)
 		}
@@ -113,7 +112,7 @@ func offsetForPositionTest(content []byte, pos protocol.Position) int {
 		if uint32(line) == pos.Line && uint32(col) == pos.Character {
 			return i
 		}
-		
+
 		b := content[i]
 		if b == '\n' {
 			line++
@@ -121,17 +120,17 @@ func offsetForPositionTest(content []byte, pos protocol.Position) int {
 			i++
 			continue
 		}
-		
+
 		r, size := utf8.DecodeRune(content[i:])
 		width := 1
 		if r != utf8.RuneError || size > 1 {
 			width = utf16.RuneLen(r)
 		}
-		
+
 		if uint32(line) == pos.Line && uint32(col+width) > pos.Character {
 			return i
 		}
-		
+
 		col += width
 		i += size
 	}

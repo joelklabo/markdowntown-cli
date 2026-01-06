@@ -174,9 +174,17 @@ func runUploadWithIO(stdout, stderr io.Writer, args []string) error {
 		return err
 	}
 
+	if result.Resumed && !quiet {
+		_, _ = fmt.Fprintf(stderr, "Resumed upload from checkpoint.\n")
+	}
+
 	if !quiet {
 		_, _ = fmt.Fprintf(stderr, "Scanned %d files.\n", len(result.ScanResult.Entries))
-		_, _ = fmt.Fprintf(stderr, "Uploaded %d blobs (%d bytes).\n", result.UploadedBlobs, result.UploadedBytes)
+		if result.UploadedBlobs > 0 {
+			_, _ = fmt.Fprintf(stderr, "Uploaded %d blobs (%d bytes).\n", result.UploadedBlobs, result.UploadedBytes)
+		} else if result.Resumed {
+			_, _ = fmt.Fprintf(stderr, "All blobs already uploaded.\n")
+		}
 	}
 
 	viewURL := buildSnapshotURL(resolvedBaseURL, result.SnapshotID)
