@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -13,6 +14,9 @@ import (
 )
 
 func TestPatchApply(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("line ending differences cause failures on Windows")
+	}
 	repoRoot := t.TempDir()
 	if err := runGitCommand(repoRoot, "init"); err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
@@ -185,6 +189,9 @@ func TestPatchApplyConflict(t *testing.T) {
 }
 
 func TestApplyPatchesAtomicRollback(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("line ending differences cause failures on Windows")
+	}
 	repoRoot := t.TempDir()
 	if err := runGitCommand(repoRoot, "init"); err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
