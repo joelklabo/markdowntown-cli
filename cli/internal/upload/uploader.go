@@ -23,6 +23,7 @@ type Options struct {
 	MaxFiles          int
 	MaxTotalBytes     int64
 	MaxFileBytes      int64
+	MaxBase64Bytes    int64
 	UploadConcurrency int
 	ScanWorkers       int
 	Progress          syncer.UploadProgressFunc
@@ -83,6 +84,7 @@ func Run(ctx context.Context, client *syncer.Client, opts Options) (Result, erro
 		MaxFiles:          opts.MaxFiles,
 		MaxTotalBytes:     opts.MaxTotalBytes,
 		MaxFileBytes:      opts.MaxFileBytes,
+		MaxBase64Bytes:    opts.MaxBase64Bytes,
 		UploadConcurrency: opts.UploadConcurrency,
 		Metadata:          payload,
 		Progress:          opts.Progress,

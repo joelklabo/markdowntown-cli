@@ -847,3 +847,119 @@ func TestBackoffDelayUsesRandomJitter(t *testing.T) {
 		}
 	}
 }
+
+func TestUploadRejectsLargeBlobsWithMaxBase64Limit(t *testing.T) {
+	repoRoot := t.TempDir()
+	// Create a file larger than our test limit
+	largeContent := strings.Repeat("x", 1024)
+	if err := os.WriteFile(filepath.Join(repoRoot, "large.txt"), []byte(largeContent), 0o600); err != nil {
+		t.Fatalf("write large.txt: %v", err)
+	}
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	missingHash := manifest.Entries[0].BlobHash
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{missingHash},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/blob", func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("blob upload should not be called when size exceeds limit")
+		_ = json.NewEncoder(w).Encode(UploadBlobResponse{Status: "ok", BlobID: "blob-1"})
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	// Set a limit smaller than the file size
+	_, err = UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:          repoRoot,
+		ProjectName:       "demo",
+		UploadConcurrency: 1,
+		MaxBase64Bytes:    512, // 512 bytes limit, file is 1024 bytes
+	})
+	if err == nil {
+		t.Fatal("expected error for blob exceeding base64 limit")
+	}
+	if !strings.Contains(err.Error(), "exceeds base64 upload limit") {
+		t.Fatalf("expected base64 limit error, got %v", err)
+	}
+}
+
+func TestUploadAllowsLargeBlobsWhenLimitDisabled(t *testing.T) {
+	repoRoot := t.TempDir()
+	largeContent := strings.Repeat("x", 1024)
+	if err := os.WriteFile(filepath.Join(repoRoot, "large.txt"), []byte(largeContent), 0o600); err != nil {
+		t.Fatalf("write large.txt: %v", err)
+	}
+
+	manifest, _, err := BuildManifest(ManifestOptions{RepoRoot: repoRoot})
+	if err != nil {
+		t.Fatalf("build manifest: %v", err)
+	}
+	missingHash := manifest.Entries[0].BlobHash
+
+	var blobReceived bool
+
+	mux := http.NewServeMux()
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	mux.HandleFunc("/api/cli/upload/handshake", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(UploadHandshakeResponse{
+			SnapshotID:   "snap-123",
+			MissingBlobs: []string{missingHash},
+			Upload: UploadPlan{
+				Mode: "direct",
+				URL:  server.URL + "/api/cli/upload/blob",
+			},
+		})
+	})
+
+	mux.HandleFunc("/api/cli/upload/blob", func(w http.ResponseWriter, _ *http.Request) {
+		blobReceived = true
+		_ = json.NewEncoder(w).Encode(UploadBlobResponse{Status: "ok", BlobID: "blob-1"})
+	})
+
+	mux.HandleFunc("/api/cli/upload/complete", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(FinalizeResponse{Status: "ready", SnapshotID: "snap-123"})
+	})
+
+	client, err := NewClient(server.URL, "token", "Bearer", server.Client())
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	// MaxBase64Bytes = 0 means unlimited
+	result, err := UploadSnapshot(context.Background(), client, UploadOptions{
+		RepoRoot:          repoRoot,
+		ProjectName:       "demo",
+		UploadConcurrency: 1,
+		MaxBase64Bytes:    0, // 0 = unlimited
+	})
+	if err != nil {
+		t.Fatalf("upload snapshot: %v", err)
+	}
+	if !blobReceived {
+		t.Fatal("expected blob to be uploaded when limit is disabled")
+	}
+	if result.UploadedBlobs != 1 {
+		t.Fatalf("expected 1 uploaded blob, got %d", result.UploadedBlobs)
+	}
+}

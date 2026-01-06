@@ -33,6 +33,7 @@ Flags:
   --max-files <n>           Preflight max files (0 = unlimited)
   --max-bytes <n>           Preflight max total bytes (0 = unlimited)
   --max-file-bytes <n>      Preflight max single file size (0 = unlimited)
+  --max-base64-bytes <n>    Max blob size for base64 upload (default: 5MB, 0 = unlimited)
   --upload-concurrency <n>  Parallel blob uploads (default: 4)
   --scan-workers <n>        Parallel scan workers (0 = auto)
   --quiet                   Reduce progress output
@@ -58,6 +59,7 @@ func runUploadWithIO(stdout, stderr io.Writer, args []string) error {
 	var maxFiles int
 	var maxBytes int64
 	var maxFileBytes int64
+	var maxBase64Bytes int64
 	var uploadConcurrency int
 	var scanWorkers int
 	var quiet bool
@@ -74,6 +76,7 @@ func runUploadWithIO(stdout, stderr io.Writer, args []string) error {
 	flags.IntVar(&maxFiles, "max-files", 0, "max files")
 	flags.Int64Var(&maxBytes, "max-bytes", 0, "max bytes")
 	flags.Int64Var(&maxFileBytes, "max-file-bytes", 0, "max file bytes")
+	flags.Int64Var(&maxBase64Bytes, "max-base64-bytes", 5*1024*1024, "max base64 upload bytes")
 	flags.IntVar(&uploadConcurrency, "upload-concurrency", 4, "upload concurrency")
 	flags.IntVar(&scanWorkers, "scan-workers", 0, "scan workers")
 	flags.BoolVar(&quiet, "quiet", false, "quiet")
@@ -98,6 +101,9 @@ func runUploadWithIO(stdout, stderr io.Writer, args []string) error {
 	}
 	if maxFileBytes < 0 {
 		return fmt.Errorf("max-file-bytes must be >= 0")
+	}
+	if maxBase64Bytes < 0 {
+		return fmt.Errorf("max-base64-bytes must be >= 0")
 	}
 	if uploadConcurrency < 0 {
 		return fmt.Errorf("upload-concurrency must be >= 0")
@@ -156,6 +162,7 @@ func runUploadWithIO(stdout, stderr io.Writer, args []string) error {
 		MaxFiles:          maxFiles,
 		MaxTotalBytes:     maxBytes,
 		MaxFileBytes:      maxFileBytes,
+		MaxBase64Bytes:    maxBase64Bytes,
 		UploadConcurrency: uploadConcurrency,
 		ScanWorkers:       scanWorkers,
 		Progress:          progress,
