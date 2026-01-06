@@ -2321,6 +2321,123 @@ func drainDiagnostics(diagnostics chan protocol.PublishDiagnosticsParams, timeou
 	}
 }
 
+// TestConfigChangeDebounceAndFallback verifies that config changes are debounced
+// and invalid settings fall back to last-known-good.
+func TestConfigChangeDebounceAndFallback(t *testing.T) {
+	s := NewServer("0.1.0")
+	s.Debounce = 50 * time.Millisecond
+	repoRoot := t.TempDir()
+	runGit(t, repoRoot, "init")
+	setRegistryEnv(t)
+
+	agentsPath := filepath.Join(repoRoot, "AGENTS.md")
+	if err := os.WriteFile(agentsPath, []byte("---\ntoolId: claude-3-opus\n---\n# Test"), 0o600); err != nil {
+		t.Fatalf("write AGENTS.md: %v", err)
+	}
+
+	clientConn, serverConn := net.Pipe()
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+
+	serverRPC := newServerRPC(t, s, serverConn)
+	t.Cleanup(func() {
+		_ = serverRPC.Close()
+	})
+
+	diagnostics := make(chan protocol.PublishDiagnosticsParams, 10)
+	clientRPC := newClientRPC(t, clientConn, diagnostics)
+	t.Cleanup(func() {
+		_ = clientRPC.Close()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	rootURI := pathToURL(repoRoot)
+	initializeLSPClient(t, ctx, clientRPC, rootURI)
+
+	uri := pathToURL(agentsPath)
+	if err := clientRPC.Notify(ctx, protocol.MethodTextDocumentDidOpen, protocol.DidOpenTextDocumentParams{
+		TextDocument: protocol.TextDocumentItem{
+			URI:  uri,
+			Text: "---\ntoolId: claude-3-opus\n---\n# Test",
+		},
+	}); err != nil {
+		t.Fatalf("didOpen notify failed: %v", err)
+	}
+	drainDiagnostics(diagnostics, 200*time.Millisecond)
+
+	// Send first config change (valid)
+	if err := clientRPC.Notify(ctx, protocol.MethodWorkspaceDidChangeConfiguration, protocol.DidChangeConfigurationParams{
+		Settings: map[string]any{
+			"markdowntown": map[string]any{
+				"diagnostics": map[string]any{
+					"delayMs": 300,
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("didChangeConfiguration notify failed: %v", err)
+	}
+
+	// Rapidly send second config change (should cancel first)
+	time.Sleep(10 * time.Millisecond)
+	if err := clientRPC.Notify(ctx, protocol.MethodWorkspaceDidChangeConfiguration, protocol.DidChangeConfigurationParams{
+		Settings: map[string]any{
+			"markdowntown": map[string]any{
+				"diagnostics": map[string]any{
+					"delayMs": 400,
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("didChangeConfiguration (2nd) notify failed: %v", err)
+	}
+
+	// Wait for debounce to fire
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify settings were applied (should be 400, not 300)
+	settings := s.currentSettings()
+	if settings.Diagnostics.DelayMs != 400 {
+		t.Fatalf("expected delayMs 400 (debounced), got %d", settings.Diagnostics.DelayMs)
+	}
+
+	// Drain diagnostics from config change
+	drainDiagnostics(diagnostics, 200*time.Millisecond)
+
+	// Send invalid config change (should fall back to last-known-good)
+	if err := clientRPC.Notify(ctx, protocol.MethodWorkspaceDidChangeConfiguration, protocol.DidChangeConfigurationParams{
+		Settings: map[string]any{
+			"markdowntown": map[string]any{
+				"diagnostics": map[string]any{
+					"delayMs":     -1, // Invalid: negative delay
+					"redactPaths": "invalid-mode",
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("didChangeConfiguration (invalid) notify failed: %v", err)
+	}
+
+	// Wait for debounce to fire
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify settings retained last-known-good (400)
+	settings = s.currentSettings()
+	if settings.Diagnostics.DelayMs != 400 {
+		t.Fatalf("expected delayMs 400 (fallback), got %d", settings.Diagnostics.DelayMs)
+	}
+
+	// Drain any remaining diagnostics
+	drainDiagnostics(diagnostics, 200*time.Millisecond)
+
+	// Shutdown to clear all timers and prevent leaks
+	_ = s.shutdown(nil)
+}
+
 func TestServeCanary(t *testing.T) {
 	binPath := buildMarkdowntownBinary(t)
 

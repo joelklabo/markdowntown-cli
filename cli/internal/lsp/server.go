@@ -52,10 +52,17 @@ type Server struct {
 	// Workspace state
 	rootPath string
 
-	settingsMu       sync.RWMutex
-	settings         Settings
-	diagnosticCaps   DiagnosticCapabilities
-	diagnosticCapsMu sync.RWMutex
+	settingsMu           sync.RWMutex
+	settings             Settings
+	lastValidSettings    Settings
+	diagnosticCaps       DiagnosticCapabilities
+	diagnosticCapsMu     sync.RWMutex
+	configChangeMu       sync.Mutex
+	configChangeTimer    *time.Timer
+	pendingConfigContext *glsp.Context
+	pendingConfigInput   any
+
+	inFlight sync.WaitGroup
 
 	// Diagnostics state
 	diagnosticsMu    sync.Mutex
@@ -73,16 +80,18 @@ type Server struct {
 
 // NewServer constructs a new LSP server.
 func NewServer(version string) *Server {
+	defaultSettings := DefaultSettings()
 	s := &Server{
-		version:          version,
-		overlay:          afero.NewMemMapFs(),
-		base:             afero.NewOsFs(),
-		diagnosticTimers: make(map[string]*time.Timer),
-		Debounce:         0,
-		settings:         DefaultSettings(),
-		frontmatterCache: make(map[string]*scan.ParsedFrontmatter),
-		scanCache:        make(map[string]scan.Result),
-		documentVersions: make(map[string]protocol.Integer),
+		version:           version,
+		overlay:           afero.NewMemMapFs(),
+		base:              afero.NewOsFs(),
+		diagnosticTimers:  make(map[string]*time.Timer),
+		Debounce:          0,
+		settings:          defaultSettings,
+		lastValidSettings: defaultSettings,
+		frontmatterCache:  make(map[string]*scan.ParsedFrontmatter),
+		scanCache:         make(map[string]scan.Result),
+		documentVersions:  make(map[string]protocol.Integer),
 	}
 	s.fs = afero.NewCopyOnWriteFs(s.base, s.overlay)
 
@@ -154,6 +163,29 @@ func (s *Server) initialized(_ *glsp.Context, _ *protocol.InitializedParams) err
 }
 
 func (s *Server) shutdown(_ *glsp.Context) error {
+	// Cancel pending config change timer
+	s.configChangeMu.Lock()
+	if s.configChangeTimer != nil {
+		if s.configChangeTimer.Stop() {
+			s.inFlight.Done()
+		}
+		s.configChangeTimer = nil
+	}
+	s.configChangeMu.Unlock()
+
+	// Cancel all active diagnostic timers
+	s.diagnosticsMu.Lock()
+	for uri, timer := range s.diagnosticTimers {
+		if timer.Stop() {
+			s.inFlight.Done()
+		}
+		delete(s.diagnosticTimers, uri)
+	}
+	s.diagnosticsMu.Unlock()
+
+	// Wait for all in-flight tasks to complete
+	s.inFlight.Wait()
+
 	protocol.SetTraceValue(protocol.TraceValueOff)
 	return nil
 }
@@ -167,20 +199,89 @@ func (s *Server) didChangeConfiguration(context *glsp.Context, params *protocol.
 	if params == nil {
 		return nil
 	}
-	s.applySettings(params.Settings)
+
+	// Cancel existing config change timer if any
+	s.configChangeMu.Lock()
+	if s.configChangeTimer != nil {
+		if s.configChangeTimer.Stop() {
+			s.inFlight.Done()
+			commonlog.GetLogger(serverName).Debugf("Config change timer canceled")
+		}
+		s.configChangeTimer = nil
+	}
+
+	// Store pending config and schedule debounced application
+	s.pendingConfigContext = context
+	s.pendingConfigInput = params.Settings
+
+	debounce := s.Debounce
+	if debounce == 0 {
+		debounce = 100 * time.Millisecond // Default config debounce
+	}
+
+	s.inFlight.Add(1)
+	s.configChangeTimer = time.AfterFunc(debounce, func() {
+		s.applyConfigChange()
+	})
+	s.configChangeMu.Unlock()
+
+	commonlog.GetLogger(serverName).Debugf("Config change scheduled (debounce: %v)", debounce)
+	return nil
+}
+
+func (s *Server) applyConfigChange() {
+	defer s.inFlight.Done()
+
+	s.configChangeMu.Lock()
+	context := s.pendingConfigContext
+	input := s.pendingConfigInput
+	s.configChangeTimer = nil
+	s.pendingConfigContext = nil
+	s.pendingConfigInput = nil
+	s.configChangeMu.Unlock()
+
+	commonlog.GetLogger(serverName).Debugf("Config change timer fired, applying settings")
+
+	// Parse and validate settings
+	settings, warnings := ParseSettings(input)
+	logger := commonlog.GetLogger(serverName)
+
+	// If there are warnings, fall back to last-known-good settings
+	if len(warnings) > 0 {
+		for _, warning := range warnings {
+			logger.Warningf("Invalid config (falling back to last-known-good): %s", warning)
+		}
+		s.settingsMu.RLock()
+		settings = s.lastValidSettings
+		s.settingsMu.RUnlock()
+		logger.Info("Using last-known-good settings due to invalid config")
+	} else {
+		// Settings are valid, store as last-known-good
+		s.settingsMu.Lock()
+		s.lastValidSettings = settings
+		s.settingsMu.Unlock()
+	}
+
+	// Apply the settings (either new valid settings or last-known-good)
+	s.settingsMu.Lock()
+	s.settings = settings
+	s.settingsMu.Unlock()
+
+	// Invalidate scan cache and trigger diagnostics refresh
 	s.scanCacheMu.Lock()
 	s.scanCache = make(map[string]scan.Result)
 	s.scanCacheMu.Unlock()
+
 	s.cacheMu.Lock()
 	uris := make([]string, 0, len(s.frontmatterCache))
 	for uri := range s.frontmatterCache {
 		uris = append(uris, uri)
 	}
 	s.cacheMu.Unlock()
+
 	for _, uri := range uris {
 		s.triggerDiagnostics(context, uri)
 	}
-	return nil
 }
 
 func (s *Server) applySettings(input any) {
@@ -456,8 +557,10 @@ func (s *Server) triggerDiagnostics(context *glsp.Context, uri string) {
 	defer s.diagnosticsMu.Unlock()
 
 	if timer, ok := s.diagnosticTimers[uri]; ok {
-		timer.Stop()
-		commonlog.GetLogger(serverName).Debugf("Debounce timer canceled for %s", uri)
+		if timer.Stop() {
+			s.inFlight.Done()
+			commonlog.GetLogger(serverName).Debugf("Debounce timer canceled for %s", uri)
+		}
 	}
 
 	delay := s.Debounce
@@ -471,7 +574,10 @@ func (s *Server) triggerDiagnostics(context *glsp.Context, uri string) {
 		delay = debounceTimeout
 	}
 	var timer *time.Timer
+	s.inFlight.Add(1)
 	timer = time.AfterFunc(delay, func() {
+		defer s.inFlight.Done()
+
 		s.diagnosticsMu.Lock()
 		current, ok := s.diagnosticTimers[uri]
 		if !ok || current != timer {

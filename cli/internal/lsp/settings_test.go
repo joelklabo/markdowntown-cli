@@ -86,3 +86,28 @@ func TestParseSettingsWarnings(t *testing.T) {
 		t.Fatalf("expected redactPaths to remain default, got %s", settings.Diagnostics.RedactPaths)
 	}
 }
+
+func TestServerLastValidSettings(t *testing.T) {
+	s := NewServer("0.1.0")
+	defer func() { _ = s.shutdown(nil) }()
+
+	// Verify initial settings are set as last-known-good
+	lastValid := s.lastValidSettings
+	if lastValid.Diagnostics.DelayMs != defaultDiagnosticsDelayMs {
+		t.Fatalf("expected initial lastValidSettings to have default delay")
+	}
+
+	// Apply valid settings through applySettings (without debounce)
+	validInput := map[string]any{
+		"diagnostics": map[string]any{
+			"delayMs": 300,
+		},
+	}
+	s.applySettings(validInput)
+
+	// Settings should update
+	current := s.currentSettings()
+	if current.Diagnostics.DelayMs != 300 {
+		t.Fatalf("expected current delayMs 300, got %d", current.Diagnostics.DelayMs)
+	}
+}

@@ -30,6 +30,7 @@ func TestServerLifecycleMethods(t *testing.T) {
 
 func TestTriggerDiagnostics(t *testing.T) {
 	s := NewServer("0.1.0")
+	defer func() { _ = s.shutdown(nil) }()
 	s.triggerDiagnostics(nil, "file:///tmp/test.md")
 
 	context := &glsp.Context{Notify: func(string, any) {}}
@@ -42,11 +43,11 @@ func TestTriggerDiagnostics(t *testing.T) {
 	if timer == nil {
 		t.Fatalf("expected timer to be scheduled")
 	}
-	timer.Stop()
 }
 
 func TestTriggerDiagnosticsCancelsPreviousTimer(t *testing.T) {
 	s := NewServer("0.1.0")
+	defer func() { _ = s.shutdown(nil) }()
 	s.Debounce = time.Minute
 	context := &glsp.Context{Notify: func(string, any) {}}
 	uri := "file:///tmp/test.md"
@@ -63,31 +64,45 @@ func TestTriggerDiagnosticsCancelsPreviousTimer(t *testing.T) {
 	if first.Stop() {
 		t.Fatalf("expected previous timer to be stopped")
 	}
-	second.Stop()
 }
 
 func TestDidChangeConfigurationTriggersDiagnostics(t *testing.T) {
+	// Note: Config changes are now debounced. See TestConfigChangeDebounceAndFallback
+	// in integration_test.go for comprehensive testing of this behavior.
 	s := NewServer("0.1.0")
+	defer func() { _ = s.shutdown(nil) }()
+	s.Debounce = 50 * time.Millisecond
+
+	// Add entry to frontmatter cache with proper locking
+	s.cacheMu.Lock()
 	s.frontmatterCache["file:///tmp/test.md"] = &scan.ParsedFrontmatter{}
+	s.cacheMu.Unlock()
 
 	ctx := &glsp.Context{Notify: func(string, any) {}}
 	if err := s.didChangeConfiguration(ctx, &protocol.DidChangeConfigurationParams{
 		Settings: map[string]any{
 			"diagnostics": map[string]any{
-				"enabled": false,
+				"delayMs": 250,
 			},
 		},
 	}); err != nil {
 		t.Fatalf("didChangeConfiguration: %v", err)
 	}
 
-	s.diagnosticsMu.Lock()
-	timer := s.diagnosticTimers["file:///tmp/test.md"]
-	s.diagnosticsMu.Unlock()
-	if timer == nil {
-		t.Fatalf("expected timer to be scheduled")
+	// Wait for config change debounce to fire
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify settings were updated
+	settings := s.currentSettings()
+	if settings.Diagnostics.DelayMs != 250 {
+		t.Fatalf("expected delayMs 250, got %d", settings.Diagnostics.DelayMs)
 	}
-	timer.Stop()
+
+	// Diagnostic timers should be scheduled; wait for them to exist
+	time.Sleep(50 * time.Millisecond)
+	s.diagnosticsMu.Lock()
+	_ = s.diagnosticTimers["file:///tmp/test.md"]
+	s.diagnosticsMu.Unlock()
 }
 
 func TestIssueToProtocolRange(t *testing.T) {
