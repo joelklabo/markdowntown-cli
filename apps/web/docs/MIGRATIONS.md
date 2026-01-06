@@ -34,3 +34,7 @@ Commit the generated folder under `prisma/migrations`.
 - **Improved revocation handling** - `findCliToken()` now checks `revokedAt` and `expiresAt`
 - See `docs/SECURITY.md` for token rotation and revocation best practices
 - Migration: `npx prisma migrate dev --name add_token_prefix`
+
+## Blob Retention
+
+Orphaned blobs (those with no `SnapshotFile` references) are cleaned up automatically during stale upload cleanup. See `docs/runbooks/blob-gc.md` for details on the cleanup schedule and safety guardrails.

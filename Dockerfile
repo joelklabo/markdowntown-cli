@@ -14,13 +14,14 @@ FROM base AS deps
 COPY pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web/package.json apps/web/package.json
 COPY apps/web/prisma apps/web/prisma
+COPY packages/engine-js/package.json packages/engine-js/package.json
 RUN pnpm install --frozen-lockfile --filter ./apps/web...
 
 FROM deps AS builder
 COPY apps/web ./apps/web
+COPY packages/engine-js ./packages/engine-js
 RUN pnpm --filter ./apps/web... exec prisma generate
 RUN pnpm --filter ./apps/web... build
-RUN pnpm --filter ./apps/web... prune --prod
 
 FROM base AS runner
 ENV NODE_ENV=production

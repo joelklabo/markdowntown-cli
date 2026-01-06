@@ -15,3 +15,7 @@ coverage*
 **/.vercel
 **/.env*
 markdowntown
+cli/
+codex/
+infra/
+docs/

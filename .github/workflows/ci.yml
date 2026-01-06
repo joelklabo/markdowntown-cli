@@ -178,3 +178,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - name: Test extension
         run: xvfb-run -a npm test
+
+  docker-build:
+    name: docker build smoke test
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t markdowntown-web .
