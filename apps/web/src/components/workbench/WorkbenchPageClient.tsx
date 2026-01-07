@@ -422,7 +422,7 @@ export function WorkbenchPageClient({
         </div>
       ) : null}
 
-      <div className="border-b border-mdt-border bg-mdt-surface px-mdt-4 py-mdt-3 md:hidden">
+      <div className="border-b border-mdt-border bg-mdt-surface px-mdt-4 py-mdt-3 lg:hidden">
         <TabsRoot
           value={mobileTab}
           onValueChange={(value) => setMobileTab(value as typeof mobileTab)}
@@ -436,19 +436,19 @@ export function WorkbenchPageClient({
         </TabsRoot>
       </div>
 
-      <div className="grid flex-1 min-h-0 grid-cols-1 overflow-hidden md:grid-cols-[280px_minmax(0,1fr)_320px]">
+      <div className="grid flex-1 min-h-0 grid-cols-1 overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_320px]">
         <div
           className={`h-full border-r border-mdt-border bg-mdt-surface-subtle ${
-            mobileTab === 'structure' ? 'block' : 'hidden md:block'
+            mobileTab === 'structure' ? 'block' : 'hidden lg:block'
           }`}
         >
-          <div className="h-full overflow-hidden p-mdt-4 md:p-mdt-5">
+          <div className="h-full overflow-hidden p-mdt-4 lg:p-mdt-5">
             <StructurePanel />
           </div>
         </div>
 
-        <div className={`relative h-full bg-mdt-surface ${mobileTab === 'editor' ? 'block' : 'hidden md:block'}`}>
-          <div className="h-full overflow-hidden p-mdt-4 md:p-mdt-5">
+        <div className={`relative h-full bg-mdt-surface ${mobileTab === 'editor' ? 'block' : 'hidden lg:block'}`}>
+          <div className="h-full overflow-hidden p-mdt-4 lg:p-mdt-5">
             <div className="flex h-full flex-col gap-mdt-4">
               {!hasBlocks && <WorkbenchOnboardingCard entrySource={entrySource} scanSummary={scanSummary} />}
               <div className="flex-1 min-h-0">
@@ -462,10 +462,10 @@ export function WorkbenchPageClient({
 
         <div
           className={`h-full border-l border-mdt-border bg-mdt-surface-subtle ${
-            mobileTab === 'output' ? 'block' : 'hidden md:block'
+            mobileTab === 'output' ? 'block' : 'hidden lg:block'
           }`}
         >
-          <div className="flex h-full flex-col overflow-hidden p-mdt-4 md:p-mdt-5">
+          <div className="flex h-full flex-col overflow-hidden p-mdt-4 lg:p-mdt-5">
             <OutputPanel entrySource={entrySource} initialTab="export" />
           </div>
         </div>

@@ -42,8 +42,8 @@ Scope: Core surfaces and global UI across breakpoints.
 - lg → left filter column becomes sticky sidebar (`lg:grid-cols-[320px_1fr]`, `lg:sticky`).
 
 ### Workbench (`/workbench`)
-- Base → tabbed interface (`md:hidden`) for Structure / Editor / Output.
-- md → three-column layout (`md:grid-cols-[280px_minmax(0,1fr)_320px]`).
+- Base → tabbed interface (`lg:hidden`) for Structure / Editor / Output.
+- lg → three-column layout (`lg:grid-cols-[280px_minmax(0,1fr)_320px]`).
 - Height locked to viewport (`h-[calc(100vh-64px)]`) with internal scroll regions.
 - Verify dynamic viewport handling on mobile (address bar collapse/expand, `dvh` vs `vh`).
 - When OSK opens, ensure editor remains usable and CTAs are not occluded.

@@ -133,7 +133,7 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className="bg-mdt-bg text-mdt-text font-sans antialiased min-h-screen pb-20 md:pb-0">
+      <body className="bg-mdt-bg text-mdt-text font-sans antialiased min-h-screen pb-28 md:pb-0">
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
