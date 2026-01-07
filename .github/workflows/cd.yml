@@ -153,8 +153,7 @@ jobs:
           az containerapp update \
             -n $AZURE_CONTAINERAPP_NAME \
             -g $AZURE_RESOURCE_GROUP \
-            --image $IMAGE \
-            --set-env-vars SKIP_DB=1
+            --image $IMAGE
 
       - name: Resolve Container Apps ingress URL
         if: steps.check_secrets.outputs.has_secrets == 'true'

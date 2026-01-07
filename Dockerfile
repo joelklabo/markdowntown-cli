@@ -34,7 +34,7 @@ COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder /app/apps/web/prisma ./apps/web/prisma
 
 # Install prisma CLI for migrations (standalone doesn't include dev deps)
-RUN npm install -g prisma@6.8.2
+RUN npm install -g prisma@5.22.0
 
 COPY scripts/entrypoint.sh ./scripts/entrypoint.sh
 RUN chmod +x ./scripts/entrypoint.sh
