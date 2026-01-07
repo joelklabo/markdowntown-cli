@@ -23,29 +23,45 @@ jobs:
       id-token: write
       security-events: write
     steps:
+      - name: Check required secrets
+        id: check_secrets
+        run: |
+          if [ -z "${{ secrets.AZURE_CREDENTIALS }}" ]; then
+            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::AZURE_CREDENTIALS secret is not set. Skipping deployment."
+          else
+            echo "has_secrets=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.check_secrets.outputs.has_secrets == 'true'
 
       - name: Setup pnpm
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         uses: pnpm/action-setup@v3
         with:
           version: 9.15.9
           run_install: false
 
       - name: Set up Node
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
       - name: Install deps
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         env:
           DATABASE_URL: "file:./dev.db"
         run: pnpm -C apps/web exec prisma generate
 
       - name: Build
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         env:
           NEXTAUTH_SECRET: dummy
           NEXTAUTH_URL: https://markdown.town
@@ -53,12 +69,14 @@ jobs:
         run: pnpm -C apps/web build
 
       - name: Azure login
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         id: azure_login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Compute image tag
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         run: |
           IMAGE_TAG=${GITHUB_SHA::7}
           IMAGE=$ACR_LOGIN_SERVER/markdowntown:$IMAGE_TAG
@@ -67,12 +85,15 @@ jobs:
           echo "Deploying image: $IMAGE"
 
       - name: Set up Docker Buildx
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Azure CLI - login to ACR
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         run: az acr login -n satoshiswestacr
 
       - name: Build & push image (BuildKit cache)
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -82,9 +103,11 @@ jobs:
           cache-to: type=registry,ref=${{ env.ACR_LOGIN_SERVER }}/markdowntown:buildcache,mode=max
 
       - name: Validate Trivy ignore list
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         run: node apps/web/scripts/validate-trivy-ignore.mjs
 
       - name: Trivy scan image (table, CRITICAL)
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         uses: aquasecurity/trivy-action@0.33.1
         with:
           scan-type: image
@@ -96,7 +119,7 @@ jobs:
           trivyignores: apps/web/.trivyignore
 
       - name: Trivy scan image (SARIF)
-        if: always()
+        if: steps.check_secrets.outputs.has_secrets == 'true' && always() && env.IMAGE != ''
         uses: aquasecurity/trivy-action@0.33.1
         with:
           scan-type: image
@@ -125,6 +148,7 @@ jobs:
           retention-days: 14
 
       - name: Deploy to Container Apps
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         run: |
           az containerapp update \
             -n $AZURE_CONTAINERAPP_NAME \
@@ -133,12 +157,14 @@ jobs:
             --set-env-vars SKIP_DB=1
 
       - name: Resolve Container Apps ingress URL
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         run: |
           FQDN="$(az containerapp show -n $AZURE_CONTAINERAPP_NAME -g $AZURE_RESOURCE_GROUP --query properties.configuration.ingress.fqdn -o tsv)"
           echo "Container Apps FQDN: $FQDN"
           echo "CONTAINERAPP_FQDN=$FQDN" >> $GITHUB_ENV
 
       - name: Smoke test deployed revision (Container Apps FQDN)
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         id: smoke_test_containerapp
         run: |
           set -euo pipefail
@@ -171,6 +197,7 @@ jobs:
           curl_json "$BASE/api/public/items?limit=1" | jq -e 'type == "array"' > /dev/null
 
       - name: Smoke test prod domain (Cloudflare may challenge)
+        if: steps.check_secrets.outputs.has_secrets == 'true'
         run: |
           set -euo pipefail
           for url in "https://markdown.town" "https://markdown.town/api/public/items"; do
