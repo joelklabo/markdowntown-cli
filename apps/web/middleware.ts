@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-const ALLOWED_PREFIXES = ["/api/public", "/api/health", "/api/auth"];
+const ALLOWED_PREFIXES = ["/api/public", "/api/health", "/api/auth", "/api/cli"];
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 function isBypassed(pathname: string) {
