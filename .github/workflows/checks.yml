@@ -104,7 +104,7 @@ jobs:
       - name: Test
         run: |
           mkdir -p test-results
-          pnpm test -- --reporter=default --reporter=junit --outputFile=test-results/vitest-junit.xml
+          pnpm -C apps/web test -- --reporter=default --reporter=junit --outputFile=test-results/vitest-junit.xml
 
       - name: Build
         env:
