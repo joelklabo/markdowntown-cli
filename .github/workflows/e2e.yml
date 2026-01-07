@@ -75,7 +75,7 @@ jobs:
           GITHUB_CLIENT_ID: ${{ secrets.CLIENT_ID_TEST }}
           GITHUB_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET_TEST }}
         run: |
-          pnpm start --hostname 0.0.0.0 --port 3000 &
+          pnpm -C apps/web start --hostname 0.0.0.0 --port 3000 &
           echo $! > /tmp/next.pid
           echo "Waiting for app to be ready..."
           for i in {1..30}; do
@@ -95,7 +95,7 @@ jobs:
           GITHUB_TEST_PASS: ${{ secrets.TEST_PASS }}
         run: |
           mkdir -p test-results
-          pnpm test:e2e -- --reporter=default --reporter=junit --outputFile=test-results/e2e-junit.xml
+          pnpm -C apps/web test:e2e -- --reporter=default --reporter=junit --outputFile=test-results/e2e-junit.xml
 
       - name: Generate e2e HTML summary
         if: always()
