@@ -26,11 +26,16 @@ RUN pnpm --filter ./apps/web... build
 FROM base AS runner
 ENV NODE_ENV=production
 WORKDIR /app
+
+# Copy standalone output
+COPY --from=builder /app/apps/web/.next/standalone ./
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
-COPY --from=builder /app/apps/web/.next ./apps/web/.next
-COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
-COPY --from=builder /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=builder /app/apps/web/prisma ./apps/web/prisma
+
+# Install prisma CLI for migrations (standalone doesn't include dev deps)
+RUN npm install -g prisma@6.8.2
+
 COPY scripts/entrypoint.sh ./scripts/entrypoint.sh
 RUN chmod +x ./scripts/entrypoint.sh
 
