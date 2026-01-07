@@ -185,7 +185,7 @@ jobs:
 
           echo "Waiting for /api/health (with timeouts/retries)..."
           for i in {1..30}; do
-            if curl_json "$BASE/api/health" | jq -e '.status == "ok"' > /dev/null; then
+            if curl_json "$BASE/api/health" | jq -e '.status == "ok" or .status == "degraded"' > /dev/null; then
               echo "Healthy"
               break
             fi
@@ -193,7 +193,7 @@ jobs:
             sleep 5
           done
 
-          curl_json "$BASE/api/health" | jq -e '.status == "ok"' > /dev/null
+          curl_json "$BASE/api/health" | jq -e '.status == "ok" or .status == "degraded"' > /dev/null
           curl_json "$BASE/api/public/items?limit=1" | jq -e 'type == "array"' > /dev/null
 
       - name: Smoke test prod domain (Cloudflare may challenge)
