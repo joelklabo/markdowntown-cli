@@ -40,7 +40,6 @@ func NewFileTree(repoRoot string) FileTree {
 		expanded: make(map[string]bool),
 	}
 	ft.expanded[repoRoot] = true
-	ft.refreshItems()
 	return ft
 }
 
@@ -68,8 +67,25 @@ func (m *FileTree) SelectedPath() string {
 	return ""
 }
 
+// DirectoryLoadedMsg indicates that directory items have been refreshed.
+type DirectoryLoadedMsg struct {
+	Items []treeItem
+}
+
 // Update handles messages and updates the model state.
 func (m FileTree) Update(msg tea.Msg) (FileTree, tea.Cmd) {
+	if msg, ok := msg.(DirectoryLoadedMsg); ok {
+		m.items = msg.Items
+		// Adjust cursor if out of bounds
+		if m.cursor >= len(m.items) {
+			m.cursor = len(m.items) - 1
+		}
+		if m.cursor < 0 && len(m.items) > 0 {
+			m.cursor = 0
+		}
+		return m, nil
+	}
+
 	if !m.focused {
 		return m, nil
 	}
@@ -89,18 +105,17 @@ func (m FileTree) Update(msg tea.Msg) (FileTree, tea.Cmd) {
 				item := m.items[m.cursor]
 				if item.isDir {
 					m.expanded[item.path] = !m.expanded[item.path]
-					m.refreshItems()
-				} else {
-					m.selected = item.path
-					return m, func() tea.Msg { return FileSelectedMsg{Path: item.path} }
+					return m, m.RefreshItemsCmd()
 				}
+				m.selected = item.path
+				return m, func() tea.Msg { return FileSelectedMsg{Path: item.path} }
 			}
 		case "left", "h":
 			if m.cursor >= 0 && m.cursor < len(m.items) {
 				item := m.items[m.cursor]
 				if item.isDir && m.expanded[item.path] {
 					m.expanded[item.path] = false
-					m.refreshItems()
+					return m, m.RefreshItemsCmd()
 				}
 			}
 		}
@@ -108,57 +123,58 @@ func (m FileTree) Update(msg tea.Msg) (FileTree, tea.Cmd) {
 	return m, nil
 }
 
-func (m *FileTree) refreshItems() {
-	var items []treeItem
+// RefreshItemsCmd returns a command that refreshes the file tree items.
+func (m *FileTree) RefreshItemsCmd() tea.Cmd {
+	repoRoot := m.repoRoot
+	expanded := make(map[string]bool)
+	for k, v := range m.expanded {
+		expanded[k] = v
+	}
 
-	// Helper to walk
-	var walk func(path string, depth int)
-	walk = func(path string, depth int) {
-		entries, err := os.ReadDir(path)
-		if err != nil {
-			return
-		}
+	return func() tea.Msg {
+		var items []treeItem
 
-		// Sort: Dirs first, then files
-		sort.Slice(entries, func(i, j int) bool {
-			if entries[i].IsDir() != entries[j].IsDir() {
-				return entries[i].IsDir()
+		// Helper to walk
+		var walk func(path string, depth int)
+		walk = func(path string, depth int) {
+			entries, err := os.ReadDir(path)
+			if err != nil {
+				return
 			}
-			return entries[i].Name() < entries[j].Name()
-		})
 
-		for _, entry := range entries {
-			if entry.Name() == ".git" {
-				continue
-			}
-			fullPath := filepath.Join(path, entry.Name())
-			isExpanded := m.expanded[fullPath]
-
-			items = append(items, treeItem{
-				path:     fullPath,
-				name:     entry.Name(),
-				isDir:    entry.IsDir(),
-				depth:    depth,
-				expanded: isExpanded,
+			// Sort: Dirs first, then files
+			sort.Slice(entries, func(i, j int) bool {
+				if entries[i].IsDir() != entries[j].IsDir() {
+					return entries[i].IsDir()
+				}
+				return entries[i].Name() < entries[j].Name()
 			})
 
-			if entry.IsDir() && isExpanded {
-				walk(fullPath, depth+1)
+			for _, entry := range entries {
+				if entry.Name() == ".git" {
+					continue
+				}
+				fullPath := filepath.Join(path, entry.Name())
+				isExpanded := expanded[fullPath]
+
+				items = append(items, treeItem{
+					path:     fullPath,
+					name:     entry.Name(),
+					isDir:    entry.IsDir(),
+					depth:    depth,
+					expanded: isExpanded,
+				})
+
+				if entry.IsDir() && isExpanded {
+					walk(fullPath, depth+1)
+				}
 			}
 		}
-	}
 
-	// Start walk from root (but don't add root itself to list, or do?)
-	// Usually file trees show contents of root.
-	walk(m.repoRoot, 0)
+		// Start walk from root
+		walk(repoRoot, 0)
 
-	m.items = items
-	// Adjust cursor if out of bounds
-	if m.cursor >= len(m.items) {
-		m.cursor = len(m.items) - 1
-	}
-	if m.cursor < 0 && len(m.items) > 0 {
-		m.cursor = 0
+		return DirectoryLoadedMsg{Items: items}
 	}
 }
 

@@ -84,7 +84,7 @@ func initialModel(repoRoot string) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return m.fileTree.RefreshItemsCmd()
 }
 
 // ContextLoadedMsg indicates that context content has been loaded.

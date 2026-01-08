@@ -33,6 +33,10 @@ func TestFileTree(t *testing.T) {
 	ft := NewFileTree(tempDir)
 	ft.Focus()
 
+	// Need to manually refresh items in test
+	msg := ft.RefreshItemsCmd()()
+	ft, _ = ft.Update(msg)
+
 	// Initial state: root expanded, should see file1.md and dir1
 	if len(ft.items) != 2 {
 		t.Errorf("expected 2 items, got %d", len(ft.items))
@@ -51,7 +55,10 @@ func TestFileTree(t *testing.T) {
 		t.Fatalf("expected item 0 to be dir")
 	}
 
-	ft, _ = ft.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	_, cmd := ft.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	if cmd != nil {
+		ft, _ = ft.Update(cmd())
+	}
 	if !ft.expanded[ft.items[0].path] {
 		t.Errorf("expected dir to be expanded")
 	}
@@ -75,11 +82,11 @@ func TestFileTree(t *testing.T) {
 	}
 
 	ft.cursor = fileIdx
-	_, cmd := ft.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	_, cmd = ft.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
 		t.Fatal("expected command on file selection")
 	}
-	msg := cmd()
+	msg = cmd()
 	if selMsg, ok := msg.(FileSelectedMsg); ok {
 		if selMsg.Path != ft.items[fileIdx].path {
 			t.Errorf("expected path %s, got %s", ft.items[fileIdx].path, selMsg.Path)
