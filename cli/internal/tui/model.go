@@ -56,6 +56,9 @@ type model struct {
 	compareState compareMode
 	compareA     int // Index of first client
 	compareB     int // Index of second client
+
+	// Search
+	searchPanel SearchPanel
 }
 
 func initialModel(repoRoot string) model {
@@ -71,11 +74,12 @@ func initialModel(repoRoot string) model {
 	reg, _, _ := scan.LoadRegistry()
 
 	return model{
-		repoRoot: repoRoot,
-		fileTree: ft,
-		tabs:     NewTabs(tabEntries),
-		engine:   context_pkg.NewEngine(),
-		registry: reg,
+		repoRoot:    repoRoot,
+		fileTree:    ft,
+		tabs:        NewTabs(tabEntries),
+		engine:      context_pkg.NewEngine(),
+		registry:    reg,
+		searchPanel: NewSearchPanel(),
 	}
 }
 
@@ -120,6 +124,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if m.searchPanel.active {
+			m.searchPanel, cmd = m.searchPanel.Update(msg)
+			return m, cmd
+		}
+
 		if m.compareState == compareSelectingA || m.compareState == compareSelectingB {
 			switch msg.String() {
 			case "esc":
@@ -143,6 +152,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "/":
+			return m, m.searchPanel.Focus()
 		case "c":
 			if m.compareState == compareActive {
 				m.compareState = compareNone
@@ -168,6 +179,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		treeWidth := max(0, m.width/3-2)
 		treeHeight := max(0, m.height-2)
 		m.fileTree.SetSize(treeWidth, treeHeight)
+		m.searchPanel.SetSize(max(0, m.width-10), max(0, m.height-4))
 	case FileSelectedMsg:
 		// Increment generation to invalidate previous in-flight requests
 		m.requestGen++
@@ -184,6 +196,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.resolution = msg.Resolution
 			m.diagnostics = msg.Diagnostics
 		}
+	case SearchRequestMsg:
+		cmd = func() tea.Msg {
+			results, _ := context_pkg.SearchInstructions(m.repoRoot, m.registry, msg.Query)
+			return SearchResultsMsg{Results: results}
+		}
+	case SearchResultsMsg:
+		m.searchPanel, cmd = m.searchPanel.Update(msg)
 	}
 
 	// Handle file tree update
@@ -258,5 +277,14 @@ func (m model) View() string {
 		Height(paneHeight).
 		Render(rightContent)
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightPane)
+	ui := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, rightPane)
+
+	if m.searchPanel.active {
+		// Render search panel as overlay
+		searchView := m.searchPanel.View()
+		overlay := lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, searchView)
+		return overlay
+	}
+
+	return ui
 }

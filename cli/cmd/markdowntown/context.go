@@ -24,6 +24,7 @@ Flags:
   --repo <path>         Repo path (defaults to git root from cwd)
   --json                Output context resolution as JSON
   --compare <c1,c2>     Compare two clients (comma-separated)
+  --search <query>      Search across instruction files
   -h, --help            Show help
 `
 
@@ -38,11 +39,13 @@ func runContextWithIO(w io.Writer, args []string) error {
 	var repoPath string
 	var jsonMode bool
 	var compareClients string
+	var searchQuery string
 	var help bool
 
 	flags.StringVar(&repoPath, "repo", "", "repo path (defaults to git root)")
 	flags.BoolVar(&jsonMode, "json", false, "output context resolution as JSON")
 	flags.StringVar(&compareClients, "compare", "", "compare two clients (comma-separated)")
+	flags.StringVar(&searchQuery, "search", "", "search across instruction files")
 	flags.BoolVar(&help, "help", false, "show help")
 	flags.BoolVar(&help, "h", false, "show help")
 
@@ -70,7 +73,7 @@ func runContextWithIO(w io.Writer, args []string) error {
 	}
 
 	if jsonMode {
-		return runContextJSON(w, repoRoot, targetPath, compareClients)
+		return runContextJSON(w, repoRoot, targetPath, compareClients, searchQuery)
 	}
 
 	return tui.Start(repoRoot)
@@ -80,7 +83,7 @@ func printContextUsage(w io.Writer) {
 	_, _ = fmt.Fprint(w, contextUsage)
 }
 
-func runContextJSON(w io.Writer, repoRoot, targetPath, compare string) error {
+func runContextJSON(w io.Writer, repoRoot, targetPath, compare, search string) error {
 	absTarget, err := filepath.Abs(targetPath)
 	if err != nil {
 		return err
@@ -114,6 +117,14 @@ func runContextJSON(w io.Writer, repoRoot, targetPath, compare string) error {
 		return err
 	}
 
+	var searchResults []context_pkg.SearchResult
+	if search != "" {
+		searchResults, err = context_pkg.SearchInstructions(repoRoot, registry, search)
+		if err != nil {
+			return err
+		}
+	}
+
 	if compare != "" {
 		parts := strings.Split(compare, ",")
 		if len(parts) != 2 {
@@ -136,8 +147,8 @@ func runContextJSON(w io.Writer, repoRoot, targetPath, compare string) error {
 		}
 
 		diff := context_pkg.DiffResolutions(resA.Resolution, resB.Resolution)
-		return context_pkg.WriteJSONWithDiff(w, res, diff)
+		return context_pkg.WriteJSONWithFullResults(w, res, &diff, searchResults)
 	}
 
-	return context_pkg.WriteJSON(w, res)
+	return context_pkg.WriteJSONWithFullResults(w, res, nil, searchResults)
 }
