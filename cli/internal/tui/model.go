@@ -180,10 +180,7 @@ func (m model) View() string {
 			if res.Error != nil {
 				sb.WriteString(fmt.Sprintf("❌ Error: %v\n", res.Error))
 			} else if res.Resolution != nil {
-				sb.WriteString(fmt.Sprintf("✅ Applied files: %d\n", len(res.Resolution.Applied)))
-				if len(res.Resolution.Warnings) > 0 {
-					sb.WriteString(fmt.Sprintf("⚠️ Warnings: %d\n", len(res.Resolution.Warnings)))
-				}
+				sb.WriteString(renderContextDetails(res.Resolution))
 			}
 		}
 		rightContent = sb.String()
