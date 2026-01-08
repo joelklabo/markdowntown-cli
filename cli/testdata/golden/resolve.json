@@ -2,35 +2,29 @@
   "client": "codex",
   "generatedAt": 0,
   "resolution": {
-    "Client": "codex",
-    "RepoRoot": "<REPO>",
-    "Cwd": "<REPO>",
-    "TargetPath": "",
-    "Applied": [
+    "client": "codex",
+    "repoRoot": "<REPO>",
+    "cwd": "<REPO>",
+    "applied": [
       {
-        "Path": "<REPO>/AGENTS.md",
-        "Scope": "repo",
-        "Dir": "<REPO>",
-        "Reason": "primary",
-        "Bytes": 4,
-        "IncludedBytes": 4,
-        "Truncated": false
+        "path": "<REPO>/AGENTS.md",
+        "scope": "repo",
+        "dir": "<REPO>",
+        "reason": "primary",
+        "bytes": 4,
+        "includedBytes": 4,
+        "truncated": false
       }
     ],
-    "OrderGuarantee": "deterministic",
-    "Conflicts": null,
-    "SettingsRequired": null,
-    "SizeLimits": [
+    "orderGuarantee": "deterministic",
+    "sizeLimits": [
       {
-        "Name": "project_doc_max_bytes",
-        "Bytes": 32768,
-        "Scope": "repo",
-        "Source": "default"
+        "name": "project_doc_max_bytes",
+        "bytes": 32768,
+        "scope": "repo",
+        "source": "default"
       }
     ],
-    "Warnings": null,
-    "CodexHome": "<REPO>/.codex",
-    "ConfigPath": "",
-    "FallbackFilenames": null
+    "codexHome": "<REPO>/.codex"
   }
 }

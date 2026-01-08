@@ -93,45 +93,45 @@ type ResolveOptions struct {
 
 // Resolution captures the resolved instruction chain and metadata.
 type Resolution struct {
-	Client           Client
-	RepoRoot         string
-	Cwd              string
-	TargetPath       string
-	Applied          []InstructionFile
-	OrderGuarantee   OrderGuarantee
-	Conflicts        []Conflict
-	SettingsRequired []string
-	SizeLimits       []SizeLimit
-	Warnings         []string
+	Client           Client            `json:"client"`
+	RepoRoot         string            `json:"repoRoot"`
+	Cwd              string            `json:"cwd"`
+	TargetPath       string            `json:"targetPath,omitempty"`
+	Applied          []InstructionFile `json:"applied"`
+	OrderGuarantee   OrderGuarantee    `json:"orderGuarantee"`
+	Conflicts        []Conflict        `json:"conflicts,omitempty"`
+	SettingsRequired []string          `json:"settingsRequired,omitempty"`
+	SizeLimits       []SizeLimit       `json:"sizeLimits,omitempty"`
+	Warnings         []string          `json:"warnings,omitempty"`
 
-	CodexHome         string
-	ConfigPath        string
-	FallbackFilenames []string
+	CodexHome         string   `json:"codexHome,omitempty"`
+	ConfigPath        string   `json:"configPath,omitempty"`
+	FallbackFilenames []string `json:"fallbackFilenames,omitempty"`
 }
 
 // InstructionFile records a resolved instruction file.
 type InstructionFile struct {
-	Path          string
-	Scope         Scope
-	Dir           string
-	Reason        InstructionReason
-	Bytes         int64
-	IncludedBytes int64
-	Truncated     bool
+	Path          string            `json:"path"`
+	Scope         Scope             `json:"scope"`
+	Dir           string            `json:"dir"`
+	Reason        InstructionReason `json:"reason"`
+	Bytes         int64             `json:"bytes"`
+	IncludedBytes int64             `json:"includedBytes"`
+	Truncated     bool              `json:"truncated"`
 }
 
 // Conflict describes an ordering or instruction conflict.
 type Conflict struct {
-	Reason string
-	Paths  []string
+	Reason string   `json:"reason"`
+	Paths  []string `json:"paths"`
 }
 
 // SizeLimit captures an enforced size constraint.
 type SizeLimit struct {
-	Name   string
-	Bytes  int64
-	Scope  Scope
-	Source string
+	Name   string `json:"name"`
+	Bytes  int64  `json:"bytes"`
+	Scope  Scope  `json:"scope"`
+	Source string `json:"source"`
 }
 
 // Adapter resolves instruction chains for a client.
