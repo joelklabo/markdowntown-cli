@@ -72,11 +72,25 @@ func runContextWithIO(w io.Writer, args []string) error {
 		return err
 	}
 
+	// Auto-fallback to JSON mode if no TTY is available
+	if !jsonMode && !isTTYAvailable() {
+		jsonMode = true
+	}
+
 	if jsonMode {
 		return runContextJSON(w, repoRoot, targetPath, compareClients, searchQuery)
 	}
 
 	return tui.Start(repoRoot)
+}
+
+// isTTYAvailable checks if stdout is connected to an interactive terminal.
+func isTTYAvailable() bool {
+	stat, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return (stat.Mode() & os.ModeCharDevice) != 0
 }
 
 func printContextUsage(w io.Writer) {
