@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -91,14 +92,16 @@ func TestSaveAndLoadAuth(t *testing.T) {
 		t.Fatalf("SaveAuth() returned error: %v", err)
 	}
 
-	// Verify the file was created with correct permissions
+	// Verify the file was created with correct permissions (Unix only)
 	authPath, _ := AuthPath()
 	info, err := os.Stat(authPath)
 	if err != nil {
 		t.Fatalf("auth file not created: %v", err)
 	}
-	if perm := info.Mode().Perm(); perm != 0o600 {
-		t.Errorf("auth file permissions = %o, want %o", perm, 0o600)
+	if runtime.GOOS != "windows" {
+		if perm := info.Mode().Perm(); perm != 0o600 {
+			t.Errorf("auth file permissions = %o, want %o", perm, 0o600)
+		}
 	}
 
 	loaded, err := LoadAuth()
