@@ -47,7 +47,9 @@ type model struct {
 	lastErr    error // Last error encountered
 
 	// Concurrency control
-	requestGen uint64
+	requestGen   uint64
+	cancel       context.CancelFunc
+	searchCancel context.CancelFunc
 
 	// Diagnostics
 	diagnostics map[instructions.Client][]audit.Issue
@@ -96,10 +98,9 @@ type ContextLoadedMsg struct {
 	Error       error
 }
 
-func fetchContextCmd(engine context_pkg.Engine, registry scan.Registry, repoRoot, path string, generation uint64) tea.Cmd {
+func fetchContextCmd(ctx context.Context, engine context_pkg.Engine, registry scan.Registry, repoRoot, path string, generation uint64) tea.Cmd {
 	return func() tea.Msg {
-		// We use background context for now.
-		res, err := engine.ResolveContext(context.Background(), context_pkg.ResolveOptions{
+		res, err := engine.ResolveContext(ctx, context_pkg.ResolveOptions{
 			RepoRoot: repoRoot,
 			FilePath: path,
 			Clients:  instructions.AllClients(),
@@ -187,7 +188,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.resolution = nil
 		m.lastErr = nil
 		m.diagnostics = nil
-		cmd = fetchContextCmd(m.engine, m.registry, m.repoRoot, msg.Path, m.requestGen)
+
+		// Cancel previous request
+		if m.cancel != nil {
+			m.cancel()
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		m.cancel = cancel
+
+		cmd = fetchContextCmd(ctx, m.engine, m.registry, m.repoRoot, msg.Path, m.requestGen)
 	case ContextLoadedMsg:
 		// CRITICAL: Only accept response if generations match
 		if msg.Generation == m.requestGen {
@@ -197,9 +207,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.diagnostics = msg.Diagnostics
 		}
 	case SearchRequestMsg:
+		// Cancel previous search if any?
+		// For now, we add generation counter which is already there in SearchPanel.
+		// But let's also use a separate search cancel.
+		if m.searchCancel != nil {
+			m.searchCancel()
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		m.searchCancel = cancel
+
 		cmd = func() tea.Msg {
-			results, _ := context_pkg.SearchInstructions(m.repoRoot, m.registry, msg.Query)
-			return SearchResultsMsg{Results: results}
+			results, _ := context_pkg.SearchInstructions(ctx, m.repoRoot, m.registry, msg.Query)
+			return SearchResultsMsg{Results: results, Generation: msg.Generation}
 		}
 	case SearchResultsMsg:
 		m.searchPanel, cmd = m.searchPanel.Update(msg)

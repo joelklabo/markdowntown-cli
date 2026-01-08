@@ -20,6 +20,7 @@ type SearchPanel struct {
 	loading   bool
 	width     int
 	height    int
+	searchGen uint64
 }
 
 // NewSearchPanel creates a new SearchPanel.
@@ -94,17 +95,20 @@ func (s SearchPanel) Update(msg tea.Msg) (SearchPanel, tea.Cmd) {
 		case "enter":
 			query := s.textInput.Value()
 			if query != "" {
+				s.searchGen++
 				s.loading = true
 				s.viewport.SetContent("Searching...")
 				return s, func() tea.Msg {
-					return SearchRequestMsg{Query: query}
+					return SearchRequestMsg{Query: query, Generation: s.searchGen}
 				}
 			}
 		}
 	case SearchResultsMsg:
-		s.loading = false
-		s.results = msg.Results
-		s.refreshViewport()
+		if msg.Generation == s.searchGen {
+			s.loading = false
+			s.results = msg.Results
+			s.refreshViewport()
+		}
 	}
 
 	return s, tea.Batch(cmds...)
@@ -146,10 +150,12 @@ func (s SearchPanel) View() string {
 
 // SearchRequestMsg indicates a search was requested.
 type SearchRequestMsg struct {
-	Query string
+	Query      string
+	Generation uint64
 }
 
 // SearchResultsMsg indicates search results are available.
 type SearchResultsMsg struct {
-	Results []context_pkg.SearchResult
+	Results    []context_pkg.SearchResult
+	Generation uint64
 }

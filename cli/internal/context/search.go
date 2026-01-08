@@ -2,6 +2,7 @@ package context //nolint:revive
 
 import (
 	"bufio"
+	"context"
 	"strings"
 
 	"markdowntown-cli/internal/instructions"
@@ -19,12 +20,19 @@ type SearchResult struct {
 }
 
 // SearchInstructions searches for a query across all instruction files in the repo and user scope.
-func SearchInstructions(repoRoot string, registry scan.Registry, query string) ([]SearchResult, error) {
+func SearchInstructions(ctx context.Context, repoRoot string, registry scan.Registry, query string) ([]SearchResult, error) {
 	if query == "" {
 		return nil, nil
 	}
 
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	// 1. Scan to find all instruction files
+	// ... (scan options)
+	// ...
+	// Note: scan.Scan currently doesn't accept context, but we check it before and after.
 	scanRes, err := scan.Scan(scan.Options{
 		RepoRoot:       repoRoot,
 		Registry:       registry,
@@ -39,6 +47,10 @@ func SearchInstructions(repoRoot string, registry scan.Registry, query string) (
 	queryLower := strings.ToLower(query)
 
 	for _, entry := range scanRes.Entries {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		if entry.Content == nil {
 			continue
 		}

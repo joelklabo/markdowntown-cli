@@ -1,6 +1,7 @@
 package context //nolint:revive
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,7 +28,7 @@ func TestSearchInstructions(t *testing.T) {
 
 	registry, _, _ := scan.LoadRegistry()
 
-	results, err := SearchInstructions(tempDir, registry, "TypeScript")
+	results, err := SearchInstructions(context.Background(), tempDir, registry, "TypeScript")
 	if err != nil {
 		t.Fatalf("SearchInstructions failed: %v", err)
 	}
