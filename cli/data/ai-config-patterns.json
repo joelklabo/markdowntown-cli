@@ -798,6 +798,61 @@
       "docs": [
         "https://docs.anthropic.com/en/docs/claude-code/settings"
       ]
+    },
+    {
+      "id": "windsurf-rules-repo",
+      "toolId": "windsurf",
+      "toolName": "Windsurf",
+      "kind": "rules",
+      "scope": "repo",
+      "paths": [
+        ".windsurf/rules/**/*.md"
+      ],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "automatic",
+      "docs": [
+        "https://docs.windsurf.com/windsurf/cascade/memories"
+      ]
+    },
+    {
+      "id": "windsurf-rules-legacy",
+      "toolId": "windsurf",
+      "toolName": "Windsurf",
+      "kind": "rules",
+      "scope": "repo",
+      "paths": [
+        ".windsurfrules"
+      ],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "notes": "Legacy format, deprecated in favor of .windsurf/rules/",
+      "hints": [
+        {
+          "type": "deprecated",
+          "reason": "Use .windsurf/rules/ directory instead"
+        }
+      ],
+      "docs": [
+        "https://docs.windsurf.com/windsurf/cascade/memories"
+      ]
+    },
+    {
+      "id": "windsurf-rules-user",
+      "toolId": "windsurf",
+      "toolName": "Windsurf",
+      "kind": "rules",
+      "scope": "user",
+      "paths": [
+        "~/.windsurf/rules/**/*.md"
+      ],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
+      "application": "automatic",
+      "docs": [
+        "https://docs.windsurf.com/windsurf/cascade/memories"
+      ]
     }
   ]
 }

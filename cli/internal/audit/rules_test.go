@@ -57,14 +57,59 @@ func TestRuleConflictDetectsTestFixtures(t *testing.T) {
 	if len(issues) != 1 {
 		t.Fatalf("expected one conflict issue, got %d", len(issues))
 	}
-	if !strings.Contains(issues[0].Message, "test fixtures or examples") {
-		t.Fatalf("expected message to mention test fixtures, got: %s", issues[0].Message)
+	if !strings.Contains(issues[0].Message, "test/example") {
+		t.Fatalf("expected message to mention test/example, got: %s", issues[0].Message)
 	}
-	if !strings.Contains(issues[0].Message, "2 of 3") {
-		t.Fatalf("expected message to show 2 of 3 paths are test fixtures, got: %s", issues[0].Message)
+	if !strings.Contains(issues[0].Message, "2 test/example of 3") {
+		t.Fatalf("expected message to show 2 test/example of 3 paths, got: %s", issues[0].Message)
 	}
 	if !strings.Contains(issues[0].Suggestion, "test fixtures or examples") {
 		t.Fatalf("expected suggestion to mention test fixtures, got: %s", issues[0].Suggestion)
+	}
+}
+
+func TestRuleConflictDetectsBuildOutput(t *testing.T) {
+	entries := []scan.ConfigEntry{
+		configEntry("/repo/GEMINI.md", "repo", "gemini-cli", "instructions"),
+		configEntry("/repo/.next/standalone/GEMINI.md", "repo", "gemini-cli", "instructions"),
+		configEntry("/repo/dist/GEMINI.md", "repo", "gemini-cli", "instructions"),
+	}
+	ctx := testContext(entries, scan.Registry{})
+	issues := ruleConflict(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one conflict issue, got %d", len(issues))
+	}
+	if !strings.Contains(issues[0].Message, "build output") {
+		t.Fatalf("expected message to mention build output, got: %s", issues[0].Message)
+	}
+	if !strings.Contains(issues[0].Message, "2 build output of 3") {
+		t.Fatalf("expected message to show 2 build output of 3 paths, got: %s", issues[0].Message)
+	}
+	if !strings.Contains(issues[0].Suggestion, "build output directories") {
+		t.Fatalf("expected suggestion to mention build output, got: %s", issues[0].Suggestion)
+	}
+}
+
+func TestRuleConflictDetectsMixedBuildAndTest(t *testing.T) {
+	entries := []scan.ConfigEntry{
+		configEntry("/repo/GEMINI.md", "repo", "gemini-cli", "instructions"),
+		configEntry("/repo/.next/standalone/GEMINI.md", "repo", "gemini-cli", "instructions"),
+		configEntry("/repo/testdata/GEMINI.md", "repo", "gemini-cli", "instructions"),
+	}
+	ctx := testContext(entries, scan.Registry{})
+	issues := ruleConflict(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one conflict issue, got %d", len(issues))
+	}
+	// Should contain both build output and test/example counts
+	if !strings.Contains(issues[0].Message, "build output") {
+		t.Fatalf("expected message to mention build output, got: %s", issues[0].Message)
+	}
+	if !strings.Contains(issues[0].Message, "test/example") {
+		t.Fatalf("expected message to mention test/example, got: %s", issues[0].Message)
+	}
+	if !strings.Contains(issues[0].Suggestion, "build output or test fixtures") {
+		t.Fatalf("expected suggestion to mention both, got: %s", issues[0].Suggestion)
 	}
 }
 
@@ -321,8 +366,7 @@ func TestRuleScanWarningNodeModulesSuggestion(t *testing.T) {
 	if len(issues) != 1 {
 		t.Fatalf("expected one issue, got %d", len(issues))
 	}
-	expectedSuggestion := "This appears to be a stale symlink to a removed package. Run `pnpm install` or `npm install` to regenerate node_modules."
-	if issues[0].Suggestion != expectedSuggestion {
+	if !strings.Contains(issues[0].Suggestion, "stale symlink") {
 		t.Fatalf("expected node_modules-specific suggestion, got: %s", issues[0].Suggestion)
 	}
 	requireRuleData(t, issues[0], "discovery")
@@ -340,6 +384,45 @@ func TestRuleScanWarningNonNodeModulesKeepsDefaultSuggestion(t *testing.T) {
 	expectedSuggestion := "Verify permissions and registry paths, then re-run the scan."
 	if issues[0].Suggestion != expectedSuggestion {
 		t.Fatalf("expected default suggestion, got: %s", issues[0].Suggestion)
+	}
+}
+
+func TestRuleScanWarningGroupsBySameTarget(t *testing.T) {
+	ctx := testContext(nil, scan.Registry{})
+	ctx.Scan.Warnings = []scan.Warning{
+		{Path: "/repo/node_modules/.pnpm/node_modules/@foo/bar", Code: "ERROR", Message: "lstat /repo/packages/bar: no such file or directory"},
+		{Path: "/repo/apps/docs/node_modules/@foo/bar", Code: "ERROR", Message: "lstat /repo/packages/bar: no such file or directory"},
+		{Path: "/repo/node_modules/.pnpm/node_modules/@foo/baz", Code: "ERROR", Message: "lstat /repo/packages/baz: no such file or directory"},
+	}
+	issues := ruleScanWarning(ctx)
+	// Should be 2 issues: one for /repo/packages/bar (2 symlinks), one for /repo/packages/baz (1 symlink)
+	if len(issues) != 2 {
+		t.Fatalf("expected two grouped issues, got %d", len(issues))
+	}
+	// Find the issue with 2 symlinks
+	var twoSymlinks, oneSymlink *Issue
+	for i := range issues {
+		count, ok := issues[i].Evidence["affectedCount"].(int)
+		if ok && count == 2 {
+			twoSymlinks = &issues[i]
+		} else if ok && count == 1 {
+			oneSymlink = &issues[i]
+		}
+	}
+	if twoSymlinks == nil {
+		t.Fatal("expected an issue with affectedCount=2")
+	}
+	if oneSymlink == nil {
+		t.Fatal("expected an issue with affectedCount=1")
+	}
+	if len(twoSymlinks.Paths) != 2 {
+		t.Fatalf("expected 2 paths for grouped issue, got %d", len(twoSymlinks.Paths))
+	}
+	if !strings.Contains(twoSymlinks.Message, "2 symlinks affected") {
+		t.Fatalf("expected message to mention 2 symlinks, got: %s", twoSymlinks.Message)
+	}
+	if !strings.Contains(twoSymlinks.Suggestion, "2 stale symlink") {
+		t.Fatalf("expected suggestion to mention 2 stale symlinks, got: %s", twoSymlinks.Suggestion)
 	}
 }
 

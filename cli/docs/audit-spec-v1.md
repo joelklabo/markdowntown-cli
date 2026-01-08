@@ -142,7 +142,7 @@ When `--input` is provided, scan-related flags are ignored to keep behavior dete
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `ruleId` | string | Stable rule identifier (MD001..MD012). |
+| `ruleId` | string | Stable rule identifier (MD001..MD018). |
 | `severity` | enum | `error`, `warning`, `info`. |
 | `title` | string | Short issue label. |
 | `message` | string | Human-readable description. |
@@ -238,7 +238,9 @@ All v1 rules are metadata-only and based on `scan` output fields. `audit` does *
 | `MD010` | warning | `scanWarnings[].code in ("EACCES", "ERROR", "ENOENT")` | Fix permissions or registry paths, then re-run. |
 | `MD011` | warning | `configs[].contentSkipped == "binary"` | Replace with a text config or remove the file. |
 | `MD012` | warning | Missing required frontmatter identifier for multi-file kinds | Add a required identifier (name/title/id). |
+| `MD013` | info | Config is shadowed by higher-precedence file based on `loadBehavior` | Remove or move the config to a different location. |
 | `MD015` | warning | Unknown `toolId` in frontmatter (fuzzy match suggested) | Replace with a valid toolId from the registry. |
+| `MD018` | warning | Config file size exceeds 1MB | Review contents; may contain accidental data or logs. |
 
 ### MD001 conflict fallback
 
@@ -270,6 +272,20 @@ All v1 rules are metadata-only and based on `scan` output fields. `audit` does *
 
 - Applies to multi-file kinds (`skills`, `prompts`).
 - Emit when no required identifiers are present in frontmatter.
+
+### MD013 shadowed config detection
+
+- Detects configs shadowed by higher-precedence files based on `loadBehavior`.
+- Only applies to `loadBehavior` values that imply shadowing (`nearest-ancestor`, `single`).
+- Scope precedence: `repo` > `user` > `global`.
+- Tagged as `Unnecessary` in LSP diagnostics.
+
+### MD018 oversized config detection
+
+- Detects config files exceeding 1MB threshold.
+- AI config files should typically be small instruction files.
+- Large files may indicate accidental inclusion of data, logs, or binary content.
+- No file content is read; uses metadata only.
 
 ### MD005 scope awareness
 

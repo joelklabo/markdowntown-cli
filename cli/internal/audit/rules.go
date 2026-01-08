@@ -117,12 +117,43 @@ func ruleConflict(ctx Context) []Issue {
 		message := fmt.Sprintf("Conflicting configs for %s (%s) in %s scope.", key.ToolID, key.Kind, key.Scope)
 		suggestion := "Keep exactly one config for this tool/kind/scope. Delete or rename extras, or use a documented override pair."
 
-		// Check if any paths appear to be test fixtures or examples
+		// Check if any paths appear to be build output or test fixtures
+		buildPaths := countBuildOutputPaths(paths)
 		testPaths := countTestOrExamplePaths(paths)
+		nonProductionPaths := buildPaths + testPaths
+
+		if nonProductionPaths > 0 {
+			var parts []string
+			if buildPaths > 0 {
+				parts = append(parts, fmt.Sprintf("%d build output", buildPaths))
+			}
+			if testPaths > 0 {
+				parts = append(parts, fmt.Sprintf("%d test/example", testPaths))
+			}
+			message = fmt.Sprintf("Conflicting configs for %s (%s) in %s scope (%s of %d paths are likely not production configs).",
+				key.ToolID, key.Kind, key.Scope, strings.Join(parts, ", "), len(paths))
+
+			// Provide more specific suggestions based on what we found
+			switch {
+			case buildPaths > 0 && testPaths == 0:
+				suggestion = "Some paths are in build output directories (e.g., .next/, dist/). These are usually gitignored; verify they aren't tracked."
+			case testPaths > 0 && buildPaths == 0:
+				suggestion = "Some paths look like test fixtures or examples. Consider excluding test directories from the scan, or keep exactly one real config."
+			default:
+				suggestion = "Some paths are build output or test fixtures. Consider excluding these directories from the scan."
+			}
+		}
+
+		evidence := map[string]any{
+			"scope":  key.Scope,
+			"toolId": key.ToolID,
+			"kind":   key.Kind,
+		}
+		if buildPaths > 0 {
+			evidence["buildOutputPaths"] = buildPaths
+		}
 		if testPaths > 0 {
-			message = fmt.Sprintf("Conflicting configs for %s (%s) in %s scope (%d of %d paths appear to be test fixtures or examples).",
-				key.ToolID, key.Kind, key.Scope, testPaths, len(paths))
-			suggestion = "Some paths look like test fixtures or examples. Consider excluding test directories from the scan, or keep exactly one real config."
+			evidence["testFixturePaths"] = testPaths
 		}
 
 		issue := Issue{
@@ -134,11 +165,7 @@ func ruleConflict(ctx Context) []Issue {
 			Paths:      issuePaths,
 			Tools:      []Tool{{ToolID: key.ToolID, Kind: key.Kind}},
 			Data:       ruleData("MD001"),
-			Evidence: map[string]any{
-				"scope":  key.Scope,
-				"toolId": key.ToolID,
-				"kind":   key.Kind,
-			},
+			Evidence:   evidence,
 		}
 		issues = append(issues, issue)
 	}
@@ -439,15 +466,75 @@ func scanWarningIssues(ctx Context, warnings []scan.Warning) []Issue {
 	if len(warnings) == 0 {
 		return nil
 	}
-	issues := make([]Issue, 0, len(warnings))
+
+	// Group stale symlink warnings by their missing target path
+	type groupKey struct {
+		targetPath string
+		code       string
+	}
+	groups := make(map[groupKey][]scan.Warning)
+	var ungrouped []scan.Warning
+
 	for _, warning := range warnings {
+		target := extractMissingTarget(warning.Message)
+		if target != "" && (warning.Code == "ENOENT" || warning.Code == "ERROR") {
+			key := groupKey{targetPath: target, code: warning.Code}
+			groups[key] = append(groups[key], warning)
+		} else {
+			ungrouped = append(ungrouped, warning)
+		}
+	}
+
+	issues := make([]Issue, 0, len(groups)+len(ungrouped))
+
+	// Emit grouped issues (one per missing target)
+	for key, groupedWarnings := range groups {
+		paths := make([]Path, 0, len(groupedWarnings))
+		for _, w := range groupedWarnings {
+			paths = append(paths, warningPaths(ctx, w.Path)...)
+		}
+
 		suggestion := "Verify permissions and registry paths, then re-run the scan."
-		// Provide better suggestions for common patterns
-		if strings.Contains(warning.Path, "node_modules") && (warning.Code == "ENOENT" || warning.Code == "ERROR") {
-			if strings.Contains(warning.Message, "no such file or directory") {
-				suggestion = "This appears to be a stale symlink to a removed package. Run `pnpm install` or `npm install` to regenerate node_modules."
+		isNodeModules := false
+		for _, w := range groupedWarnings {
+			if strings.Contains(w.Path, "node_modules") {
+				isNodeModules = true
+				break
 			}
 		}
+		if isNodeModules {
+			suggestion = fmt.Sprintf(
+				"This appears to be %d stale symlink(s) to a removed package. Run `pnpm install` or `npm install` to regenerate node_modules.",
+				len(groupedWarnings),
+			)
+		}
+
+		plural := ""
+		if len(groupedWarnings) > 1 {
+			plural = "s"
+		}
+		message := fmt.Sprintf("Missing target: %s (%d symlink%s affected)", key.targetPath, len(groupedWarnings), plural)
+
+		issue := Issue{
+			RuleID:     "MD010",
+			Severity:   SeverityWarning,
+			Title:      "Stale symlinks",
+			Message:    message,
+			Suggestion: suggestion,
+			Paths:      paths,
+			Data:       ruleData("MD010"),
+			Evidence: map[string]any{
+				"warningCode":   key.code,
+				"missingTarget": key.targetPath,
+				"affectedCount": len(groupedWarnings),
+			},
+		}
+		issues = append(issues, issue)
+	}
+
+	// Emit ungrouped warnings as before (one issue each)
+	for _, warning := range ungrouped {
+		suggestion := "Verify permissions and registry paths, then re-run the scan."
 		evidence := map[string]any{
 			"warningCode": warning.Code,
 		}
@@ -466,7 +553,25 @@ func scanWarningIssues(ctx Context, warnings []scan.Warning) []Issue {
 		}
 		issues = append(issues, issue)
 	}
+
 	return issues
+}
+
+// extractMissingTarget extracts the missing path from "lstat <path>: no such file or directory" messages.
+func extractMissingTarget(message string) string {
+	if !strings.HasPrefix(message, "lstat ") {
+		return ""
+	}
+	const suffix = ": no such file or directory"
+	if !strings.HasSuffix(message, suffix) {
+		return ""
+	}
+	start := len("lstat ")
+	end := len(message) - len(suffix)
+	if start >= end {
+		return ""
+	}
+	return message[start:end]
 }
 
 func ruleBinaryContent(ctx Context) []Issue {
@@ -617,6 +722,22 @@ func redactPath(ctx Context, path string, scope string) Path {
 	return ctx.Redactor.RedactPath(path, scope)
 }
 
+// buildOutputPatterns matches common build artifact directories.
+var buildOutputPatterns = []string{
+	"/.next/",         // Next.js build output
+	"/dist/",          // Common JS/TS build output
+	"/build/",         // Common build output
+	"/out/",           // Next.js export output
+	"/.output/",       // Nuxt/Nitro output
+	"/.turbo/",        // Turborepo cache
+	"/.vercel/",       // Vercel deployment artifacts
+	"/target/",        // Rust/Java build output
+	"/vendor/",        // Go vendor directory
+	"/_site/",         // Jekyll/Hugo output
+	"/.cache/",        // Various build caches
+	"/.parcel-cache/", // Parcel cache
+}
+
 // testOrExamplePatterns matches common test fixture and example directory patterns.
 var testOrExamplePatterns = []string{
 	"/testdata/",
@@ -630,10 +751,41 @@ var testOrExamplePatterns = []string{
 	"/__mocks__/",
 }
 
+// countBuildOutputPaths returns the number of paths that appear to be build output.
+func countBuildOutputPaths(paths []string) int {
+	count := 0
+	for _, p := range paths {
+		normalized := strings.ToLower(p)
+		for _, pattern := range buildOutputPatterns {
+			if strings.Contains(normalized, pattern) {
+				count++
+				break
+			}
+		}
+	}
+	return count
+}
+
+// isBuildOutputPath returns true if the path appears to be in a build output directory.
+func isBuildOutputPath(path string) bool {
+	normalized := strings.ToLower(path)
+	for _, pattern := range buildOutputPatterns {
+		if strings.Contains(normalized, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
 // countTestOrExamplePaths returns the number of paths that appear to be test fixtures or examples.
+// Excludes paths that are already identified as build output.
 func countTestOrExamplePaths(paths []string) int {
 	count := 0
 	for _, p := range paths {
+		// Skip build output to avoid double counting
+		if isBuildOutputPath(p) {
+			continue
+		}
 		normalized := strings.ToLower(p)
 		for _, pattern := range testOrExamplePatterns {
 			if strings.Contains(normalized, pattern) {
