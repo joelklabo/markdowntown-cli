@@ -43,7 +43,7 @@ var ruleMetadata = map[string]RuleData{
 	"MD010": {Category: "discovery", DocURL: ruleDocURL},
 	"MD011": {Category: "content", DocURL: ruleDocURL, Tags: []string{"unnecessary"}},
 	"MD012": {Category: "validity", DocURL: ruleDocURL, QuickFixes: []string{"insert-frontmatter-id"}},
-	"MD018": {Category: "content", DocURL: ruleDocURL, Tags: []string{"suspicious"}},
+	"MD018": {Category: "content", DocURL: ruleDocURL},
 	"MD013": {Category: "scope", DocURL: ruleDocURL, Tags: []string{"unnecessary"}},
 }
 
