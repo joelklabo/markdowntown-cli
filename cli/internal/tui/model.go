@@ -14,8 +14,7 @@ import (
 
 // Start launches the TUI.
 func Start(repoRoot string) error {
-	engine := context_pkg.NewEngine()
-	p := tea.NewProgram(initialModel(repoRoot, engine), tea.WithAltScreen())
+	p := tea.NewProgram(initialModel(repoRoot), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("error running program: %v", err)
 	}
@@ -33,20 +32,19 @@ type model struct {
 	resolution *context_pkg.UnifiedResolution
 	loading    bool  // Loading state
 	lastErr    error // Last error encountered
+
+	// Concurrency control
+	requestGen uint64
 }
 
-func initialModel(repoRoot string, engine context_pkg.Engine) model {
+func initialModel(repoRoot string) model {
 	ft := NewFileTree(repoRoot)
 	ft.Focus()
-
-	if engine == nil {
-		engine = context_pkg.NewEngine()
-	}
 
 	return model{
 		repoRoot: repoRoot,
 		fileTree: ft,
-		engine:   engine,
+		engine:   context_pkg.NewEngine(),
 	}
 }
 
@@ -57,13 +55,14 @@ func (m model) Init() tea.Cmd {
 // ContextLoadedMsg indicates that context content has been loaded.
 type ContextLoadedMsg struct {
 	Path       string
+	Generation uint64 // Validate against current model generation
 	Resolution *context_pkg.UnifiedResolution
 	Error      error
 }
 
-func fetchContextCmd(engine context_pkg.Engine, repoRoot, path string) tea.Cmd {
+func fetchContextCmd(engine context_pkg.Engine, repoRoot, path string, generation uint64) tea.Cmd {
 	return func() tea.Msg {
-		// We use background context for now as cancellation is not fully wired to TUI yet
+		// We use background context for now.
 		res, err := engine.ResolveContext(context.Background(), context_pkg.ResolveOptions{
 			RepoRoot: repoRoot,
 			FilePath: path,
@@ -71,11 +70,12 @@ func fetchContextCmd(engine context_pkg.Engine, repoRoot, path string) tea.Cmd {
 		})
 
 		if err != nil {
-			return ContextLoadedMsg{Path: path, Error: err}
+			return ContextLoadedMsg{Path: path, Generation: generation, Error: err}
 		}
 
 		return ContextLoadedMsg{
 			Path:       path,
+			Generation: generation,
 			Resolution: &res,
 		}
 	}
@@ -96,16 +96,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.ready = true
-		m.fileTree.SetSize(max(0, m.width/3-2), max(0, m.height-2))
+
+		// Ensure non-negative dimensions
+		treeWidth := max(0, m.width/3-2)
+		treeHeight := max(0, m.height-2)
+		m.fileTree.SetSize(treeWidth, treeHeight)
 	case FileSelectedMsg:
+		// Increment generation to invalidate previous in-flight requests
+		m.requestGen++
 		m.loading = true
 		m.resolution = nil
 		m.lastErr = nil
-		cmd = fetchContextCmd(m.engine, m.repoRoot, msg.Path)
+		cmd = fetchContextCmd(m.engine, m.repoRoot, msg.Path, m.requestGen)
 	case ContextLoadedMsg:
-		m.loading = false
-		m.lastErr = msg.Error
-		m.resolution = msg.Resolution
+		// CRITICAL: Only accept response if generations match
+		if msg.Generation == m.requestGen {
+			m.loading = false
+			m.lastErr = msg.Error
+			m.resolution = msg.Resolution
+		}
 	}
 
 	// Handle file tree update
@@ -120,6 +129,7 @@ func (m model) View() string {
 		return "Initializing..."
 	}
 
+	// Guard against small terminals
 	if m.width < 40 || m.height < 10 {
 		return "Terminal too small."
 	}
@@ -128,10 +138,9 @@ func (m model) View() string {
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("63"))
 
-	// Ensure we don't pass negative values to Width/Height
-	leftWidth := max(0, m.width/3-2)
-	rightWidth := max(0, (m.width/3)*2-2)
+	// Ensure dimensions are safe
 	paneHeight := max(0, m.height-2)
+	leftWidth := max(0, m.width/3-2)
 
 	leftPane := style.
 		Width(leftWidth).
@@ -156,18 +165,16 @@ func (m model) View() string {
 			if len(clientName) > 0 {
 				clientName = strings.ToUpper(clientName[:1]) + clientName[1:]
 			}
-
 			sb.WriteString(fmt.Sprintf("## %s\n", clientName))
+
 			switch {
 			case res.Error != nil:
-				sb.WriteString(fmt.Sprintf("  ❌ Error: %v\n", res.Error))
+				sb.WriteString(fmt.Sprintf("❌ Error: %v\n", res.Error))
 			case res.Resolution != nil:
-				sb.WriteString(fmt.Sprintf("  ✅ Applied files: %d\n", len(res.Resolution.Applied)))
+				sb.WriteString(fmt.Sprintf("✅ Applied files: %d\n", len(res.Resolution.Applied)))
 				if len(res.Resolution.Warnings) > 0 {
-					sb.WriteString(fmt.Sprintf("  ⚠️ Warnings: %d\n", len(res.Resolution.Warnings)))
+					sb.WriteString(fmt.Sprintf("⚠️ Warnings: %d\n", len(res.Resolution.Warnings)))
 				}
-			default:
-				sb.WriteString("  (No resolution)\n")
 			}
 			sb.WriteString("\n")
 		}
@@ -176,6 +183,7 @@ func (m model) View() string {
 		rightContent = "Select a file to view context."
 	}
 
+	rightWidth := max(0, (m.width/3)*2-2)
 	rightPane := style.
 		Width(rightWidth).
 		Height(paneHeight).
