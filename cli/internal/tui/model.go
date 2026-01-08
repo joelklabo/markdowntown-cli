@@ -8,8 +8,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"markdowntown-cli/internal/audit"
 	context_pkg "markdowntown-cli/internal/context"
 	"markdowntown-cli/internal/instructions"
+	"markdowntown-cli/internal/scan"
 )
 
 // Start launches the TUI.
@@ -39,12 +41,16 @@ type model struct {
 	fileTree   FileTree
 	tabs       Tabs
 	engine     context_pkg.Engine
+	registry   scan.Registry
 	resolution *context_pkg.UnifiedResolution
 	loading    bool  // Loading state
 	lastErr    error // Last error encountered
 
 	// Concurrency control
 	requestGen uint64
+
+	// Diagnostics
+	diagnostics map[instructions.Client][]audit.Issue
 
 	// Compare mode
 	compareState compareMode
@@ -62,11 +68,14 @@ func initialModel(repoRoot string) model {
 		tabEntries[i] = string(c)
 	}
 
+	reg, _, _ := scan.LoadRegistry()
+
 	return model{
 		repoRoot: repoRoot,
 		fileTree: ft,
 		tabs:     NewTabs(tabEntries),
 		engine:   context_pkg.NewEngine(),
+		registry: reg,
 	}
 }
 
@@ -76,19 +85,21 @@ func (m model) Init() tea.Cmd {
 
 // ContextLoadedMsg indicates that context content has been loaded.
 type ContextLoadedMsg struct {
-	Path       string
-	Generation uint64 // Validate against current model generation
-	Resolution *context_pkg.UnifiedResolution
-	Error      error
+	Path        string
+	Generation  uint64 // Validate against current model generation
+	Resolution  *context_pkg.UnifiedResolution
+	Diagnostics map[instructions.Client][]audit.Issue
+	Error       error
 }
 
-func fetchContextCmd(engine context_pkg.Engine, repoRoot, path string, generation uint64) tea.Cmd {
+func fetchContextCmd(engine context_pkg.Engine, registry scan.Registry, repoRoot, path string, generation uint64) tea.Cmd {
 	return func() tea.Msg {
 		// We use background context for now.
 		res, err := engine.ResolveContext(context.Background(), context_pkg.ResolveOptions{
 			RepoRoot: repoRoot,
 			FilePath: path,
 			Clients:  instructions.AllClients(),
+			Registry: &registry,
 		})
 
 		if err != nil {
@@ -96,9 +107,10 @@ func fetchContextCmd(engine context_pkg.Engine, repoRoot, path string, generatio
 		}
 
 		return ContextLoadedMsg{
-			Path:       path,
-			Generation: generation,
-			Resolution: &res,
+			Path:        path,
+			Generation:  generation,
+			Resolution:  &res,
+			Diagnostics: res.Diagnostics,
 		}
 	}
 }
@@ -162,13 +174,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = true
 		m.resolution = nil
 		m.lastErr = nil
-		cmd = fetchContextCmd(m.engine, m.repoRoot, msg.Path, m.requestGen)
+		m.diagnostics = nil
+		cmd = fetchContextCmd(m.engine, m.registry, m.repoRoot, msg.Path, m.requestGen)
 	case ContextLoadedMsg:
 		// CRITICAL: Only accept response if generations match
 		if msg.Generation == m.requestGen {
 			m.loading = false
 			m.lastErr = msg.Error
 			m.resolution = msg.Resolution
+			m.diagnostics = msg.Diagnostics
 		}
 	}
 
@@ -224,11 +238,15 @@ func (m model) View() string {
 			} else {
 				if res.Error != nil {
 					sb.WriteString(fmt.Sprintf("❌ Error: %v\n", res.Error))
-				} else if res.Resolution != nil {
-					sb.WriteString(renderContextDetails(res.Resolution))
-				}
-			}
-			rightContent = sb.String()
+							} else if res.Resolution != nil {
+								sb.WriteString(renderContextDetails(res.Resolution))
+								if m.diagnostics != nil {
+									sb.WriteString("\n")
+									sb.WriteString(renderDiagnostics(m.diagnostics[activeClient]))
+								}
+							}
+						}
+							rightContent = sb.String()
 		}
 	default:
 		rightContent = "Select a file to view context."

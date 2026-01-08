@@ -3,6 +3,8 @@ package context //nolint:revive
 import (
 	"encoding/json"
 	"io"
+
+	"markdowntown-cli/internal/audit"
 	"markdowntown-cli/internal/instructions"
 )
 
@@ -17,9 +19,10 @@ type JSONOutput struct {
 
 // ClientOutput represents the context resolution for a single client in JSON.
 type ClientOutput struct {
-	Applied  []AppliedFile `json:"applied"`
-	Warnings []string      `json:"warnings"`
-	Error    *string       `json:"error"`
+	Applied     []AppliedFile `json:"applied"`
+	Warnings    []string      `json:"warnings"`
+	Diagnostics []audit.Issue `json:"diagnostics,omitempty"`
+	Error       *string       `json:"error"`
 }
 
 // AppliedFile represents an applied instruction file in JSON.
@@ -75,6 +78,9 @@ func WriteJSON(w io.Writer, res UnifiedResolution) error {
 			clientOut.Warnings = result.Resolution.Warnings
 			if clientOut.Warnings == nil {
 				clientOut.Warnings = []string{}
+			}
+			if issues, ok := res.Diagnostics[client]; ok {
+				clientOut.Diagnostics = issues
 			}
 		}
 
@@ -134,6 +140,9 @@ func WriteJSONWithDiff(w io.Writer, res UnifiedResolution, diff Diff) error {
 			clientOut.Warnings = result.Resolution.Warnings
 			if clientOut.Warnings == nil {
 				clientOut.Warnings = []string{}
+			}
+			if issues, ok := res.Diagnostics[client]; ok {
+				clientOut.Diagnostics = issues
 			}
 		}
 

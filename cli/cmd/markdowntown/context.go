@@ -11,6 +11,7 @@ import (
 
 	context_pkg "markdowntown-cli/internal/context"
 	"markdowntown-cli/internal/instructions"
+	"markdowntown-cli/internal/scan"
 	"markdowntown-cli/internal/tui"
 )
 
@@ -95,6 +96,11 @@ func runContextJSON(w io.Writer, repoRoot, targetPath, compare string) error {
 		relPath = ""
 	}
 
+	registry, _, err := scan.LoadRegistry()
+	if err != nil {
+		return err
+	}
+
 	engine := context_pkg.NewEngine()
 	clients := instructions.AllClients()
 
@@ -102,6 +108,7 @@ func runContextJSON(w io.Writer, repoRoot, targetPath, compare string) error {
 		RepoRoot: repoRoot,
 		FilePath: relPath,
 		Clients:  clients,
+		Registry: &registry,
 	})
 	if err != nil {
 		return err

@@ -4,7 +4,9 @@ package context //nolint:revive
 import (
 	"context"
 	"fmt"
+	"markdowntown-cli/internal/audit"
 	"markdowntown-cli/internal/instructions"
+	"markdowntown-cli/internal/scan"
 )
 
 // Engine defines the interface for retrieving context for a file.
@@ -19,13 +21,15 @@ type ResolveOptions struct {
 	RepoRoot string
 	FilePath string
 	Clients  []instructions.Client // e.g. [ClientCodex, ClientGemini]
+	Registry *scan.Registry        // Optional: run validation if provided
 }
 
 // UnifiedResolution contains the resolution results for multiple clients.
 type UnifiedResolution struct {
-	RepoRoot string
-	FilePath string
-	Results  map[instructions.Client]ClientResult
+	RepoRoot    string
+	FilePath    string
+	Results     map[instructions.Client]ClientResult
+	Diagnostics map[instructions.Client][]audit.Issue
 }
 
 // ClientResult captures the outcome for a single client.
@@ -65,9 +69,10 @@ func NewEngine() *Resolver {
 // ResolveContext implements Engine.
 func (e *Resolver) ResolveContext(ctx context.Context, opts ResolveOptions) (UnifiedResolution, error) {
 	unified := UnifiedResolution{
-		RepoRoot: opts.RepoRoot,
-		FilePath: opts.FilePath,
-		Results:  make(map[instructions.Client]ClientResult),
+		RepoRoot:    opts.RepoRoot,
+		FilePath:    opts.FilePath,
+		Results:     make(map[instructions.Client]ClientResult),
+		Diagnostics: make(map[instructions.Client][]audit.Issue),
 	}
 
 	for _, client := range opts.Clients {
@@ -89,6 +94,11 @@ func (e *Resolver) ResolveContext(ctx context.Context, opts ResolveOptions) (Uni
 		unified.Results[client] = ClientResult{
 			Resolution: &res,
 			Error:      err,
+		}
+
+		if opts.Registry != nil && err == nil {
+			issues, _ := ValidateResolution(&res, *opts.Registry)
+			unified.Diagnostics[client] = issues
 		}
 	}
 
