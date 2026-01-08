@@ -50,14 +50,55 @@ rm "$(go env GOPATH)/bin/markdowntown"
   | `--scan-workers <n>` | `0` | Parallel scan workers (0 = auto) |
   | `--quiet` | `false` | Reduce progress output |
 
-### Context command JSON output
-- `markdowntown context --json` emits machine-readable context resolution for all clients (Gemini, Claude, Codex, Copilot, VS Code).
+### Context command
+The `context` command allows you to explore which AI instruction files (e.g., `GEMINI.md`, `CLAUDE.md`, `.codex/`) are applied to specific files in your repository.
+
+#### TUI Mode
+Running `markdowntown context` (without `--json`) launches an interactive Terminal User Interface.
+
+![Context Explorer TUI](./screenshots/context-explorer.png)
+
+**Keybindings:**
+
+| Key | Action |
+| --- | --- |
+| `j` / `Down` | Move cursor down in file tree |
+| `k` / `Up` | Move cursor up in file tree |
+| `l` / `Right` / `Enter` | Expand directory or select file |
+| `h` / `Left` | Collapse directory |
+| `1` - `5` | Switch between client tabs (Gemini, Claude, Codex, Copilot, VS Code) |
+| `Tab` | Cycle through client tabs |
+| `q` / `Ctrl+C` | Quit |
+
+#### JSON Mode
+- `markdowntown context --json [path]` emits machine-readable context resolution for all clients.
+- Defaults to current directory if `path` is omitted.
 - Top-level fields: `schemaVersion`, `repoRoot`, `filePath`, and `clients` (map keyed by client name).
 - Each client entry contains:
   - `applied`: array of `{ path, scope, reason }` for applied instruction files.
   - `warnings`: array of warning strings (empty array when none).
   - `error`: string or `null` when resolution failed for that client.
   - All five clients are always present, even if not requested or if resolution failed.
+
+Example JSON output:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "repoRoot": "/path/to/repo",
+  "filePath": "src/main.go",
+  "clients": {
+    "gemini": {
+      "applied": [
+        { "path": "/path/to/repo/GEMINI.md", "scope": "repo", "reason": "primary" }
+      ],
+      "warnings": [],
+      "error": null
+    },
+    ...
+  }
+}
+```
 
 ## Authentication
 
