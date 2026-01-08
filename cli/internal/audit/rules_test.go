@@ -461,3 +461,28 @@ func requireRuleData(t *testing.T, issue Issue, expectedCategory string) {
 		t.Fatalf("expected doc url")
 	}
 }
+
+func TestRuleOversizedConfigBoundary(t *testing.T) {
+	// Test file exactly at 1MB threshold (should trigger)
+	exactThreshold := int64(1024 * 1024)
+	entryAt := configEntry("/repo/AGENTS.md", "repo", "codex", "instructions")
+	entryAt.SizeBytes = &exactThreshold
+	ctx := testContext([]scan.ConfigEntry{entryAt}, scan.Registry{})
+	issues := ruleOversizedConfig(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one issue for file exactly at 1MB threshold, got %d", len(issues))
+	}
+	if issues[0].Evidence["sizeBytes"] != exactThreshold {
+		t.Fatalf("expected sizeBytes %d in evidence, got %v", exactThreshold, issues[0].Evidence["sizeBytes"])
+	}
+
+	// Test file at 1MB - 1 byte (should NOT trigger)
+	belowThreshold := int64(1024*1024 - 1)
+	entryBelow := configEntry("/repo/AGENTS.md", "repo", "codex", "instructions")
+	entryBelow.SizeBytes = &belowThreshold
+	ctx = testContext([]scan.ConfigEntry{entryBelow}, scan.Registry{})
+	issues = ruleOversizedConfig(ctx)
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues for file at 1MB - 1 byte, got %d", len(issues))
+	}
+}

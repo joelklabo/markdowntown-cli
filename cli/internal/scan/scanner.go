@@ -228,7 +228,7 @@ func Scan(opts Options) (Result, error) {
 	globalRootsAbs := scanGlobalRoots(fs, patterns, entries, &result, opts)
 	scanStdinPaths(fs, opts.StdinPaths, repoRootsAbs, userRootsAbs, globalRootsAbs, patterns, entries, &result, opts)
 
-	populateEntriesContent(fs, entries, opts.IncludeContent, opts.ScanWorkers, globalRootsAbs)
+	populateEntriesContent(fs, entries, opts.IncludeContent, opts.ScanWorkers, repoRootsAbs, userRootsAbs, globalRootsAbs)
 
 	for _, entry := range entries {
 		result.Entries = append(result.Entries, *entry)
@@ -237,7 +237,7 @@ func Scan(opts Options) (Result, error) {
 	return result, nil
 }
 
-func populateEntriesContent(fs afero.Fs, entries map[string]*ConfigEntry, includeContent bool, workers int, globalRoots []string) {
+func populateEntriesContent(fs afero.Fs, entries map[string]*ConfigEntry, includeContent bool, workers int, repoRoots, userRoots, globalRoots []string) {
 	if len(entries) == 0 {
 		return
 	}
@@ -256,10 +256,7 @@ func populateEntriesContent(fs afero.Fs, entries map[string]*ConfigEntry, includ
 			if resolved == "" {
 				resolved = entry.Path
 			}
-			root := ""
-			if entry.Scope == ScopeGlobal {
-				root = globalRootFor(resolved, globalRoots)
-			}
+			root := rootForScope(resolved, entry.Scope, repoRoots, userRoots, globalRoots)
 			populateEntryContent(fs, entry, resolved, root, includeContent)
 		}
 		return
@@ -281,10 +278,7 @@ func populateEntriesContent(fs afero.Fs, entries map[string]*ConfigEntry, includ
 			if resolved == "" {
 				resolved = entry.Path
 			}
-			root := ""
-			if entry.Scope == ScopeGlobal {
-				root = globalRootFor(resolved, globalRoots)
-			}
+			root := rootForScope(resolved, entry.Scope, repoRoots, userRoots, globalRoots)
 			populateEntryContent(fs, entry, resolved, root, includeContent)
 			return nil
 		})
@@ -743,11 +737,7 @@ func populateEntryContent(fs afero.Fs, entry *ConfigEntry, resolvedPath string, 
 	// #nosec G304 -- resolvedPath comes from scan roots or stdin.
 	var data []byte
 	var err error
-	if entry != nil && entry.Scope == ScopeGlobal {
-		data, err = safeReadFile(fs, root, resolvedPath)
-	} else {
-		data, err = afero.ReadFile(fs, resolvedPath)
-	}
+	data, err = safeReadFile(fs, root, resolvedPath)
 	if err != nil {
 		code := errorCodeFor(err)
 		entry.Error = &code
@@ -869,7 +859,20 @@ func outsideRoot(root string, path string) bool {
 	return false
 }
 
-func globalRootFor(path string, roots []string) string {
+func rootForScope(path, scope string, repoRoots, userRoots, globalRoots []string) string {
+	switch scope {
+	case ScopeRepo:
+		return bestRootFor(path, repoRoots)
+	case ScopeUser:
+		return bestRootFor(path, userRoots)
+	case ScopeGlobal:
+		return bestRootFor(path, globalRoots)
+	default:
+		return ""
+	}
+}
+
+func bestRootFor(path string, roots []string) string {
 	if path == "" || len(roots) == 0 {
 		return ""
 	}

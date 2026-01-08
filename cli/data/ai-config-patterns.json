@@ -7,7 +7,9 @@
       "toolName": "GitHub Copilot",
       "kind": "instructions",
       "scope": "repo",
-      "paths": [".github/copilot-instructions.md"],
+      "paths": [
+        ".github/copilot-instructions.md"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -28,7 +30,9 @@
       "toolName": "GitHub Copilot",
       "kind": "instructions",
       "scope": "repo",
-      "paths": [".github/instructions/*.instructions.md"],
+      "paths": [
+        ".github/instructions/*.instructions.md"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "pattern-matched",
@@ -50,7 +54,9 @@
       "toolName": "GitHub Copilot",
       "kind": "prompts",
       "scope": "repo",
-      "paths": [".github/prompts/*.prompt.md"],
+      "paths": [
+        ".github/prompts/*.prompt.md"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "selected",
@@ -64,7 +70,9 @@
       "toolName": "GitHub Copilot",
       "kind": "instructions",
       "scope": "repo",
-      "paths": ["AGENTS.md"],
+      "paths": [
+        "AGENTS.md"
+      ],
       "type": "glob",
       "loadBehavior": "nearest-ancestor",
       "application": "automatic",
@@ -89,7 +97,9 @@
       "toolName": "GitHub Copilot",
       "kind": "prompts",
       "scope": "user",
-      "paths": ["~/.config/Code/User/prompts/*.prompt.md"],
+      "paths": [
+        "~/.config/Code/User/prompts/*.prompt.md"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "selected",
@@ -103,7 +113,9 @@
       "toolName": "GitHub Copilot",
       "kind": "prompts",
       "scope": "user",
-      "paths": ["~/.config/Code/User/profiles/*/prompts/*.prompt.md"],
+      "paths": [
+        "~/.config/Code/User/profiles/*/prompts/*.prompt.md"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "selected",
@@ -117,7 +129,9 @@
       "toolName": "GitHub Copilot CLI",
       "kind": "instructions",
       "scope": "repo",
-      "paths": [".github/copilot-instructions.md"],
+      "paths": [
+        ".github/copilot-instructions.md"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -131,7 +145,9 @@
       "toolName": "GitHub Copilot CLI",
       "kind": "instructions",
       "scope": "repo",
-      "paths": [".github/copilot-instructions/**/*.instructions.md"],
+      "paths": [
+        ".github/copilot-instructions/**/*.instructions.md"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "pattern-matched",
@@ -146,7 +162,9 @@
       "toolName": "GitHub Copilot CLI",
       "kind": "agent",
       "scope": "repo",
-      "paths": [".github/agents/*.md"],
+      "paths": [
+        ".github/agents/*.md"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "selected",
@@ -160,7 +178,9 @@
       "toolName": "GitHub Copilot CLI",
       "kind": "instructions",
       "scope": "repo",
-      "paths": ["AGENTS.md"],
+      "paths": [
+        "AGENTS.md"
+      ],
       "type": "glob",
       "loadBehavior": "nearest-ancestor",
       "application": "automatic",
@@ -174,7 +194,9 @@
       "toolName": "GitHub Copilot CLI",
       "kind": "config",
       "scope": "user",
-      "paths": ["~/.copilot/config.json"],
+      "paths": [
+        "~/.copilot/config.json"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -188,7 +210,9 @@
       "toolName": "GitHub Copilot CLI",
       "kind": "config",
       "scope": "user",
-      "paths": ["~/.copilot/mcp-config.json"],
+      "paths": [
+        "~/.copilot/mcp-config.json"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -202,7 +226,9 @@
       "toolName": "GitHub Copilot CLI",
       "kind": "config",
       "scope": "user",
-      "paths": ["$XDG_CONFIG_HOME/copilot/config.json"],
+      "paths": [
+        "$XDG_CONFIG_HOME/copilot/config.json"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -216,7 +242,9 @@
       "toolName": "GitHub Copilot CLI",
       "kind": "config",
       "scope": "user",
-      "paths": ["$XDG_CONFIG_HOME/copilot/mcp-config.json"],
+      "paths": [
+        "$XDG_CONFIG_HOME/copilot/mcp-config.json"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -230,7 +258,9 @@
       "toolName": "GitHub Copilot CLI",
       "kind": "agent",
       "scope": "user",
-      "paths": ["~/.copilot/agents/*.md"],
+      "paths": [
+        "~/.copilot/agents/*.md"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "selected",
@@ -244,13 +274,21 @@
       "toolName": "Codex",
       "kind": "instructions",
       "scope": "repo",
-      "paths": ["AGENTS.override.md"],
+      "paths": [
+        "AGENTS.override.md"
+      ],
       "type": "glob",
       "loadBehavior": "all-ancestors",
       "application": "automatic",
       "notes": "Overrides AGENTS.md in the same directory",
       "docs": [
         "https://developers.openai.com/codex/guides/agents-md"
+      ],
+      "hints": [
+        {
+          "type": "overrides",
+          "patternId": "codex-agents-repo"
+        }
       ]
     },
     {
@@ -259,7 +297,9 @@
       "toolName": "Codex",
       "kind": "instructions",
       "scope": "repo",
-      "paths": ["AGENTS.md"],
+      "paths": [
+        "AGENTS.md"
+      ],
       "type": "glob",
       "loadBehavior": "all-ancestors",
       "application": "automatic",
@@ -273,7 +313,9 @@
       "toolName": "Codex",
       "kind": "skills",
       "scope": "repo",
-      "paths": [".codex/skills/**/SKILL.md"],
+      "paths": [
+        ".codex/skills/**/SKILL.md"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "invoked",
@@ -288,13 +330,21 @@
       "toolName": "Codex",
       "kind": "instructions",
       "scope": "user",
-      "paths": ["~/.codex/AGENTS.override.md"],
+      "paths": [
+        "~/.codex/AGENTS.override.md"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
       "notes": "Overrides AGENTS.md in the same directory",
       "docs": [
         "https://developers.openai.com/codex/guides/agents-md"
+      ],
+      "hints": [
+        {
+          "type": "overrides",
+          "patternId": "codex-agents-user"
+        }
       ]
     },
     {
@@ -303,7 +353,9 @@
       "toolName": "Codex",
       "kind": "instructions",
       "scope": "user",
-      "paths": ["~/.codex/AGENTS.md"],
+      "paths": [
+        "~/.codex/AGENTS.md"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -317,7 +369,9 @@
       "toolName": "Codex",
       "kind": "config",
       "scope": "user",
-      "paths": ["~/.codex/config.toml"],
+      "paths": [
+        "~/.codex/config.toml"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -332,7 +386,9 @@
       "toolName": "Codex",
       "kind": "prompts",
       "scope": "user",
-      "paths": ["~/.codex/prompts/*.md"],
+      "paths": [
+        "~/.codex/prompts/*.md"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "selected",
@@ -347,7 +403,9 @@
       "toolName": "Codex",
       "kind": "skills",
       "scope": "user",
-      "paths": ["~/.codex/skills/**/SKILL.md"],
+      "paths": [
+        "~/.codex/skills/**/SKILL.md"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "invoked",
@@ -362,7 +420,9 @@
       "toolName": "Gemini CLI",
       "kind": "instructions",
       "scope": "repo",
-      "paths": ["**/GEMINI.md"],
+      "paths": [
+        "**/GEMINI.md"
+      ],
       "type": "glob",
       "loadBehavior": "nearest-ancestor",
       "application": "automatic",
@@ -376,7 +436,9 @@
       "toolName": "Gemini CLI",
       "kind": "instructions",
       "scope": "user",
-      "paths": ["~/.gemini/GEMINI.md"],
+      "paths": [
+        "~/.gemini/GEMINI.md"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -390,7 +452,9 @@
       "toolName": "Gemini CLI",
       "kind": "config",
       "scope": "user",
-      "paths": ["~/.gemini/settings.json"],
+      "paths": [
+        "~/.gemini/settings.json"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -404,7 +468,9 @@
       "toolName": "Gemini CLI",
       "kind": "config",
       "scope": "repo",
-      "paths": [".geminiignore"],
+      "paths": [
+        ".geminiignore"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -418,7 +484,9 @@
       "toolName": "Cursor",
       "kind": "rules",
       "scope": "repo",
-      "paths": [".cursor/rules/**/*"],
+      "paths": [
+        ".cursor/rules/**/*"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "automatic",
@@ -432,9 +500,27 @@
       "toolName": "Cursor",
       "kind": "rules",
       "scope": "repo",
-      "paths": [".cursorrules"],
+      "paths": [
+        ".cursorrules"
+      ],
       "type": "glob",
       "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.cursor.com/context/rules"
+      ]
+    },
+    {
+      "id": "cursor-rules-user",
+      "toolId": "cursor",
+      "toolName": "Cursor",
+      "kind": "rules",
+      "scope": "user",
+      "paths": [
+        "~/.cursor/rules/*.md"
+      ],
+      "type": "glob",
+      "loadBehavior": "directory-glob",
       "application": "automatic",
       "docs": [
         "https://docs.cursor.com/context/rules"
@@ -446,7 +532,9 @@
       "toolName": "Cline",
       "kind": "rules",
       "scope": "repo",
-      "paths": [".clinerules/**/*"],
+      "paths": [
+        ".clinerules/**/*"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "automatic",
@@ -460,7 +548,9 @@
       "toolName": "Cline",
       "kind": "rules",
       "scope": "repo",
-      "paths": [".clinerules"],
+      "paths": [
+        ".clinerules"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -474,7 +564,9 @@
       "toolName": "Cline",
       "kind": "rules",
       "scope": "user",
-      "paths": ["~/Documents/Cline/Rules/**/*"],
+      "paths": [
+        "~/Documents/Cline/Rules/**/*"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "automatic",
@@ -488,7 +580,9 @@
       "toolName": "Aider",
       "kind": "config",
       "scope": "repo",
-      "paths": [".aider.conf.yml"],
+      "paths": [
+        ".aider.conf.yml"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -502,7 +596,9 @@
       "toolName": "Aider",
       "kind": "config",
       "scope": "repo",
-      "paths": [".aider.conf"],
+      "paths": [
+        ".aider.conf"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -516,7 +612,25 @@
       "toolName": "Aider",
       "kind": "config",
       "scope": "repo",
-      "paths": [".aider.conf.toml"],
+      "paths": [
+        ".aider.conf.toml"
+      ],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://aider.chat/docs/config.html"
+      ]
+    },
+    {
+      "id": "aider-config-user",
+      "toolId": "aider",
+      "toolName": "Aider",
+      "kind": "config",
+      "scope": "user",
+      "paths": [
+        "~/.aider.conf.yml"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -530,7 +644,9 @@
       "toolName": "Continue",
       "kind": "config",
       "scope": "user",
-      "paths": ["~/.continue/config.yaml"],
+      "paths": [
+        "~/.continue/config.yaml"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -544,7 +660,9 @@
       "toolName": "Continue",
       "kind": "config",
       "scope": "user",
-      "paths": ["~/.continue/config.json"],
+      "paths": [
+        "~/.continue/config.json"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -558,7 +676,42 @@
       "toolName": "Continue",
       "kind": "config",
       "scope": "user",
-      "paths": ["~/.continue/config.ts"],
+      "paths": [
+        "~/.continue/config.ts"
+      ],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.continue.dev/configuration/configuration-file"
+      ]
+    },
+    {
+      "id": "continue-config-repo",
+      "toolId": "continue",
+      "toolName": "Continue",
+      "kind": "config",
+      "scope": "repo",
+      "paths": [
+        ".continue/config.json",
+        ".continuerc"
+      ],
+      "type": "glob",
+      "loadBehavior": "single",
+      "application": "automatic",
+      "docs": [
+        "https://docs.continue.dev/configuration/configuration-file"
+      ]
+    },
+    {
+      "id": "continue-config-repo-yaml",
+      "toolId": "continue",
+      "toolName": "Continue",
+      "kind": "config",
+      "scope": "repo",
+      "paths": [
+        ".continue/config.yaml"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -572,7 +725,9 @@
       "toolName": "Claude Code",
       "kind": "instructions",
       "scope": "repo",
-      "paths": ["CLAUDE.md"],
+      "paths": [
+        "CLAUDE.md"
+      ],
       "type": "glob",
       "loadBehavior": "all-ancestors",
       "application": "automatic",
@@ -586,7 +741,9 @@
       "toolName": "Claude Code",
       "kind": "config",
       "scope": "repo",
-      "paths": [".claude/settings.json"],
+      "paths": [
+        ".claude/settings.json"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -600,7 +757,9 @@
       "toolName": "Claude Code",
       "kind": "skills",
       "scope": "repo",
-      "paths": [".claude/commands/**/*"],
+      "paths": [
+        ".claude/commands/**/*"
+      ],
       "type": "glob",
       "loadBehavior": "directory-glob",
       "application": "invoked",
@@ -614,7 +773,9 @@
       "toolName": "Claude Code",
       "kind": "instructions",
       "scope": "user",
-      "paths": ["~/.claude/CLAUDE.md"],
+      "paths": [
+        "~/.claude/CLAUDE.md"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",
@@ -628,7 +789,9 @@
       "toolName": "Claude Code",
       "kind": "config",
       "scope": "user",
-      "paths": ["~/.claude/settings.json"],
+      "paths": [
+        "~/.claude/settings.json"
+      ],
       "type": "glob",
       "loadBehavior": "single",
       "application": "automatic",

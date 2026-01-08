@@ -149,7 +149,7 @@ func TestPopulateEntriesContentMissingAfterDiscovery(t *testing.T) {
 	}
 
 	// Best-effort: missing files are recorded with ENOENT rather than failing the scan.
-	populateEntriesContent(fs, entries, true, 4, nil)
+	populateEntriesContent(fs, entries, true, 4, []string{repoRoot}, nil, nil)
 
 	var missing *ConfigEntry
 	for _, entry := range entries {
