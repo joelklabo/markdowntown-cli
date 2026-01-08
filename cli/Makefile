@@ -6,7 +6,7 @@ GO ?= go
 PYTHON ?= python3
 GOLANGCI_LINT ?= golangci-lint
 
-.PHONY: build test lint fmt check clean install coverage coverage-report coverage-html release snapshot run watch dev lsp-vscode lsp-vscode-test bench-lsp
+.PHONY: build test lint fmt check clean install coverage coverage-report coverage-html release snapshot run watch dev lsp-vscode lsp-vscode-test bench-lsp ci
 
 build:
 	@mkdir -p $(BIN_DIR)
@@ -95,3 +95,7 @@ lsp-vscode-test:
 
 bench-lsp:
 	$(GO) test ./internal/lsp -bench BenchmarkDiagnosticsLargeMarkdown -run ^$$ -benchmem -benchtime=100ms
+
+# CI target: runs all checks that CI would run
+ci: lint test coverage-report build
+	@echo "CI checks passed"

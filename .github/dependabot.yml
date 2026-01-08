@@ -1,0 +1,106 @@
+# Dependabot configuration
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
+
+version: 2
+updates:
+  # Go modules (CLI)
+  - package-ecosystem: "gomod"
+    directory: "/cli"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "go"
+    groups:
+      go-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # npm/pnpm (Web App)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "javascript"
+    groups:
+      npm-minor:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+          - "@types/react*"
+          - "prisma"
+          - "@prisma/*"
+        update-types:
+          - "minor"
+          - "patch"
+      framework:
+        patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+          - "@types/react*"
+      database:
+        patterns:
+          - "prisma"
+          - "@prisma/*"
+
+  # VS Code Extension
+  - package-ecosystem: "npm"
+    directory: "/cli/vscode-extension"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+      - "vscode"
+    groups:
+      vscode-deps:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    groups:
+      actions:
+        patterns:
+          - "*"

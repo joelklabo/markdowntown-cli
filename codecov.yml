@@ -1,0 +1,47 @@
+# Codecov configuration
+# https://docs.codecov.com/docs/codecov-yaml
+
+coverage:
+  precision: 2
+  round: down
+  range: "60...90"
+
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 2%
+        informational: false
+    patch:
+      default:
+        target: 80%
+        informational: false
+
+# Component-based coverage tracking
+component_management:
+  default_rules:
+    statuses:
+      - type: project
+        target: auto
+        threshold: 2%
+  individual_components:
+    - component_id: web
+      name: Web App
+      paths:
+        - apps/web/src/**
+    - component_id: cli
+      name: CLI
+      paths:
+        - cli/**
+
+# Comment settings for PRs
+comment:
+  layout: "header, diff, components, flags, files"
+  behavior: default
+  require_changes: true
+  require_base: false
+  require_head: true
+
+# GitHub checks integration
+github_checks:
+  annotations: true

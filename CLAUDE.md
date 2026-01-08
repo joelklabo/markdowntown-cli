@@ -14,10 +14,14 @@ This is a monorepo containing:
 ### Build & Test (Unified)
 Run from repo root:
 ```bash
-pnpm dev        # Start web dev server, worker, and WASM watcher
-pnpm lint       # Lint both CLI (Go) and web (TypeScript)
-pnpm test       # Run all tests (CLI + web)
-pnpm lint:md    # Lint markdown files
+pnpm dev          # Start web dev server, worker, and WASM watcher
+pnpm dev:web      # Start only the web dev server
+pnpm dev:worker   # Start only the engine worker
+pnpm dev:wasm     # Watch and rebuild WASM on changes
+pnpm lint         # Lint both CLI (Go) and web (TypeScript)
+pnpm test         # Run all tests (CLI + web)
+pnpm lint:md      # Lint markdown files
+pnpm fmt:md       # Fix markdown lint issues
 ```
 
 ### CLI (Go)
@@ -44,6 +48,7 @@ pnpm -C apps/web lint       # ESLint + custom hex/neutral checks
 pnpm -C apps/web compile    # Type check with tsc
 pnpm -C apps/web test:unit  # Run Vitest unit tests
 pnpm -C apps/web test:e2e   # Run E2E tests
+pnpm -C apps/web storybook  # Run Storybook for component development
 ```
 
 ### Test Execution
@@ -204,6 +209,16 @@ cd apps/web
 # Edit prisma/schema.prisma
 npx prisma migrate dev --name describe_change
 npx prisma generate
+```
+
+### Update Atlas (Tool Documentation)
+```bash
+pnpm -C apps/web atlas:update  # Fetch, extract, index, validate, changelog
+# Or run individual steps:
+pnpm -C apps/web atlas:fetch   # Fetch source docs
+pnpm -C apps/web atlas:extract # Extract facts from docs
+pnpm -C apps/web atlas:index   # Build search index
+pnpm -C apps/web atlas:validate # Validate atlas data
 ```
 
 ## CI & Automation

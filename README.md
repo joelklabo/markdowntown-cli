@@ -1,5 +1,11 @@
 # markdowntown
 
+[![CI](https://github.com/markdowntown/markdowntown-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/markdowntown/markdowntown-cli/actions/workflows/ci.yml)
+[![Checks](https://github.com/markdowntown/markdowntown-cli/actions/workflows/checks.yml/badge.svg)](https://github.com/markdowntown/markdowntown-cli/actions/workflows/checks.yml)
+[![codecov](https://codecov.io/gh/markdowntown/markdowntown-cli/graph/badge.svg)](https://codecov.io/gh/markdowntown/markdowntown-cli)
+[![Go Version](https://img.shields.io/badge/go-1.25-blue.svg)](https://go.dev/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 Monorepo for the Markdowntown CLI + web app. The CLI provides deterministic scanning for AI tool configuration files; the web app provides the UI and services around projects/snapshots.
 
 ## Repo layout
