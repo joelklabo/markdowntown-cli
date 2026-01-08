@@ -699,14 +699,14 @@
 .mdt-site-header-banner {
   display: block;
   width: 100%;
-  min-height: max(var(--mdt-site-header-banner-height, 48px), 48px);
-  height: max(var(--mdt-site-header-banner-height, 48px), 48px);
+  min-height: max(var(--mdt-site-header-banner-height, 100px), 100px);
+  height: max(var(--mdt-site-header-banner-height, 100px), 100px);
 }
 
 @media (min-width: 768px) {
   .mdt-site-header-banner {
-    min-height: max(var(--mdt-site-header-banner-height-md, 56px), 56px);
-    height: max(var(--mdt-site-header-banner-height-md, 56px), 56px);
+    min-height: max(var(--mdt-site-header-banner-height-md, 150px), 150px);
+    height: max(var(--mdt-site-header-banner-height-md, 150px), 150px);
   }
 }
 

@@ -40,9 +40,24 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "geolocation=()" },
 ];
 
+const atlasOnlyMode = process.env.NEXT_PUBLIC_ATLAS_ONLY_MODE === "1" || process.env.NEXT_PUBLIC_ATLAS_ONLY_MODE === "true";
+
 const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: ["@markdowntown/engine-js"],
+  async redirects() {
+    if (!atlasOnlyMode) return [];
+    return [
+      { source: "/", destination: "/atlas", permanent: false },
+      { source: "/library", destination: "/atlas", permanent: false },
+      { source: "/workbench", destination: "/atlas/simulator", permanent: false },
+      { source: "/builder", destination: "/atlas", permanent: false },
+      { source: "/projects", destination: "/atlas", permanent: false },
+      { source: "/translate", destination: "/atlas", permanent: false },
+      { source: "/scan", destination: "/atlas/simulator", permanent: false },
+      { source: "/docs", destination: "/atlas", permanent: false },
+    ];
+  },
   images: {
     remotePatterns: [
       {

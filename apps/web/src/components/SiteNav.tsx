@@ -19,13 +19,22 @@ import { track } from "@/lib/analytics";
 import { cn, focusRing, interactiveBase } from "@/lib/cn";
 import { featureFlags } from "@/lib/flags";
 
-const links = [
+const defaultLinks = [
   { href: "/library", label: "Library" },
   { href: "/workbench", label: "Workbench" },
   { href: "/translate", label: "Translate" },
   { href: "/scan", label: "Scan" },
   { href: "/docs", label: "Docs" },
 ];
+
+const atlasLinks = [
+  { href: "/atlas", label: "Atlas" },
+  { href: "/atlas/platforms", label: "Platforms" },
+  { href: "/atlas/compare", label: "Compare" },
+  { href: "/atlas/simulator", label: "Simulator" },
+];
+
+const links = featureFlags.atlasOnlyMode ? atlasLinks : defaultLinks;
 
 type User = { name?: string | null; username?: string | null; email?: string | null; image?: string | null } | null;
 
@@ -96,7 +105,8 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
       if (value) params.set(key, value);
     });
     const search = params.toString();
-    return search ? `/library?${search}` : "/library";
+    const basePath = featureFlags.atlasOnlyMode ? "/atlas" : "/library";
+    return search ? `${basePath}?${search}` : basePath;
   }
 
   function buildSearchEventQuery(overrides?: Record<string, string | undefined>) {
@@ -307,20 +317,32 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
     | { href: string; label: string; icon: BottomNavIcon; type: "link" }
     | { label: string; icon: BottomNavIcon; type: "search" };
 
-  const bottomNavItems: BottomNavItem[] = [
-    { href: "/projects", label: "Projects", icon: LibraryIcon, type: "link" },
-    { href: "/docs", label: "Docs", icon: MenuIcon, type: "link" },
-  ];
+  const bottomNavItems: BottomNavItem[] = featureFlags.atlasOnlyMode
+    ? [
+        { href: "/atlas", label: "Atlas", icon: LibraryIcon, type: "link" },
+        { href: "/atlas/simulator", label: "Scan", icon: MenuIcon, type: "link" },
+      ]
+    : [
+        { href: "/projects", label: "Projects", icon: LibraryIcon, type: "link" },
+        { href: "/docs", label: "Docs", icon: MenuIcon, type: "link" },
+      ];
 
   const quickFilters: Array<{ label: string; params: Record<string, string> }> = [
     { label: "Recent", params: { sort: "recent" } },
   ];
 
-  const overflowLinks: Array<{ href: string; label: string; external?: boolean }> = [
-    { href: "/docs", label: "Docs" },
-    { href: "/privacy", label: "Privacy" },
-    { href: "/terms", label: "Terms" },
-  ];
+  const overflowLinks: Array<{ href: string; label: string; external?: boolean }> = featureFlags.atlasOnlyMode
+    ? [
+        { href: "/atlas", label: "Atlas" },
+        { href: "/atlas/platforms", label: "Platforms" },
+        { href: "/privacy", label: "Privacy" },
+        { href: "/terms", label: "Terms" },
+      ]
+    : [
+        { href: "/docs", label: "Docs" },
+        { href: "/privacy", label: "Privacy" },
+        { href: "/terms", label: "Terms" },
+      ];
 
   return (
     <>
@@ -405,7 +427,7 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
               <input
                 name="q"
                 className="w-full bg-transparent text-mdt-text outline-none placeholder:text-mdt-muted"
-                placeholder="Search library…"
+                placeholder={featureFlags.atlasOnlyMode ? "Search Atlas…" : "Search library…"}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 aria-label="Search"
@@ -471,12 +493,12 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
                   </Button>
                   <Button size="xs" className="whitespace-nowrap" asChild>
                     <Link
-                      href="/projects"
+                      href={featureFlags.atlasOnlyMode ? "/atlas" : "/projects"}
                       onClick={() => {
-                        track("nav_click", { href: "/projects", cta: "projects", placement: "desktop" });
+                        track("nav_click", { href: featureFlags.atlasOnlyMode ? "/atlas" : "/projects", cta: featureFlags.atlasOnlyMode ? "atlas" : "projects", placement: "desktop" });
                       }}
                     >
-                      Projects
+                      {featureFlags.atlasOnlyMode ? "Atlas" : "Projects"}
                     </Link>
                   </Button>
                 </div>
@@ -598,7 +620,7 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
             <input
               ref={inputRef}
               className="w-full bg-transparent text-mdt-text outline-none placeholder:text-mdt-muted"
-              placeholder="Search snippets, templates…"
+              placeholder={featureFlags.atlasOnlyMode ? "Search Atlas documentation…" : "Search snippets, templates…"}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Search"
