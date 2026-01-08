@@ -38,9 +38,8 @@ Usage:
   markdowntown scan-remote [flags] # Scan a remote git repository
   markdowntown suggest [flags]     # Generate evidence-backed suggestions
   markdowntown resolve [flags]     # Resolve effective instruction chain
-  markdowntown context [flags]     # Explore context for files
+  markdowntown context [flags]     # Explore context for files (TUI or JSON)
   markdowntown audit [flags]       # Audit scan results
-  markdowntown context [flags]     # Launch TUI context explorer
   markdowntown serve               # Start LSP server
   markdowntown registry validate   # Validate pattern registry
   markdowntown tools list          # List recognized tools
@@ -94,6 +93,19 @@ Flags:
   --compact             Emit compact JSON (ignored for jsonl)
   --quiet               Disable progress output
   -h, --help            Show help
+`
+
+const serveUsage = `markdowntown serve
+
+Usage:
+  markdowntown serve [flags]
+
+Description:
+  Start an LSP (Language Server Protocol) server for AI config file analysis.
+  The server communicates over stdin/stdout using JSON-RPC.
+
+Flags:
+  -h, --help  Show help
 `
 
 const auditUsage = `markdowntown audit
@@ -264,7 +276,7 @@ func runScan(args []string) error {
 	}
 	format = strings.ToLower(format)
 	if format != "json" && format != "jsonl" {
-		return fmt.Errorf("invalid format: %s", format)
+		return fmt.Errorf("invalid format: %q (valid: json, jsonl)", format)
 	}
 
 	repoRoot, err := resolveRepoRoot(repoPath)
@@ -399,7 +411,7 @@ func runScanRemote(args []string) error {
 	}
 	format = strings.ToLower(format)
 	if format != "json" && format != "jsonl" {
-		return fmt.Errorf("invalid format: %s", format)
+		return fmt.Errorf("invalid format: %q (valid: json, jsonl)", format)
 	}
 
 	repoRoot, cleanup, err := scan.CloneToTemp(url, ref)
@@ -462,7 +474,13 @@ func runScanRemote(args []string) error {
 	return scan.WriteOutput(os.Stdout, output, format, compact)
 }
 
-func runServe(_ []string) error {
+func runServe(args []string) error {
+	for _, arg := range args {
+		if arg == "-h" || arg == "--help" {
+			_, _ = fmt.Fprint(os.Stdout, serveUsage)
+			return nil
+		}
+	}
 	// Keep stdout reserved for JSON-RPC; commonlog already writes to stderr.
 	return lsp.RunServer(version.ToolVersion)
 }
@@ -574,7 +592,7 @@ func parseAuditFlags(args []string) (*auditOptions, error) {
 	}
 	opts.format = strings.ToLower(opts.format)
 	if opts.format != "json" && opts.format != "md" {
-		return nil, fmt.Errorf("invalid format: %s", opts.format)
+		return nil, fmt.Errorf("invalid format: %q (valid: json, md)", opts.format)
 	}
 
 	return opts, nil

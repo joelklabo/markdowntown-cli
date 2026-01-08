@@ -20,7 +20,7 @@ func ParseSeverity(value string) (Severity, error) {
 	case string(SeverityInfo):
 		return SeverityInfo, nil
 	default:
-		return "", fmt.Errorf("invalid severity: %s", value)
+		return "", fmt.Errorf("invalid severity: %q (valid: error, warning, info)", value)
 	}
 }
 
@@ -34,7 +34,7 @@ func ParseRedactMode(value string) (RedactMode, error) {
 	case string(RedactNever):
 		return RedactNever, nil
 	default:
-		return "", fmt.Errorf("invalid redaction mode: %s", value)
+		return "", fmt.Errorf("invalid redaction mode: %q (valid: auto, always, never)", value)
 	}
 }
 
