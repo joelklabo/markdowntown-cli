@@ -66,6 +66,8 @@ Running `markdowntown context` (without `--json`) launches an interactive Termin
 | `k` / `Up` | Move cursor up in file tree |
 | `l` / `Right` / `Enter` | Expand directory or select file |
 | `h` / `Left` | Collapse directory |
+| `c` | Enter Compare Mode (Select two clients via 1-5 keys) |
+| `/` | Open Search Overlay (Esc to exit) |
 | `1` - `5` | Switch between client tabs (Gemini, Claude, Codex, Copilot, VS Code) |
 | `Tab` | Cycle through client tabs |
 | `q` / `Ctrl+C` | Quit |
@@ -73,12 +75,15 @@ Running `markdowntown context` (without `--json`) launches an interactive Termin
 #### JSON Mode
 - `markdowntown context --json [path]` emits machine-readable context resolution for all clients.
 - Defaults to current directory if `path` is omitted.
-- Top-level fields: `schemaVersion`, `repoRoot`, `filePath`, and `clients` (map keyed by client name).
-- Each client entry contains:
-  - `applied`: array of `{ path, scope, reason }` for applied instruction files.
-  - `warnings`: array of warning strings (empty array when none).
-  - `error`: string or `null` when resolution failed for that client.
-  - All five clients are always present, even if not requested or if resolution failed.
+- `--compare <clientA,clientB>`: Output static diff between two clients.
+- `--search <query>`: Search across instruction files.
+- Top-level fields: `schemaVersion`, `repoRoot`, `filePath`, `clients` (map keyed by client name), `differences` (if compare used), and `search` (if search used).
+
+Each client entry contains:
+- `applied`: array of `{ path, scope, reason }` for applied instruction files.
+- `warnings`: array of warning strings (empty array when none).
+- `diagnostics`: array of identified config issues (e.g. conflicts, size limits).
+- `error`: string or `null` when resolution failed for that client.
 
 Example JSON output:
 
