@@ -21,6 +21,15 @@ func Start(repoRoot string) error {
 	return nil
 }
 
+type compareMode int
+
+const (
+	compareNone compareMode = iota
+	compareSelectingA
+	compareSelectingB
+	compareActive
+)
+
 type model struct {
 	repoRoot string
 	width    int
@@ -36,6 +45,11 @@ type model struct {
 
 	// Concurrency control
 	requestGen uint64
+
+	// Compare mode
+	compareState compareMode
+	compareA     int // Index of first client
+	compareB     int // Index of second client
 }
 
 func initialModel(repoRoot string) model {
@@ -94,9 +108,37 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if m.compareState == compareSelectingA || m.compareState == compareSelectingB {
+			switch msg.String() {
+			case "esc":
+				m.compareState = compareNone
+				return m, nil
+			case "1", "2", "3", "4", "5":
+				idx := int(msg.String()[0] - '1')
+				if idx < len(m.tabs.Entries) {
+					if m.compareState == compareSelectingA {
+						m.compareA = idx
+						m.compareState = compareSelectingB
+					} else {
+						m.compareB = idx
+						m.compareState = compareActive
+					}
+				}
+				return m, nil
+			}
+		}
+
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "c":
+			if m.compareState == compareActive {
+				m.compareState = compareNone
+			} else {
+				m.compareState = compareSelectingA
+			}
+		case "esc":
+			m.compareState = compareNone
 		case "tab":
 			m.tabs.Active = (m.tabs.Active + 1) % len(m.tabs.Entries)
 		case "1", "2", "3", "4", "5":
@@ -167,23 +209,27 @@ func (m model) View() string {
 	case m.lastErr != nil:
 		rightContent = fmt.Sprintf("Error: %v", m.lastErr)
 	case m.resolution != nil:
-		var sb strings.Builder
-		sb.WriteString(m.tabs.View())
-		sb.WriteString("\n\n")
-
-		activeClient := instructions.Client(m.tabs.Entries[m.tabs.Active])
-		res, ok := m.resolution.Results[activeClient]
-
-		if !ok {
-			sb.WriteString(fmt.Sprintf("No data for %s", activeClient))
+		if m.compareState != compareNone {
+			rightContent = renderCompareMode(m)
 		} else {
-			if res.Error != nil {
-				sb.WriteString(fmt.Sprintf("❌ Error: %v\n", res.Error))
-			} else if res.Resolution != nil {
-				sb.WriteString(renderContextDetails(res.Resolution))
+			var sb strings.Builder
+			sb.WriteString(m.tabs.View())
+			sb.WriteString("\n\n")
+
+			activeClient := instructions.Client(m.tabs.Entries[m.tabs.Active])
+			res, ok := m.resolution.Results[activeClient]
+
+			if !ok {
+				sb.WriteString(fmt.Sprintf("No data for %s", activeClient))
+			} else {
+				if res.Error != nil {
+					sb.WriteString(fmt.Sprintf("❌ Error: %v\n", res.Error))
+				} else if res.Resolution != nil {
+					sb.WriteString(renderContextDetails(res.Resolution))
+				}
 			}
+			rightContent = sb.String()
 		}
-		rightContent = sb.String()
 	default:
 		rightContent = "Select a file to view context."
 	}

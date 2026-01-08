@@ -22,19 +22,26 @@ Usage:
 Flags:
   --repo <path>         Repo path (defaults to git root from cwd)
   --json                Output context resolution as JSON
+  --compare <c1,c2>     Compare two clients (comma-separated)
   -h, --help            Show help
 `
 
 func runContext(args []string) error {
+	return runContextWithIO(os.Stdout, args)
+}
+
+func runContextWithIO(w io.Writer, args []string) error {
 	flags := flag.NewFlagSet("context", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 
 	var repoPath string
 	var jsonMode bool
+	var compareClients string
 	var help bool
 
 	flags.StringVar(&repoPath, "repo", "", "repo path (defaults to git root)")
 	flags.BoolVar(&jsonMode, "json", false, "output context resolution as JSON")
+	flags.StringVar(&compareClients, "compare", "", "compare two clients (comma-separated)")
 	flags.BoolVar(&help, "help", false, "show help")
 	flags.BoolVar(&help, "h", false, "show help")
 
@@ -43,7 +50,7 @@ func runContext(args []string) error {
 	}
 
 	if help {
-		printContextUsage(os.Stdout)
+		printContextUsage(w)
 		return nil
 	}
 
@@ -62,7 +69,7 @@ func runContext(args []string) error {
 	}
 
 	if jsonMode {
-		return runContextJSON(repoRoot, targetPath)
+		return runContextJSON(w, repoRoot, targetPath, compareClients)
 	}
 
 	return tui.Start(repoRoot)
@@ -72,7 +79,7 @@ func printContextUsage(w io.Writer) {
 	_, _ = fmt.Fprint(w, contextUsage)
 }
 
-func runContextJSON(repoRoot, targetPath string) error {
+func runContextJSON(w io.Writer, repoRoot, targetPath, compare string) error {
 	absTarget, err := filepath.Abs(targetPath)
 	if err != nil {
 		return err
@@ -100,5 +107,30 @@ func runContextJSON(repoRoot, targetPath string) error {
 		return err
 	}
 
-	return context_pkg.WriteJSON(os.Stdout, res)
+	if compare != "" {
+		parts := strings.Split(compare, ",")
+		if len(parts) != 2 {
+			return fmt.Errorf("compare flag requires exactly two clients (comma-separated)")
+		}
+
+		clientA, err := instructions.ParseClient(parts[0])
+		if err != nil {
+			return err
+		}
+		clientB, err := instructions.ParseClient(parts[1])
+		if err != nil {
+			return err
+		}
+
+		resA, okA := res.Results[clientA]
+		resB, okB := res.Results[clientB]
+		if !okA || !okB {
+			return fmt.Errorf("requested clients for comparison not found in results")
+		}
+
+		diff := context_pkg.DiffResolutions(resA.Resolution, resB.Resolution)
+		return context_pkg.WriteJSONWithDiff(w, res, diff)
+	}
+
+	return context_pkg.WriteJSON(w, res)
 }
