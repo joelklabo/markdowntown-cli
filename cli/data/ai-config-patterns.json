@@ -427,7 +427,7 @@
       "loadBehavior": "nearest-ancestor",
       "application": "automatic",
       "docs": [
-        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md"
+        "https://geminicli.com/docs/cli/gemini-md/"
       ]
     },
     {
@@ -443,7 +443,7 @@
       "loadBehavior": "single",
       "application": "automatic",
       "docs": [
-        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md"
+        "https://geminicli.com/docs/cli/gemini-md/"
       ]
     },
     {
@@ -459,7 +459,7 @@
       "loadBehavior": "single",
       "application": "automatic",
       "docs": [
-        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md"
+        "https://geminicli.com/docs/cli/gemini-md/"
       ]
     },
     {
@@ -475,7 +475,7 @@
       "loadBehavior": "single",
       "application": "automatic",
       "docs": [
-        "https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md"
+        "https://geminicli.com/docs/cli/gemini-md/"
       ]
     },
     {
