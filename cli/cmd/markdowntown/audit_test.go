@@ -221,6 +221,10 @@ func stripGoToolNoise(stderr string) string {
 		if strings.HasPrefix(trimmed, "exit status ") {
 			continue
 		}
+		// Filter platform-specific openat2 fallback warning (macOS/BSD)
+		if strings.Contains(trimmed, "openat2 unavailable") {
+			continue
+		}
 		kept = append(kept, line)
 	}
 	return strings.Join(kept, "\n")
