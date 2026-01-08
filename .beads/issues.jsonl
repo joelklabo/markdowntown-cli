@@ -349,3 +349,12 @@
 {"id": "markdowntown-cli-883", "status": "in_progress", "updated_at": "2026-01-07T17:37:17.553319"}
 {"id": "markdowntown-cli-883", "status": "closed", "reason": "Implemented optimized instruction search across all clients. Added scrollable search TUI with viewport. Supported --search flag in JSON output.", "updated_at": "2026-01-07T17:43:50.666409"}
 {"id": "markdowntown-cli-873", "status": "closed", "reason": "Epic completed. Connected TUI to real engine, added tabs, context details, validation, search, and comprehensive tests.", "updated_at": "2026-01-07T17:44:05.661280"}
+{"id": "markdowntown-cli-885", "title": "TUI: Non-blocking file tree refresh", "description": "Refactor FileTree to use tea.Cmd for directory reading to avoid UI freezing.", "status": "open", "priority": 1, "issue_type": "task", "created_at": "2026-01-07T19:38:10.467231", "created_by": "klabo", "updated_at": "2026-01-07T19:38:10.467236"}
+{"id": "markdowntown-cli-886", "title": "TUI: Concurrency hardening with cancellation", "description": "Implement context cancellation for in-flight context requests and add search generation counters.", "status": "open", "priority": 1, "issue_type": "task", "created_at": "2026-01-07T19:38:10.485545", "created_by": "klabo", "updated_at": "2026-01-07T19:38:10.485550"}
+{"id": "markdowntown-cli-887", "title": "Docs: Complete Context Explorer documentation", "description": "Update USER_GUIDE.md with all TUI keybindings and CLI flags for Context Explorer.", "status": "open", "priority": 2, "issue_type": "task", "created_at": "2026-01-07T19:38:10.503251", "created_by": "klabo", "updated_at": "2026-01-07T19:38:10.503256"}
+{"id": "markdowntown-cli-885", "status": "in_progress", "updated_at": "2026-01-07T19:38:14.782804"}
+{"id": "markdowntown-cli-885", "status": "closed", "reason": "Refactored FileTree to use tea.Cmd for non-blocking directory reading. Verified with unit tests.", "updated_at": "2026-01-07T19:40:26.043968"}
+{"id": "markdowntown-cli-886", "status": "in_progress", "updated_at": "2026-01-07T19:40:32.379055"}
+{"id": "markdowntown-cli-886", "status": "closed", "reason": "Implemented context cancellation and search generation counters for robust concurrency. Verified with unit tests.", "updated_at": "2026-01-07T19:44:20.328702"}
+{"id": "markdowntown-cli-887", "status": "in_progress", "updated_at": "2026-01-07T19:44:26.602293"}
+{"id": "markdowntown-cli-887", "status": "closed", "reason": "Completed Context Explorer documentation in USER_GUIDE.md. Verified with make lint.", "updated_at": "2026-01-07T19:44:55.734766"}
