@@ -63,7 +63,7 @@ func NewEngine() *Resolver {
 }
 
 // ResolveContext implements Engine.
-func (e *Resolver) ResolveContext(_ context.Context, opts ResolveOptions) (UnifiedResolution, error) {
+func (e *Resolver) ResolveContext(ctx context.Context, opts ResolveOptions) (UnifiedResolution, error) {
 	unified := UnifiedResolution{
 		RepoRoot: opts.RepoRoot,
 		FilePath: opts.FilePath,
@@ -71,6 +71,10 @@ func (e *Resolver) ResolveContext(_ context.Context, opts ResolveOptions) (Unifi
 	}
 
 	for _, client := range opts.Clients {
+		if err := ctx.Err(); err != nil {
+			return unified, err
+		}
+
 		adapter, err := e.AdapterFactory(client)
 		if err != nil {
 			unified.Results[client] = ClientResult{Error: err}
