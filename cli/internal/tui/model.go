@@ -257,15 +257,15 @@ func (m model) View() string {
 			} else {
 				if res.Error != nil {
 					sb.WriteString(fmt.Sprintf("❌ Error: %v\n", res.Error))
-							} else if res.Resolution != nil {
-								sb.WriteString(renderContextDetails(res.Resolution))
-								if m.diagnostics != nil {
-									sb.WriteString("\n")
-									sb.WriteString(renderDiagnostics(m.diagnostics[activeClient]))
-								}
-							}
-						}
-							rightContent = sb.String()
+				} else if res.Resolution != nil {
+					sb.WriteString(renderContextDetails(res.Resolution))
+					if m.diagnostics != nil {
+						sb.WriteString("\n")
+						sb.WriteString(renderDiagnostics(m.diagnostics[activeClient]))
+					}
+				}
+			}
+			rightContent = sb.String()
 		}
 	default:
 		rightContent = "Select a file to view context."

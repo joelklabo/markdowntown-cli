@@ -23,9 +23,7 @@ type SearchPanel struct {
 }
 
 // NewSearchPanel creates a new SearchPanel.
-
 func NewSearchPanel() SearchPanel {
-
 	ti := textinput.New()
 
 	ti.Placeholder = "Search instructions..."
@@ -34,28 +32,19 @@ func NewSearchPanel() SearchPanel {
 
 	ti.Width = 40
 
-
-
 	vp := viewport.New(40, 10)
-
-
 
 	return SearchPanel{
 
 		textInput: ti,
 
-		viewport:  vp,
-
+		viewport: vp,
 	}
 
 }
 
-
-
 // SetSize updates the panel dimensions.
-
 func (s *SearchPanel) SetSize(w, h int) {
-
 	s.width = w
 
 	s.height = h
@@ -67,8 +56,6 @@ func (s *SearchPanel) SetSize(w, h int) {
 	s.viewport.Height = h - 8
 
 }
-
-
 
 // Focus enables the search input.
 func (s *SearchPanel) Focus() tea.Cmd {

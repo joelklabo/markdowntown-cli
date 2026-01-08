@@ -15,11 +15,15 @@ func TestSearchInstructions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create some instruction files
-	os.WriteFile(filepath.Join(tempDir, "GEMINI.md"), []byte("Hello Gemini\nTypeScript is great"), 0600)
-	os.WriteFile(filepath.Join(tempDir, "CLAUDE.md"), []byte("Hello Claude\nI like TypeScript"), 0600)
+	if err := os.WriteFile(filepath.Join(tempDir, "GEMINI.md"), []byte("Hello Gemini\nTypeScript is great"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "CLAUDE.md"), []byte("Hello Claude\nI like TypeScript"), 0600); err != nil {
+		t.Fatal(err)
+	}
 
 	registry, _, _ := scan.LoadRegistry()
 
