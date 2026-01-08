@@ -119,7 +119,7 @@ func runContextJSON(w io.Writer, repoRoot, targetPath, compare, search string) e
 
 	var searchResults []context_pkg.SearchResult
 	if search != "" {
-		searchResults, err = context_pkg.SearchInstructions(repoRoot, registry, search)
+		searchResults, err = context_pkg.SearchInstructions(context.Background(), repoRoot, registry, search)
 		if err != nil {
 			return err
 		}
