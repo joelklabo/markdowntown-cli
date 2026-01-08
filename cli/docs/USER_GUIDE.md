@@ -50,6 +50,15 @@ rm "$(go env GOPATH)/bin/markdowntown"
   | `--scan-workers <n>` | `0` | Parallel scan workers (0 = auto) |
   | `--quiet` | `false` | Reduce progress output |
 
+### Context command JSON output
+- `markdowntown context --json` emits machine-readable context resolution for all clients (Gemini, Claude, Codex, Copilot, VS Code).
+- Top-level fields: `schemaVersion`, `repoRoot`, `filePath`, and `clients` (map keyed by client name).
+- Each client entry contains:
+  - `applied`: array of `{ path, scope, reason }` for applied instruction files.
+  - `warnings`: array of warning strings (empty array when none).
+  - `error`: string or `null` when resolution failed for that client.
+  - All five clients are always present, even if not requested or if resolution failed.
+
 ## Authentication
 
 - `markdowntown login --token <token>` stores an app-issued token locally; use `--token-stdin` to avoid shell history (e.g., `cat token.txt | markdowntown login --token-stdin`).

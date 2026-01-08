@@ -22,6 +22,17 @@ const (
 	ClientGemini Client = "gemini"
 )
 
+// AllClients returns all supported instruction clients.
+func AllClients() []Client {
+	return []Client{
+		ClientGemini,
+		ClientClaude,
+		ClientCodex,
+		ClientCopilot,
+		ClientVSCode,
+	}
+}
+
 // ParseClient converts a string into a Client identifier.
 func ParseClient(value string) (Client, error) {
 	switch strings.ToLower(strings.TrimSpace(value)) {

@@ -38,7 +38,9 @@ Usage:
   markdowntown scan-remote [flags] # Scan a remote git repository
   markdowntown suggest [flags]     # Generate evidence-backed suggestions
   markdowntown resolve [flags]     # Resolve effective instruction chain
+  markdowntown context [flags]     # Explore context for files
   markdowntown audit [flags]       # Audit scan results
+  markdowntown context [flags]     # Launch TUI context explorer
   markdowntown serve               # Start LSP server
   markdowntown registry validate   # Validate pattern registry
   markdowntown tools list          # List recognized tools
@@ -181,6 +183,7 @@ var commands = map[string]func([]string) error{
 	},
 	"suggest":  runSuggest,
 	"resolve":  runResolve,
+	"context":  runContext,
 	"audit":    runAudit,
 	"serve":    runServe,
 	"registry": runRegistry,
