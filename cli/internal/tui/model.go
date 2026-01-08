@@ -28,6 +28,7 @@ type model struct {
 	ready    bool
 
 	fileTree   FileTree
+	tabs       Tabs
 	engine     context_pkg.Engine
 	resolution *context_pkg.UnifiedResolution
 	loading    bool  // Loading state
@@ -41,9 +42,16 @@ func initialModel(repoRoot string) model {
 	ft := NewFileTree(repoRoot)
 	ft.Focus()
 
+	clients := instructions.AllClients()
+	tabEntries := make([]string, len(clients))
+	for i, c := range clients {
+		tabEntries[i] = string(c)
+	}
+
 	return model{
 		repoRoot: repoRoot,
 		fileTree: ft,
+		tabs:     NewTabs(tabEntries),
 		engine:   context_pkg.NewEngine(),
 	}
 }
@@ -90,7 +98,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "tab":
-			// Toggle focus logic here if needed
+			m.tabs.Active = (m.tabs.Active + 1) % len(m.tabs.Entries)
+		case "1", "2", "3", "4", "5":
+			idx := int(msg.String()[0] - '1')
+			if idx < len(m.tabs.Entries) {
+				m.tabs.Active = idx
+			}
 		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -155,28 +168,23 @@ func (m model) View() string {
 		rightContent = fmt.Sprintf("Error: %v", m.lastErr)
 	case m.resolution != nil:
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("# Context for %s\n\n", m.resolution.FilePath))
+		sb.WriteString(m.tabs.View())
+		sb.WriteString("\n\n")
 
-		// Sort clients for deterministic view
-		clients := instructions.AllClients()
-		for _, client := range clients {
-			res := m.resolution.Results[client]
-			clientName := string(client)
-			if len(clientName) > 0 {
-				clientName = strings.ToUpper(clientName[:1]) + clientName[1:]
-			}
-			sb.WriteString(fmt.Sprintf("## %s\n", clientName))
+		activeClient := instructions.Client(m.tabs.Entries[m.tabs.Active])
+		res, ok := m.resolution.Results[activeClient]
 
-			switch {
-			case res.Error != nil:
+		if !ok {
+			sb.WriteString(fmt.Sprintf("No data for %s", activeClient))
+		} else {
+			if res.Error != nil {
 				sb.WriteString(fmt.Sprintf("❌ Error: %v\n", res.Error))
-			case res.Resolution != nil:
+			} else if res.Resolution != nil {
 				sb.WriteString(fmt.Sprintf("✅ Applied files: %d\n", len(res.Resolution.Applied)))
 				if len(res.Resolution.Warnings) > 0 {
 					sb.WriteString(fmt.Sprintf("⚠️ Warnings: %d\n", len(res.Resolution.Warnings)))
 				}
 			}
-			sb.WriteString("\n")
 		}
 		rightContent = sb.String()
 	default:
