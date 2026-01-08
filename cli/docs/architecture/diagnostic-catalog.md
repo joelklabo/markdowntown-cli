@@ -53,6 +53,7 @@ Scope:
 | MD011 (Implemented) | warning | Content | `contentSkipped == "binary"` | Binary config skipped | Replace with text config or remove | `contentSkipped`, `sizeBytes` | no | Unnecessary |
 | MD012 (Implemented) | warning | Validity | Missing required frontmatter key for multi-file kinds (skills/prompts) | Missing frontmatter identifier | Add required identifier | `requiredKeys`, `toolId`, `kind` | yes (insert frontmatter stub) | none |
 | MD015 (Implemented) | warning | Validity | Unknown toolId in frontmatter | Unknown toolId | Replace with closest match | `toolId`, `replacement` | yes (replace toolId) | none |
+| MD018 (Implemented) | warning | Content | Config file size exceeds 1MB | Oversized config file | Review contents; may contain accidental data/logs | `sizeBytes`, `threshold` | no | none |
 
 Notes:
 

@@ -43,6 +43,7 @@ var ruleMetadata = map[string]RuleData{
 	"MD010": {Category: "discovery", DocURL: ruleDocURL},
 	"MD011": {Category: "content", DocURL: ruleDocURL, Tags: []string{"unnecessary"}},
 	"MD012": {Category: "validity", DocURL: ruleDocURL, QuickFixes: []string{"insert-frontmatter-id"}},
+	"MD018": {Category: "content", DocURL: ruleDocURL, Tags: []string{"suspicious"}},
 }
 
 func ruleData(ruleID string) any {
@@ -67,6 +68,7 @@ func DefaultRules() []Rule {
 		{ID: "MD010", Severity: SeverityWarning, Run: ruleScanWarning},
 		{ID: "MD011", Severity: SeverityWarning, Run: ruleBinaryContent},
 		{ID: "MD012", Severity: SeverityWarning, Run: ruleMissingFrontmatterID},
+		{ID: "MD018", Severity: SeverityWarning, Run: ruleOversizedConfig},
 	}
 }
 
@@ -109,12 +111,24 @@ func ruleConflict(ctx Context) []Issue {
 			issuePaths = append(issuePaths, redactPath(ctx, entry.Path, entry.Scope))
 		}
 		issuePaths = dedupePaths(issuePaths)
+
+		message := fmt.Sprintf("Conflicting configs for %s (%s) in %s scope.", key.ToolID, key.Kind, key.Scope)
+		suggestion := "Keep exactly one config for this tool/kind/scope. Delete or rename extras, or use a documented override pair."
+
+		// Check if any paths appear to be test fixtures or examples
+		testPaths := countTestOrExamplePaths(paths)
+		if testPaths > 0 {
+			message = fmt.Sprintf("Conflicting configs for %s (%s) in %s scope (%d of %d paths appear to be test fixtures or examples).",
+				key.ToolID, key.Kind, key.Scope, testPaths, len(paths))
+			suggestion = "Some paths look like test fixtures or examples. Consider excluding test directories from the scan, or keep exactly one real config."
+		}
+
 		issue := Issue{
 			RuleID:     "MD001",
 			Severity:   SeverityError,
 			Title:      "Config conflict",
-			Message:    fmt.Sprintf("Conflicting configs for %s (%s) in %s scope.", key.ToolID, key.Kind, key.Scope),
-			Suggestion: "Keep exactly one config for this tool/kind/scope. Delete or rename extras, or use a documented override pair.",
+			Message:    message,
+			Suggestion: suggestion,
 			Paths:      issuePaths,
 			Tools:      []Tool{{ToolID: key.ToolID, Kind: key.Kind}},
 			Data:       ruleData("MD001"),
@@ -416,7 +430,41 @@ func ruleUnrecognizedStdin(ctx Context) []Issue {
 
 func ruleScanWarning(ctx Context) []Issue {
 	warnings := warningsByCode(ctx.Scan.Warnings, "EACCES", "ERROR", "ENOENT")
-	return warningIssues(ctx, warnings, "MD010", SeverityWarning, "Scan warning", "Scan warning encountered during discovery.", "Verify permissions and registry paths, then re-run the scan.")
+	return scanWarningIssues(ctx, warnings)
+}
+
+func scanWarningIssues(ctx Context, warnings []scan.Warning) []Issue {
+	if len(warnings) == 0 {
+		return nil
+	}
+	issues := make([]Issue, 0, len(warnings))
+	for _, warning := range warnings {
+		suggestion := "Verify permissions and registry paths, then re-run the scan."
+		// Provide better suggestions for common patterns
+		if strings.Contains(warning.Path, "node_modules") && (warning.Code == "ENOENT" || warning.Code == "ERROR") {
+			if strings.Contains(warning.Message, "no such file or directory") {
+				suggestion = "This appears to be a stale symlink to a removed package. Run `pnpm install` or `npm install` to regenerate node_modules."
+			}
+		}
+		evidence := map[string]any{
+			"warningCode": warning.Code,
+		}
+		if warning.Message != "" {
+			evidence["warningMessage"] = warning.Message
+		}
+		issue := Issue{
+			RuleID:     "MD010",
+			Severity:   SeverityWarning,
+			Title:      "Scan warning",
+			Message:    warning.Message,
+			Suggestion: suggestion,
+			Paths:      warningPaths(ctx, warning.Path),
+			Data:       ruleData("MD010"),
+			Evidence:   evidence,
+		}
+		issues = append(issues, issue)
+	}
+	return issues
 }
 
 func ruleBinaryContent(ctx Context) []Issue {
@@ -492,6 +540,43 @@ func hasFrontmatterIdentifier(frontmatter map[string]any, keys []string) bool {
 	return false
 }
 
+// oversizedThreshold is 1MB - AI config files should typically be small instruction files.
+const oversizedThreshold int64 = 1024 * 1024
+
+func ruleOversizedConfig(ctx Context) []Issue {
+	var issues []Issue
+	for _, entry := range ctx.Scan.Configs {
+		if entry.SizeBytes == nil {
+			continue
+		}
+		if *entry.SizeBytes < oversizedThreshold {
+			continue
+		}
+		sizeKB := *entry.SizeBytes / 1024
+		sizeMB := float64(*entry.SizeBytes) / (1024 * 1024)
+		message := fmt.Sprintf("Config file is unusually large (%d KB).", sizeKB)
+		if sizeMB >= 1 {
+			message = fmt.Sprintf("Config file is unusually large (%.1f MB).", sizeMB)
+		}
+		issue := Issue{
+			RuleID:     "MD018",
+			Severity:   SeverityWarning,
+			Title:      "Oversized config file",
+			Message:    message,
+			Suggestion: "Review the file contents. Large config files may indicate accidental inclusion of data or logs.",
+			Paths:      []Path{redactPath(ctx, entry.Path, entry.Scope)},
+			Tools:      toolsForEntry(entry),
+			Data:       ruleData("MD018"),
+			Evidence: map[string]any{
+				"sizeBytes": *entry.SizeBytes,
+				"threshold": oversizedThreshold,
+			},
+		}
+		issues = append(issues, issue)
+	}
+	return issues
+}
+
 func warningIssues(ctx Context, warnings []scan.Warning, ruleID string, severity Severity, title, defaultMessage, suggestion string) []Issue {
 	if len(warnings) == 0 {
 		return nil
@@ -528,4 +613,32 @@ func redactPath(ctx Context, path string, scope string) Path {
 		return Path{Path: filepath.ToSlash(path), Scope: scope, Redacted: false}
 	}
 	return ctx.Redactor.RedactPath(path, scope)
+}
+
+// testOrExamplePatterns matches common test fixture and example directory patterns.
+var testOrExamplePatterns = []string{
+	"/testdata/",
+	"/test/",
+	"/tests/",
+	"/__tests__/",
+	"/fixtures/",
+	"/examples/",
+	"/example/",
+	"/__fixtures__/",
+	"/__mocks__/",
+}
+
+// countTestOrExamplePaths returns the number of paths that appear to be test fixtures or examples.
+func countTestOrExamplePaths(paths []string) int {
+	count := 0
+	for _, p := range paths {
+		normalized := strings.ToLower(p)
+		for _, pattern := range testOrExamplePatterns {
+			if strings.Contains(normalized, pattern) {
+				count++
+				break
+			}
+		}
+	}
+	return count
 }

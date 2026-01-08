@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"strings"
 	"testing"
 
 	"markdowntown-cli/internal/scan"
@@ -42,6 +43,28 @@ func TestRuleConflictSkipsMultiFileKinds(t *testing.T) {
 	issues := ruleConflict(ctx)
 	if len(issues) != 0 {
 		t.Fatalf("expected multi-file kinds to skip conflicts")
+	}
+}
+
+func TestRuleConflictDetectsTestFixtures(t *testing.T) {
+	entries := []scan.ConfigEntry{
+		configEntry("/repo/GEMINI.md", "repo", "gemini-cli", "instructions"),
+		configEntry("/repo/testdata/repos/integration/GEMINI.md", "repo", "gemini-cli", "instructions"),
+		configEntry("/repo/examples/gemini/GEMINI.md", "repo", "gemini-cli", "instructions"),
+	}
+	ctx := testContext(entries, scan.Registry{})
+	issues := ruleConflict(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one conflict issue, got %d", len(issues))
+	}
+	if !strings.Contains(issues[0].Message, "test fixtures or examples") {
+		t.Fatalf("expected message to mention test fixtures, got: %s", issues[0].Message)
+	}
+	if !strings.Contains(issues[0].Message, "2 of 3") {
+		t.Fatalf("expected message to show 2 of 3 paths are test fixtures, got: %s", issues[0].Message)
+	}
+	if !strings.Contains(issues[0].Suggestion, "test fixtures or examples") {
+		t.Fatalf("expected suggestion to mention test fixtures, got: %s", issues[0].Suggestion)
 	}
 }
 
@@ -289,6 +312,37 @@ func TestRuleScanWarningEmptyPath(t *testing.T) {
 	requireRuleData(t, issues[0], "discovery")
 }
 
+func TestRuleScanWarningNodeModulesSuggestion(t *testing.T) {
+	ctx := testContext(nil, scan.Registry{})
+	ctx.Scan.Warnings = []scan.Warning{
+		{Path: "/repo/node_modules/.pnpm/node_modules/@foo/bar", Code: "ERROR", Message: "lstat /repo/packages/bar: no such file or directory"},
+	}
+	issues := ruleScanWarning(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one issue, got %d", len(issues))
+	}
+	expectedSuggestion := "This appears to be a stale symlink to a removed package. Run `pnpm install` or `npm install` to regenerate node_modules."
+	if issues[0].Suggestion != expectedSuggestion {
+		t.Fatalf("expected node_modules-specific suggestion, got: %s", issues[0].Suggestion)
+	}
+	requireRuleData(t, issues[0], "discovery")
+}
+
+func TestRuleScanWarningNonNodeModulesKeepsDefaultSuggestion(t *testing.T) {
+	ctx := testContext(nil, scan.Registry{})
+	ctx.Scan.Warnings = []scan.Warning{
+		{Path: "/repo/.config/foo", Code: "ERROR", Message: "no such file or directory"},
+	}
+	issues := ruleScanWarning(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one issue, got %d", len(issues))
+	}
+	expectedSuggestion := "Verify permissions and registry paths, then re-run the scan."
+	if issues[0].Suggestion != expectedSuggestion {
+		t.Fatalf("expected default suggestion, got: %s", issues[0].Suggestion)
+	}
+}
+
 func TestRuleBinaryContent(t *testing.T) {
 	skipped := "binary"
 	size := int64(12)
@@ -330,6 +384,51 @@ func TestRuleMissingFrontmatterIDSkipsPresentKey(t *testing.T) {
 	issues := ruleMissingFrontmatterID(ctx)
 	if len(issues) != 0 {
 		t.Fatalf("expected no issues when identifier present")
+	}
+}
+
+func TestRuleOversizedConfig(t *testing.T) {
+	largeSize := int64(2 * 1024 * 1024) // 2MB
+	entry := configEntry("/repo/AGENTS.md", "repo", "codex", "instructions")
+	entry.SizeBytes = &largeSize
+	ctx := testContext([]scan.ConfigEntry{entry}, scan.Registry{})
+	issues := ruleOversizedConfig(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one oversized issue, got %d", len(issues))
+	}
+	if issues[0].RuleID != "MD018" {
+		t.Fatalf("unexpected rule id: %s", issues[0].RuleID)
+	}
+	if issues[0].Severity != SeverityWarning {
+		t.Fatalf("expected warning severity, got %s", issues[0].Severity)
+	}
+	if issues[0].Evidence["sizeBytes"] != largeSize {
+		t.Fatalf("expected sizeBytes in evidence")
+	}
+	if issues[0].Evidence["threshold"] != oversizedThreshold {
+		t.Fatalf("expected threshold in evidence")
+	}
+	requireRuleData(t, issues[0], "content")
+}
+
+func TestRuleOversizedConfigSkipsSmallFiles(t *testing.T) {
+	smallSize := int64(1024) // 1KB
+	entry := configEntry("/repo/AGENTS.md", "repo", "codex", "instructions")
+	entry.SizeBytes = &smallSize
+	ctx := testContext([]scan.ConfigEntry{entry}, scan.Registry{})
+	issues := ruleOversizedConfig(ctx)
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues for small files, got %d", len(issues))
+	}
+}
+
+func TestRuleOversizedConfigSkipsNilSize(t *testing.T) {
+	entry := configEntry("/repo/AGENTS.md", "repo", "codex", "instructions")
+	entry.SizeBytes = nil
+	ctx := testContext([]scan.ConfigEntry{entry}, scan.Registry{})
+	issues := ruleOversizedConfig(ctx)
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues for nil size, got %d", len(issues))
 	}
 }
 

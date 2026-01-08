@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 
 	scanhash "markdowntown-cli/internal/hash"
@@ -836,16 +837,9 @@ func matchTools(patterns []CompiledPattern, scope string, absPath string, relPat
 }
 
 func sortTools(tools []ToolEntry) {
-	if len(tools) < 2 {
-		return
-	}
-	for i := 0; i < len(tools)-1; i++ {
-		for j := i + 1; j < len(tools); j++ {
-			if tools[j].ToolID < tools[i].ToolID {
-				tools[i], tools[j] = tools[j], tools[i]
-			}
-		}
-	}
+	sort.Slice(tools, func(i, j int) bool {
+		return tools[i].ToolID < tools[j].ToolID
+	})
 }
 
 func expandHomePath(path string) string {
