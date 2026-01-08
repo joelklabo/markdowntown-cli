@@ -96,7 +96,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.ready = true
-		m.fileTree.SetSize(m.width/3-2, m.height-2)
+		m.fileTree.SetSize(max(0, m.width/3-2), max(0, m.height-2))
 	case FileSelectedMsg:
 		m.loading = true
 		m.resolution = nil
