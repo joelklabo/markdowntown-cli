@@ -26,14 +26,14 @@ jobs:
           - https://markdown.town/docs
         formFactor: [mobile, desktop]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
           version: 9.15.9
           run_install: false
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: pnpm
@@ -82,7 +82,7 @@ jobs:
       - name: Run Lighthouse against production
         if: steps.availability.outputs.skip != 'true'
         id: lhci
-        uses: treosh/lighthouse-ci-action@v10
+        uses: treosh/lighthouse-ci-action@v12
         continue-on-error: true
         with:
           configPath: ./lighthouserc.json
@@ -129,7 +129,7 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `body<<EOF\n${body}\nEOF\n`);
           NODE
       - name: Upload metrics artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: steps.lhci.outcome == 'success'
         with:
           name: lh-metrics-${{ steps.slug.outputs.slug }}-${{ matrix.formFactor }}
@@ -137,7 +137,7 @@ jobs:
           retention-days: 30
       - name: Upload summary markdown
         if: ${{ github.event_name == 'pull_request' && steps.lhci.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: lh-summary-${{ steps.slug.outputs.slug }}-${{ matrix.formFactor }}
           path: lh-summary.md
@@ -149,7 +149,7 @@ jobs:
     needs: lhci
     steps:
       - name: Download metrics artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: lh-artifacts
           if-no-artifact-found: ignore
@@ -181,7 +181,7 @@ jobs:
           fs.writeFileSync('combined-metrics.csv', `${csvHeader}\n${csvLines.join("\n")}\n`);
           NODE
       - name: Comment on PR with Lighthouse summary
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
@@ -190,7 +190,7 @@ jobs:
             const issue_number = context.issue.number;
             await github.rest.issues.createComment({ owner, repo, issue_number, body });
       - name: Upload combined metrics
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: lh-trends
           path: combined-metrics.csv
