@@ -683,3 +683,56 @@ func configEntryWithLoadBehavior(path, scope, toolID, kind, loadBehavior string)
 		Tools: []scan.ToolEntry{{ToolID: toolID, Kind: kind, LoadBehavior: loadBehavior}},
 	}
 }
+
+func TestExtractMissingTarget(t *testing.T) {
+	tests := []struct {
+		name     string
+		message  string
+		expected string
+	}{
+		{
+			name:     "valid lstat error",
+			message:  "lstat /path/to/missing: no such file or directory",
+			expected: "/path/to/missing",
+		},
+		{
+			name:     "path with spaces",
+			message:  "lstat /path/with spaces/file: no such file or directory",
+			expected: "/path/with spaces/file",
+		},
+		{
+			name:     "empty string",
+			message:  "",
+			expected: "",
+		},
+		{
+			name:     "missing lstat prefix",
+			message:  "/path/to/missing: no such file or directory",
+			expected: "",
+		},
+		{
+			name:     "missing suffix",
+			message:  "lstat /path/to/missing",
+			expected: "",
+		},
+		{
+			name:     "wrong suffix",
+			message:  "lstat /path/to/missing: permission denied",
+			expected: "",
+		},
+		{
+			name:     "only prefix and suffix",
+			message:  "lstat : no such file or directory",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractMissingTarget(tt.message)
+			if got != tt.expected {
+				t.Errorf("extractMissingTarget(%q) = %q, want %q", tt.message, got, tt.expected)
+			}
+		})
+	}
+}
