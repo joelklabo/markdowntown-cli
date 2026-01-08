@@ -69,9 +69,17 @@ type Output struct {
 	GeneratedAt     int64         `json:"generatedAt"`
 	Timing          Timing        `json:"timing"`
 	RepoRoot        string        `json:"repoRoot"`
+	Summary         *Summary      `json:"summary,omitempty"`
 	Scans           []Root        `json:"scans"`
 	Configs         []ConfigEntry `json:"configs"`
 	Warnings        []Warning     `json:"warnings"`
+}
+
+// Summary provides aggregated counts from the scan results.
+type Summary struct {
+	TotalConfigs int            `json:"totalConfigs"`
+	ByTool       map[string]int `json:"byTool"`
+	ByScope      map[string]int `json:"byScope"`
 }
 
 // Timing captures scan timing metrics.

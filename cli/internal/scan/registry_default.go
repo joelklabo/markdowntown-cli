@@ -14,7 +14,8 @@ const DefaultRegistryJSON = `{
       "paths": ["AGENTS.md"],
       "type": "glob",
       "loadBehavior": "all-ancestors",
-      "application": "automatic"
+      "application": "automatic",
+      "docs": ["https://developers.openai.com/codex/guides/agents-md"]
     },
     {
       "id": "gemini-cli-instructions-repo",
@@ -25,7 +26,8 @@ const DefaultRegistryJSON = `{
       "paths": ["**/GEMINI.md"],
       "type": "glob",
       "loadBehavior": "nearest-ancestor",
-      "application": "automatic"
+      "application": "automatic",
+      "docs": ["https://github.com/google-gemini/gemini-cli/blob/main/docs/cli.md"]
     },
     {
       "id": "claude-code-instructions-repo",
@@ -36,7 +38,8 @@ const DefaultRegistryJSON = `{
       "paths": ["CLAUDE.md"],
       "type": "glob",
       "loadBehavior": "all-ancestors",
-      "application": "automatic"
+      "application": "automatic",
+      "docs": ["https://docs.anthropic.com/en/docs/claude-code/settings"]
     },
     {
       "id": "cursor-rules-file",
@@ -47,7 +50,8 @@ const DefaultRegistryJSON = `{
       "paths": [".cursorrules"],
       "type": "glob",
       "loadBehavior": "single",
-      "application": "automatic"
+      "application": "automatic",
+      "docs": ["https://docs.cursor.com/context/rules"]
     },
     {
       "id": "cline-rules-file-repo",
@@ -58,7 +62,8 @@ const DefaultRegistryJSON = `{
       "paths": [".clinerules"],
       "type": "glob",
       "loadBehavior": "single",
-      "application": "automatic"
+      "application": "automatic",
+      "docs": ["https://docs.cline.bot/prompting/clinerules"]
     },
     {
       "id": "aider-config-yml",
@@ -69,7 +74,8 @@ const DefaultRegistryJSON = `{
       "paths": [".aider.conf.yml"],
       "type": "glob",
       "loadBehavior": "single",
-      "application": "automatic"
+      "application": "automatic",
+      "docs": ["https://aider.chat/docs/config.html"]
     },
     {
       "id": "github-copilot-instructions",
@@ -80,7 +86,8 @@ const DefaultRegistryJSON = `{
       "paths": [".github/copilot-instructions.md"],
       "type": "glob",
       "loadBehavior": "single",
-      "application": "automatic"
+      "application": "automatic",
+      "docs": ["https://docs.github.com/en/copilot/customizing-copilot/adding-repository-custom-instructions-for-github-copilot"]
     }
   ]
 }

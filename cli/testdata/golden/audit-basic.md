@@ -5,6 +5,9 @@ Summary: 3 errors, 2 warnings, 2 info
 ## Errors
 
 - [MD001] Config conflict: ./.cursor/rules.md (+1 more)
+  - Affected paths:
+    - ./.cursor/rules.md
+    - ./.cursor/rules2.md
   - Suggestion: Keep exactly one config for this tool/kind/scope. Delete or rename extras, or use a documented override pair.
 - [MD003] Invalid YAML frontmatter: ./AGENTS.md
   - Suggestion: Fix the YAML frontmatter syntax or remove it entirely.

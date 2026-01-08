@@ -38,6 +38,14 @@ func writeSection(builder *strings.Builder, title string, severity Severity, iss
 		}
 		builder.WriteString(line + "\n")
 
+		// For issues with multiple paths, list them all (for conflicts, etc.)
+		if len(issue.Paths) > 1 {
+			builder.WriteString("  - Affected paths:\n")
+			for _, p := range issue.Paths {
+				_, _ = fmt.Fprintf(builder, "    - %s\n", p.Path)
+			}
+		}
+
 		if issue.Suggestion != "" {
 			builder.WriteString("  - Suggestion: " + issue.Suggestion + "\n")
 		} else if issue.Message != "" {

@@ -11,6 +11,23 @@
     "totalMs": 0
   },
   "repoRoot": "\u003crepo\u003e",
+  "summary": {
+    "totalConfigs": 14,
+    "byTool": {
+      "alpha": 1,
+      "beta": 1,
+      "claude-code": 2,
+      "codex": 5,
+      "cursor": 2,
+      "gemini-cli": 1,
+      "github-copilot": 1,
+      "ignored-tool": 1
+    },
+    "byScope": {
+      "repo": 11,
+      "user": 3
+    }
+  },
   "scans": [
     {
       "scope": "repo",

@@ -11,6 +11,8 @@ GOLANGCI_LINT ?= golangci-lint
 build:
 	@mkdir -p $(BIN_DIR)
 	$(GO) build -o $(BIN_DIR)/$(BINARY_NAME) ./cmd/markdowntown
+	@cp data/ai-config-patterns.json $(BIN_DIR)/
+	@cp data/doc-sources.json $(BIN_DIR)/
 
 test:
 	$(GO) test ./...

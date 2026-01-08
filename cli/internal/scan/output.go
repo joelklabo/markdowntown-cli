@@ -32,6 +32,8 @@ func BuildOutput(result Result, opts OutputOptions) Output {
 	warnings := append([]Warning(nil), result.Warnings...)
 	warnings = append(warnings, conflictWarnings(configs, result.Scans)...)
 
+	summary := buildSummary(configs)
+
 	return Output{
 		SchemaVersion:   opts.SchemaVersion,
 		RegistryVersion: opts.RegistryVersion,
@@ -40,9 +42,33 @@ func BuildOutput(result Result, opts OutputOptions) Output {
 		GeneratedAt:     opts.GeneratedAt,
 		Timing:          opts.Timing,
 		RepoRoot:        opts.RepoRoot,
+		Summary:         summary,
 		Scans:           result.Scans,
 		Configs:         configs,
 		Warnings:        warnings,
+	}
+}
+
+// buildSummary creates aggregated counts from config entries.
+func buildSummary(configs []ConfigEntry) *Summary {
+	if len(configs) == 0 {
+		return nil
+	}
+
+	byTool := make(map[string]int)
+	byScope := make(map[string]int)
+
+	for _, config := range configs {
+		byScope[config.Scope]++
+		for _, tool := range config.Tools {
+			byTool[tool.ToolID]++
+		}
+	}
+
+	return &Summary{
+		TotalConfigs: len(configs),
+		ByTool:       byTool,
+		ByScope:      byScope,
 	}
 }
 
