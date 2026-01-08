@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"syscall"
 
 	scanhash "markdowntown-cli/internal/hash"
 
@@ -794,6 +795,12 @@ func errorCodeFor(err error) string {
 		return "EACCES"
 	case errors.Is(err, fs.ErrNotExist):
 		return "ENOENT"
+	case errors.Is(err, syscall.EISDIR):
+		return "EISDIR"
+	case errors.Is(err, syscall.ELOOP):
+		return "ELOOP"
+	case errors.Is(err, syscall.ENAMETOOLONG):
+		return "ENAMETOOLONG"
 	default:
 		return "ERROR"
 	}

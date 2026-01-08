@@ -54,6 +54,7 @@ Scope:
 | MD012 (Implemented) | warning | Validity | Missing required frontmatter key for multi-file kinds (skills/prompts) | Missing frontmatter identifier | Add required identifier | `requiredKeys`, `toolId`, `kind` | yes (insert frontmatter stub) | none |
 | MD015 (Implemented) | warning | Validity | Unknown toolId in frontmatter | Unknown toolId | Replace with closest match | `toolId`, `replacement` | yes (replace toolId) | none |
 | MD018 (Implemented) | warning | Content | Config file size exceeds 1MB | Oversized config file | Review contents; may contain accidental data/logs | `sizeBytes`, `threshold` | no | none |
+| MD013 (Implemented) | info | Scope/Precedence | Config is shadowed by higher-precedence file | Config is shadowed | Remove or move config | `shadowedBy`, `loadBehavior` | no | Unnecessary |
 
 Notes:
 
@@ -74,7 +75,6 @@ These rules can be implemented using scan metadata without reading file content,
 
 | ID | Severity | Category | Trigger | Message summary | Suggestion | Evidence keys | Quick Fix | Tags |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| MD013 (Proposed) | info | Scope/Precedence | Config is shadowed by higher-precedence file | Config is shadowed | Remove or move config | `shadowedBy`, `loadBehavior` | no | Unnecessary |
 | MD014 (Proposed) | info | Validity | Deprecated filename or legacy path detected | Deprecated config path | Rename to supported filename/path | `deprecatedPath`, `replacement` | yes (rename) | Deprecated |
 | MD016 (Proposed) | warning | Validity | Frontmatter contains unknown keys or invalid enum values | Invalid frontmatter value | Remove or correct invalid keys/values | `field`, `value`, `allowed` | no | none |
 | MD017 (Proposed) | warning | Validity | Invalid `applyTo` glob syntax | Invalid applyTo glob | Fix glob syntax | `applyTo`, `error` | no | none |

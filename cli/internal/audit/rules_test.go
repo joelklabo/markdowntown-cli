@@ -486,3 +486,117 @@ func TestRuleOversizedConfigBoundary(t *testing.T) {
 		t.Fatalf("expected no issues for file at 1MB - 1 byte, got %d", len(issues))
 	}
 }
+
+func TestRuleShadowedConfig(t *testing.T) {
+	// User config shadowed by repo config with nearest-ancestor loadBehavior
+	repoEntry := configEntryWithLoadBehavior("/repo/CLAUDE.md", "repo", "claude-code", "instructions", "nearest-ancestor")
+	userEntry := configEntryWithLoadBehavior("/home/user/.claude/CLAUDE.md", "user", "claude-code", "instructions", "nearest-ancestor")
+	ctx := testContext([]scan.ConfigEntry{repoEntry, userEntry}, scan.Registry{})
+	issues := ruleShadowedConfig(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one shadowed config issue, got %d", len(issues))
+	}
+	if issues[0].RuleID != "MD013" {
+		t.Fatalf("unexpected rule id: %s", issues[0].RuleID)
+	}
+	if issues[0].Severity != SeverityInfo {
+		t.Fatalf("expected info severity, got %s", issues[0].Severity)
+	}
+	if !strings.Contains(issues[0].Message, "shadowed by a higher-precedence repo-scope config") {
+		t.Fatalf("unexpected message: %s", issues[0].Message)
+	}
+	if issues[0].Evidence["loadBehavior"] != "nearest-ancestor" {
+		t.Fatalf("expected loadBehavior evidence, got %v", issues[0].Evidence["loadBehavior"])
+	}
+	shadowedBy, ok := issues[0].Evidence["shadowedBy"].(string)
+	if !ok || !strings.Contains(shadowedBy, "CLAUDE.md") {
+		t.Fatalf("expected shadowedBy evidence to contain CLAUDE.md, got %v", issues[0].Evidence["shadowedBy"])
+	}
+	requireRuleData(t, issues[0], "scope")
+}
+
+func TestRuleShadowedConfigGlobalShadowedByUser(t *testing.T) {
+	// Global config shadowed by user config
+	userEntry := configEntryWithLoadBehavior("/home/user/.cursor/rules.md", "user", "cursor", "rules", "single")
+	globalEntry := configEntryWithLoadBehavior("/etc/cursor/rules.md", "global", "cursor", "rules", "single")
+	ctx := testContext([]scan.ConfigEntry{userEntry, globalEntry}, scan.Registry{})
+	issues := ruleShadowedConfig(ctx)
+	if len(issues) != 1 {
+		t.Fatalf("expected one shadowed config issue, got %d", len(issues))
+	}
+	if !strings.Contains(issues[0].Message, "shadowed by a higher-precedence user-scope config") {
+		t.Fatalf("unexpected message: %s", issues[0].Message)
+	}
+	if issues[0].Paths[0].Scope != "global" {
+		t.Fatalf("expected global scope in paths, got %s", issues[0].Paths[0].Scope)
+	}
+}
+
+func TestRuleShadowedConfigMultipleShadowed(t *testing.T) {
+	// Both user and global configs shadowed by repo config
+	repoEntry := configEntryWithLoadBehavior("/repo/.cursor/rules.md", "repo", "cursor", "rules", "nearest-ancestor")
+	userEntry := configEntryWithLoadBehavior("/home/user/.cursor/rules.md", "user", "cursor", "rules", "nearest-ancestor")
+	globalEntry := configEntryWithLoadBehavior("/etc/cursor/rules.md", "global", "cursor", "rules", "nearest-ancestor")
+	ctx := testContext([]scan.ConfigEntry{repoEntry, userEntry, globalEntry}, scan.Registry{})
+	issues := ruleShadowedConfig(ctx)
+	if len(issues) != 2 {
+		t.Fatalf("expected two shadowed config issues, got %d", len(issues))
+	}
+	// Both issues should reference repo as the shadowing config
+	for _, issue := range issues {
+		if !strings.Contains(issue.Message, "repo-scope") {
+			t.Fatalf("expected repo-scope in message, got: %s", issue.Message)
+		}
+	}
+}
+
+func TestRuleShadowedConfigSkipsMergeLoadBehavior(t *testing.T) {
+	// Configs with "merge" loadBehavior should not trigger shadowing
+	repoEntry := configEntryWithLoadBehavior("/repo/AGENTS.md", "repo", "codex", "instructions", "merge")
+	userEntry := configEntryWithLoadBehavior("/home/user/AGENTS.md", "user", "codex", "instructions", "merge")
+	ctx := testContext([]scan.ConfigEntry{repoEntry, userEntry}, scan.Registry{})
+	issues := ruleShadowedConfig(ctx)
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues for merge loadBehavior, got %d", len(issues))
+	}
+}
+
+func TestRuleShadowedConfigSkipsEmptyLoadBehavior(t *testing.T) {
+	// Configs with empty loadBehavior should not trigger shadowing
+	repoEntry := configEntryWithLoadBehavior("/repo/config.md", "repo", "tool", "kind", "")
+	userEntry := configEntryWithLoadBehavior("/home/user/config.md", "user", "tool", "kind", "")
+	ctx := testContext([]scan.ConfigEntry{repoEntry, userEntry}, scan.Registry{})
+	issues := ruleShadowedConfig(ctx)
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues for empty loadBehavior, got %d", len(issues))
+	}
+}
+
+func TestRuleShadowedConfigSingleEntry(t *testing.T) {
+	// Single config should not trigger shadowing
+	repoEntry := configEntryWithLoadBehavior("/repo/CLAUDE.md", "repo", "claude-code", "instructions", "nearest-ancestor")
+	ctx := testContext([]scan.ConfigEntry{repoEntry}, scan.Registry{})
+	issues := ruleShadowedConfig(ctx)
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues for single entry, got %d", len(issues))
+	}
+}
+
+func TestRuleShadowedConfigSameScopeNoShadow(t *testing.T) {
+	// Two configs in the same scope should not trigger shadowing (that's MD001 conflict)
+	repoEntry1 := configEntryWithLoadBehavior("/repo/CLAUDE.md", "repo", "claude-code", "instructions", "nearest-ancestor")
+	repoEntry2 := configEntryWithLoadBehavior("/repo/subdir/CLAUDE.md", "repo", "claude-code", "instructions", "nearest-ancestor")
+	ctx := testContext([]scan.ConfigEntry{repoEntry1, repoEntry2}, scan.Registry{})
+	issues := ruleShadowedConfig(ctx)
+	if len(issues) != 0 {
+		t.Fatalf("expected no issues for same-scope configs, got %d", len(issues))
+	}
+}
+
+func configEntryWithLoadBehavior(path, scope, toolID, kind, loadBehavior string) scan.ConfigEntry {
+	return scan.ConfigEntry{
+		Path:  path,
+		Scope: scope,
+		Tools: []scan.ToolEntry{{ToolID: toolID, Kind: kind, LoadBehavior: loadBehavior}},
+	}
+}

@@ -44,6 +44,7 @@ var ruleMetadata = map[string]RuleData{
 	"MD011": {Category: "content", DocURL: ruleDocURL, Tags: []string{"unnecessary"}},
 	"MD012": {Category: "validity", DocURL: ruleDocURL, QuickFixes: []string{"insert-frontmatter-id"}},
 	"MD018": {Category: "content", DocURL: ruleDocURL, Tags: []string{"suspicious"}},
+	"MD013": {Category: "scope", DocURL: ruleDocURL, Tags: []string{"unnecessary"}},
 }
 
 func ruleData(ruleID string) any {
@@ -69,6 +70,7 @@ func DefaultRules() []Rule {
 		{ID: "MD011", Severity: SeverityWarning, Run: ruleBinaryContent},
 		{ID: "MD012", Severity: SeverityWarning, Run: ruleMissingFrontmatterID},
 		{ID: "MD018", Severity: SeverityWarning, Run: ruleOversizedConfig},
+		{ID: "MD013", Severity: SeverityInfo, Run: ruleShadowedConfig},
 	}
 }
 
@@ -641,4 +643,127 @@ func countTestOrExamplePaths(paths []string) int {
 		}
 	}
 	return count
+}
+
+// ruleShadowedConfig detects configs shadowed by higher-precedence files based on loadBehavior.
+// Scope precedence: repo > user > global
+func ruleShadowedConfig(ctx Context) []Issue {
+	// Group configs by tool/kind, tracking all entries for shadowing analysis
+	type toolKindGroup struct {
+		entries []scan.ConfigEntry
+	}
+
+	groups := make(map[toolKindKey]toolKindGroup)
+	for _, entry := range ctx.Scan.Configs {
+		for _, tool := range entry.Tools {
+			// Only check configs with loadBehavior that implies shadowing
+			if !isShadowingLoadBehavior(tool.LoadBehavior) {
+				continue
+			}
+			key := toolKindKey{ToolID: tool.ToolID, Kind: tool.Kind}
+			group := groups[key]
+			group.entries = append(group.entries, entry)
+			groups[key] = group
+		}
+	}
+
+	var issues []Issue
+	for key, group := range groups {
+		if len(group.entries) <= 1 {
+			continue
+		}
+
+		// Find the highest precedence entry for this tool/kind
+		var highestEntry *scan.ConfigEntry
+		var highestPrecedence = -1
+		for i := range group.entries {
+			entry := &group.entries[i]
+			precedence := scopePrecedence(entry.Scope)
+			if precedence > highestPrecedence {
+				highestPrecedence = precedence
+				highestEntry = entry
+			}
+		}
+
+		if highestEntry == nil {
+			continue
+		}
+
+		// Find loadBehavior for this tool/kind from the highest entry
+		var loadBehavior string
+		for _, tool := range highestEntry.Tools {
+			if tool.ToolID == key.ToolID && tool.Kind == key.Kind {
+				loadBehavior = tool.LoadBehavior
+				break
+			}
+		}
+
+		// Emit issues for all shadowed entries
+		for i := range group.entries {
+			entry := &group.entries[i]
+			if entry.Path == highestEntry.Path {
+				continue
+			}
+
+			entryPrecedence := scopePrecedence(entry.Scope)
+			if entryPrecedence >= highestPrecedence {
+				continue
+			}
+
+			issue := Issue{
+				RuleID:     "MD013",
+				Severity:   SeverityInfo,
+				Title:      "Shadowed config",
+				Message:    fmt.Sprintf("Config for %s (%s) is shadowed by a higher-precedence %s-scope config.", key.ToolID, key.Kind, highestEntry.Scope),
+				Suggestion: "Remove this config or move it to a higher-precedence scope if the instructions are needed.",
+				Paths:      []Path{redactPath(ctx, entry.Path, entry.Scope)},
+				Tools:      []Tool{{ToolID: key.ToolID, Kind: key.Kind}},
+				Data:       ruleData("MD013"),
+				Evidence: map[string]any{
+					"shadowedBy":   redactPath(ctx, highestEntry.Path, highestEntry.Scope).Path,
+					"loadBehavior": loadBehavior,
+				},
+			}
+			issues = append(issues, issue)
+		}
+	}
+
+	// Sort issues for deterministic output
+	sort.SliceStable(issues, func(i, j int) bool {
+		if issues[i].Tools[0].ToolID != issues[j].Tools[0].ToolID {
+			return issues[i].Tools[0].ToolID < issues[j].Tools[0].ToolID
+		}
+		if issues[i].Tools[0].Kind != issues[j].Tools[0].Kind {
+			return issues[i].Tools[0].Kind < issues[j].Tools[0].Kind
+		}
+		return issues[i].Paths[0].Path < issues[j].Paths[0].Path
+	})
+
+	return issues
+}
+
+// isShadowingLoadBehavior returns true if the loadBehavior implies shadowing.
+// "nearest-ancestor" and "single" mean only one config is used.
+func isShadowingLoadBehavior(behavior string) bool {
+	switch strings.ToLower(behavior) {
+	case "nearest-ancestor", "single":
+		return true
+	default:
+		return false
+	}
+}
+
+// scopePrecedence returns the precedence level for a scope.
+// Higher values indicate higher precedence (repo overrides user overrides global).
+func scopePrecedence(scope string) int {
+	switch scope {
+	case scan.ScopeRepo:
+		return 2
+	case scan.ScopeUser:
+		return 1
+	case scan.ScopeGlobal:
+		return 0
+	default:
+		return -1
+	}
 }

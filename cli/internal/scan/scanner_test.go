@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -1088,5 +1089,78 @@ func TestScanWithMemMapFs(t *testing.T) {
 	}
 	if result.Entries[0].Path != filepath.Join(repoRoot, "README.md") {
 		t.Errorf("expected path %s, got %s", filepath.Join(repoRoot, "README.md"), result.Entries[0].Path)
+	}
+}
+
+func TestErrorCodeForExtended(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected string
+	}{
+		{
+			name:     "permission denied",
+			err:      fs.ErrPermission,
+			expected: "EACCES",
+		},
+		{
+			name:     "not exist",
+			err:      fs.ErrNotExist,
+			expected: "ENOENT",
+		},
+		{
+			name:     "is a directory",
+			err:      syscall.EISDIR,
+			expected: "EISDIR",
+		},
+		{
+			name:     "symlink loop",
+			err:      syscall.ELOOP,
+			expected: "ELOOP",
+		},
+		{
+			name:     "name too long",
+			err:      syscall.ENAMETOOLONG,
+			expected: "ENAMETOOLONG",
+		},
+		{
+			name:     "wrapped EISDIR",
+			err:      errors.New("read /path: is a directory"),
+			expected: "ERROR", // plain error message does not match syscall error
+		},
+		{
+			name:     "wrapped syscall EISDIR",
+			err:      &os.PathError{Op: "read", Path: "/path", Err: syscall.EISDIR},
+			expected: "EISDIR",
+		},
+		{
+			name:     "wrapped syscall ELOOP",
+			err:      &os.PathError{Op: "stat", Path: "/path", Err: syscall.ELOOP},
+			expected: "ELOOP",
+		},
+		{
+			name:     "wrapped syscall ENAMETOOLONG",
+			err:      &os.PathError{Op: "open", Path: "/path", Err: syscall.ENAMETOOLONG},
+			expected: "ENAMETOOLONG",
+		},
+		{
+			name:     "unknown error",
+			err:      errors.New("something went wrong"),
+			expected: "ERROR",
+		},
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: "ERROR",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := errorCodeFor(tc.err)
+			if got != tc.expected {
+				t.Errorf("errorCodeFor(%v) = %q, want %q", tc.err, got, tc.expected)
+			}
+		})
 	}
 }
