@@ -287,10 +287,10 @@ export function LivingCityWordmarkSvg({
           let fill: Rgb;
           if (rect.tone === "headlight") fill = palette.window;
           else if (rect.tone === "car") fill = palette.car;
-          else if (rect.tone === "ambulance") fill = palette.building;
+          else if (rect.tone === "ambulance") fill = palette.car; // Vehicle tone for scheme consistency
           else if (rect.tone === "pedestrian") fill = palette.building;
           else if (rect.tone === "dog") fill = palette.buildingMuted;
-          else if (rect.tone === "bird") fill = palette.window;
+          else if (rect.tone === "bird") fill = palette.buildingMuted; // Darker than headlights for sky depth
           else if (rect.tone === "taillight") fill = SIREN_RED;
           else if (rect.tone === "sirenRed") fill = SIREN_RED;
           else if (rect.tone === "sirenBlue") fill = SIREN_BLUE;

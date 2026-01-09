@@ -63,7 +63,8 @@ function createCloudActor(state: CloudState): CityWordmarkActor {
         width: puffW,
         height: puffH,
         tone: "cloud",
-        opacity: 0.15 + rng.nextFloat() * 0.1,
+        // Narrower opacity range (0.18-0.22) for more cohesive cloud mass
+        opacity: 0.18 + rng.nextFloat() * 0.04,
       });
     }
 

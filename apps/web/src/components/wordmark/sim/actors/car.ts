@@ -180,7 +180,8 @@ export function spawnCarActors(ctx: CityWordmarkActorContext): CityWordmarkActor
   const actors: CityWordmarkActor[] = [];
   const period = ctx.layout.sceneWidth + width + 8 * unit;
   for (let i = 0; i < count; i++) {
-    const speedVps = 2.4 + rng.nextFloat() * 4.0;
+    // Tighter speed variance (3.2-5.2 vps) for more consistent traffic flow
+    const speedVps = 3.2 + rng.nextFloat() * 2.0;
     const x0 = (i / count) * period + rng.nextFloat() * 4 * unit;
     actors.push(createCarActor({ x0, speedVps, y: laneY }));
   }

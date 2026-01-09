@@ -110,7 +110,8 @@ function createBirdActor(state: BirdState): CityWordmarkActor {
         width: w,
         height: h,
         tone: "bird",
-        opacity: 0.7,
+        // Lower opacity (0.55) for distant sky objects - less heavy than 0.7
+        opacity: 0.55,
       });
     }
 
