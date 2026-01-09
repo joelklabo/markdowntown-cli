@@ -9,7 +9,6 @@ import type { CityWordmarkActor, CityWordmarkActorContext, CityWordmarkActorRect
 type CarState = {
   x0: number;
   speedVps: number;
-  width: number;
   y: number;
 };
 
@@ -20,6 +19,12 @@ function getCarCount(config: CityWordmarkConfig): number {
   return 2;
 }
 
+// Car dimensions in units (unit = half scale, same as birds)
+// At scale=3: unit=1, car is 8x3 voxels
+// Simple silhouette: roof inset, body, wheel shadows
+const CAR_WIDTH_UNITS = 8;
+const CAR_HEIGHT_UNITS = 3;
+
 function createCarActor(state: CarState): CityWordmarkActor {
   function update() {
     return actor;
@@ -28,101 +33,123 @@ function createCarActor(state: CarState): CityWordmarkActor {
   function render(ctx: { nowMs: number; config: CityWordmarkConfig; layout: CityWordmarkLayout }): CityWordmarkActorRect[] {
     const sceneWidth = ctx.layout.sceneWidth;
     const scale = getActorScale(ctx.layout);
-    const period = sceneWidth + state.width + 8 * scale;
+    const unit = Math.max(1, Math.floor(scale / 2));
+
+    const width = CAR_WIDTH_UNITS * unit;
+
+    const period = sceneWidth + width + 8 * unit;
     const x = Math.floor(
-      ((state.x0 + (ctx.nowMs / 1000) * state.speedVps * ctx.config.timeScale) % period) - state.width
+      ((state.x0 + (ctx.nowMs / 1000) * state.speedVps * ctx.config.timeScale) % period) - width
     );
 
-    const margin = Math.max(2, scale * 2);
+    const margin = Math.max(2, unit * 2);
     if (x > sceneWidth + margin) return [];
-    if (x + state.width < -margin) return [];
+    if (x + width < -margin) return [];
 
     const bodyTone = "car" as const;
-    const isHd = scale > 1;
     const out: CityWordmarkActorRect[] = [];
 
-    if (isHd) {
-      const roofInset = scale;
-      const windowInset = Math.max(1, Math.floor(scale / 2));
-      const wheelSize = Math.max(1, Math.floor(scale / 2));
-      const wheelY = state.y + scale * 2;
-      out.push(
-        {
-          x: x + roofInset,
-          y: state.y,
-          width: state.width - roofInset * 2,
-          height: scale,
-          tone: bodyTone,
-          opacity: 0.72,
-        },
-        {
-          x,
-          y: state.y + scale,
-          width: state.width,
-          height: scale,
-          tone: bodyTone,
-          opacity: 0.88,
-        },
-        {
-          x: x + scale,
-          y: state.y + scale * 2,
-          width: state.width - scale,
-          height: scale,
-          tone: bodyTone,
-          opacity: 0.95,
-        },
-        {
-          x: x + windowInset,
-          y: state.y + scale,
-          width: Math.max(1, state.width - windowInset * 2 - scale),
-          height: scale,
-          tone: bodyTone,
-          opacity: 0.55,
-        },
-        {
-          x: x + scale,
-          y: wheelY,
-          width: wheelSize,
-          height: wheelSize,
-          tone: bodyTone,
-          opacity: 0.6,
-        },
-        {
-          x: x + state.width - scale - wheelSize,
-          y: wheelY,
-          width: wheelSize,
-          height: wheelSize,
-          tone: bodyTone,
-          opacity: 0.6,
-        }
-      );
-    } else {
-      out.push(
-        { x: x + 1, y: state.y, width: state.width - 2, height: 1, tone: bodyTone, opacity: 0.85 },
-        { x, y: state.y + 1, width: state.width, height: 1, tone: bodyTone, opacity: 0.95 }
-      );
-    }
+    // Row 0 (top): Roof - inset by 2 units on each side
+    out.push({
+      x: x + unit * 2,
+      y: state.y,
+      width: unit * 4,  // 8 - 2 - 2 = 4 units wide
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.72,
+    });
 
+    // Row 1 (middle): Full body with window indication
+    out.push({
+      x,
+      y: state.y + unit,
+      width: width,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.88,
+    });
+
+    // Window (darker, inset)
+    out.push({
+      x: x + unit * 2,
+      y: state.y + unit,
+      width: unit * 3,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.55,
+    });
+
+    // Row 2 (bottom): Lower body with wheel wells
+    // Front section (before front wheel)
+    out.push({
+      x,
+      y: state.y + unit * 2,
+      width: unit,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.95,
+    });
+
+    // Middle section (between wheels)
+    out.push({
+      x: x + unit * 2,
+      y: state.y + unit * 2,
+      width: unit * 4,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.95,
+    });
+
+    // Rear section (after rear wheel)
+    out.push({
+      x: x + unit * 7,
+      y: state.y + unit * 2,
+      width: unit,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.95,
+    });
+
+    // Wheel shadows (darker)
+    out.push(
+      {
+        x: x + unit,
+        y: state.y + unit * 2,
+        width: unit,
+        height: unit,
+        tone: bodyTone,
+        opacity: 0.5,
+      },
+      {
+        x: x + unit * 6,
+        y: state.y + unit * 2,
+        width: unit,
+        height: unit,
+        tone: bodyTone,
+        opacity: 0.5,
+      }
+    );
+
+    // Headlights and taillights at night
     const { daylight } = getTimeOfDayPhase(ctx.config.timeOfDay);
     const nightness = clamp01(1 - daylight);
     if (nightness > 0.12) {
-      const lightY = isHd ? state.y + scale * 2 : state.y + 1;
-      const lightSize = isHd ? scale : 1;
-      // Headlight (front)
+      const lightY = state.y + unit * 2;
+      // Headlight (front of car)
       out.push({
-        x: x + state.width,
+        x: x + width,
         y: lightY,
-        width: lightSize,
-        height: lightSize,
+        width: unit,
+        height: unit,
         tone: "headlight",
         opacity: clamp01(nightness * 0.85),
       });
-      // Taillight (back)
+      // Taillight (back of car)
       out.push({
-        x: x - lightSize,
+        x: x - unit,
         y: lightY,
-        width: lightSize,
-        height: lightSize,
+        width: unit,
+        height: unit,
         tone: "taillight",
         opacity: clamp01(nightness * 0.7),
       });
@@ -146,16 +173,16 @@ export function spawnCarActors(ctx: CityWordmarkActorContext): CityWordmarkActor
 
   const rng = createRng(`${ctx.config.seed}:cars`);
   const scale = getActorScale(ctx.layout);
-  const rowCount = scale > 1 ? 3 : 2;
-  const laneY = getActorLaneY(ctx.layout, rowCount);
-  const width = 5 * scale;
+  const unit = Math.max(1, Math.floor(scale / 2));
+  const laneY = getActorLaneY(ctx.layout, CAR_HEIGHT_UNITS);
+  const width = CAR_WIDTH_UNITS * unit;
 
   const actors: CityWordmarkActor[] = [];
-  const period = ctx.layout.sceneWidth + width + 8 * scale;
+  const period = ctx.layout.sceneWidth + width + 8 * unit;
   for (let i = 0; i < count; i++) {
     const speedVps = 2.4 + rng.nextFloat() * 4.0;
-    const x0 = (i / count) * period + rng.nextFloat() * 4 * scale;
-    actors.push(createCarActor({ x0, speedVps, width, y: laneY }));
+    const x0 = (i / count) * period + rng.nextFloat() * 4 * unit;
+    actors.push(createCarActor({ x0, speedVps, y: laneY }));
   }
 
   return actors;

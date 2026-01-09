@@ -1,7 +1,7 @@
 import type { CityWordmarkLayout } from "../layout";
 import { createRng } from "../rng";
 import type { CityWordmarkConfig } from "../types";
-import { getActorScale } from "./types";
+import { getActorLaneY, getActorScale } from "./types";
 import type { CityWordmarkActor, CityWordmarkActorContext, CityWordmarkActorRect } from "./types";
 
 type Pedestrian = {
@@ -36,6 +36,16 @@ function pingPong(t: number, length: number): number {
   return wrapped <= length ? wrapped : period - wrapped;
 }
 
+// Pedestrian dimensions in units (unit = half scale, same as birds/cars)
+// At scale=3: unit=1, pedestrian is 1x4 voxels (head + body + legs)
+// Simple silhouette: head, torso, legs
+const PED_WIDTH_UNITS = 1;
+const PED_HEIGHT_UNITS = 4;
+
+// Dog dimensions: 4 units wide (body 2 + tail 1 + head 1), 1 unit tall
+const DOG_BODY_UNITS = 2;
+const DOG_HEAD_UNITS = 1;
+
 function createPedestrianActor(state: PedestrianState): CityWordmarkActor {
   function update() {
     return actor;
@@ -47,11 +57,10 @@ function createPedestrianActor(state: PedestrianState): CityWordmarkActor {
 
     const out: CityWordmarkActorRect[] = [];
     const scale = getActorScale(ctx.layout);
-    const isHd = scale > 1;
-    const bodyWidth = isHd ? scale : 1;
-    const bodyHeight = isHd ? scale * 2 : 1;
-    const headSize = isHd ? scale : 1;
-    const limbSize = isHd ? Math.max(1, Math.floor(scale / 2)) : 1;
+    const unit = Math.max(1, Math.floor(scale / 2));
+
+    const pedWidth = PED_WIDTH_UNITS * unit;
+    const pedHeight = PED_HEIGHT_UNITS * unit;
 
     for (const p of state.pedestrians) {
       const segmentLen = Math.max(0, p.maxX - p.minX);
@@ -59,80 +68,65 @@ function createPedestrianActor(state: PedestrianState): CityWordmarkActor {
       const dx = pingPong(travel, segmentLen);
       const x = p.minX + Math.floor(dx);
 
-      if (x + bodyWidth <= 0 || x >= ctx.layout.sceneWidth) continue;
-      if (p.yBody < 0 || p.yBody + bodyHeight > ctx.layout.height) continue;
+      if (x + pedWidth <= 0 || x >= ctx.layout.sceneWidth) continue;
+      if (p.yBody < 0 || p.yBody + pedHeight > ctx.layout.height) continue;
 
-      const yHead = p.yBody - headSize;
+      // Row 0: Head
+      out.push({
+        x,
+        y: p.yBody,
+        width: unit,
+        height: unit,
+        tone: "pedestrian",
+        opacity: 0.55,
+      });
 
-      if (yHead >= 0) {
-        out.push({ x, y: yHead, width: headSize, height: headSize, tone: "pedestrian", opacity: 0.55 });
-      }
+      // Row 1-2: Torso (2 units tall)
+      out.push({
+        x,
+        y: p.yBody + unit,
+        width: unit,
+        height: unit * 2,
+        tone: "pedestrian",
+        opacity: 0.85,
+      });
 
-      if (isHd) {
-        out.push(
-          { x, y: p.yBody, width: bodyWidth, height: scale, tone: "pedestrian", opacity: 0.85 },
-          {
-            x: x + Math.max(0, Math.floor(scale / 2)),
-            y: p.yBody + scale,
-            width: bodyWidth,
-            height: scale,
-            tone: "pedestrian",
-            opacity: 0.85,
-          },
-          {
-            x: x + Math.max(0, Math.floor(scale / 3)),
-            y: p.yBody + scale * 2 - limbSize,
-            width: limbSize,
-            height: limbSize,
-            tone: "pedestrian",
-            opacity: 0.6,
-          }
-        );
+      // Row 3: Legs
+      out.push({
+        x,
+        y: p.yBody + unit * 3,
+        width: unit,
+        height: unit,
+        tone: "pedestrian",
+        opacity: 0.6,
+      });
 
-        const armX = x + bodyWidth;
-        if (armX + limbSize <= ctx.layout.sceneWidth) {
-          out.push({
-            x: armX,
-            y: p.yBody + Math.max(0, Math.floor(scale / 2)),
-            width: limbSize,
-            height: limbSize,
-            tone: "pedestrian",
-            opacity: 0.6,
-          });
-        }
-      } else {
-        out.push({ x, y: p.yBody, width: 1, height: 1, tone: "pedestrian", opacity: 0.85 });
-      }
-
+      // Dog
       if (p.hasDog) {
-        const dogX = x + p.dogOffset * scale;
-        const dogY = p.yBody + (isHd ? scale : 0);
-        if (dogX >= 0 && dogX < ctx.layout.sceneWidth) {
-          if (isHd) {
-            const dogBodyWidth = scale * 2;
-            const dogHeadX = dogX + dogBodyWidth;
-            if (dogHeadX + scale <= ctx.layout.sceneWidth) {
-              out.push(
-                { x: dogX, y: dogY, width: dogBodyWidth, height: scale, tone: "dog", opacity: 0.72 },
-                { x: dogHeadX, y: dogY, width: scale, height: scale, tone: "dog", opacity: 0.62 }
-              );
+        const dogBodyWidth = DOG_BODY_UNITS * unit;
+        const dogHeadWidth = DOG_HEAD_UNITS * unit;
+        const dogY = p.yBody + unit * 3; // Aligned with legs
+        const dogX = x + (p.dogOffset > 0 ? unit * 2 : -dogBodyWidth - dogHeadWidth);
 
-              const tailSize = Math.max(1, Math.floor(scale / 2));
-              const tailX = dogX - tailSize;
-              if (tailX >= 0) {
-                out.push({
-                  x: tailX,
-                  y: dogY + Math.max(0, Math.floor(scale / 2)),
-                  width: tailSize,
-                  height: tailSize,
-                  tone: "dog",
-                  opacity: 0.52,
-                });
-              }
-            }
-          } else {
-            out.push({ x: dogX, y: p.yBody, width: 1, height: 1, tone: "dog", opacity: 0.72 });
-          }
+        if (dogX >= 0 && dogX + dogBodyWidth + dogHeadWidth <= ctx.layout.sceneWidth) {
+          // Dog body
+          out.push({
+            x: dogX,
+            y: dogY,
+            width: dogBodyWidth,
+            height: unit,
+            tone: "dog",
+            opacity: 0.72,
+          });
+          // Dog head
+          out.push({
+            x: dogX + dogBodyWidth,
+            y: dogY,
+            width: dogHeadWidth,
+            height: unit,
+            tone: "dog",
+            opacity: 0.62,
+          });
         }
       }
     }
@@ -158,14 +152,15 @@ export function spawnPedestrianActors(ctx: CityWordmarkActorContext): CityWordma
   const xMax = Math.max(0, ctx.layout.sceneWidth - 1);
   if (xMax < 4) return [];
 
-  const scale = getActorScale(ctx.layout);
-  const bodyHeight = scale > 1 ? scale * 2 : 1;
-  const headSize = scale > 1 ? scale : 1;
-  const yBody = Math.max(headSize, ctx.layout.baselineY - bodyHeight);
-  if (yBody + bodyHeight > ctx.layout.height) return [];
+  const unit = Math.max(1, Math.floor(getActorScale(ctx.layout) / 2));
+  const laneY = getActorLaneY(ctx.layout, PED_HEIGHT_UNITS);
+  const yBody = laneY;
+  const pedHeight = PED_HEIGHT_UNITS * unit;
 
-  const desiredMinLen = 6 * scale;
-  const desiredMaxLen = 14 * scale;
+  if (yBody + pedHeight > ctx.layout.height) return [];
+
+  const desiredMinLen = 6 * unit;
+  const desiredMaxLen = 14 * unit;
   const maxLen = Math.max(4, Math.min(desiredMaxLen, Math.max(4, xMax - 1)));
   const minLen = Math.min(desiredMinLen, maxLen);
 
@@ -173,7 +168,7 @@ export function spawnPedestrianActors(ctx: CityWordmarkActorContext): CityWordma
   let dogCount = 0;
   for (let i = 0; i < count; i++) {
     const xBase = Math.round(((i + 1) / (count + 1)) * xMax);
-    const jitter = rng.nextInt(-2 * scale, 3 * scale + 1);
+    const jitter = rng.nextInt(-2 * unit, 3 * unit + 1);
     const centerX = clampInt(xBase + jitter, 1, Math.max(1, xMax - 1));
 
     const length = rng.nextInt(minLen, maxLen + 1);

@@ -9,128 +9,157 @@ type AmbulanceState = {
   endAtMs: number;
   x0: number;
   speedVps: number;
-  width: number;
   y: number;
   flashPeriodMs: number;
 };
 
-function getX(state: AmbulanceState, ctx: { nowMs: number; config: CityWordmarkConfig }): number {
+// Ambulance dimensions in units (unit = half scale, same as all actors)
+// At scale=3: unit=1, ambulance is 10x3 voxels (between car and truck)
+// Structure: roof (inset), body, lower body with wheels, sirens on top
+const AMBULANCE_WIDTH_UNITS = 10;
+const AMBULANCE_HEIGHT_UNITS = 3;
+
+function getX(state: AmbulanceState, ctx: { nowMs: number; config: CityWordmarkConfig }, unit: number): number {
   const elapsedS = Math.max(0, (ctx.nowMs - state.spawnAtMs) / 1000);
-  return Math.floor(state.x0 + elapsedS * state.speedVps * ctx.config.timeScale);
+  return Math.floor(state.x0 * unit + elapsedS * state.speedVps * ctx.config.timeScale);
 }
 
 function createAmbulanceActor(state: AmbulanceState): CityWordmarkActor {
   function update(ctx: CityWordmarkActorUpdateContext): CityWordmarkActor {
     if (!ctx.config.actors.ambulance) return { ...actor, done: true };
 
-    const x = getX(state, ctx);
-    const offScreen = x > ctx.layout.sceneWidth + 3 * getActorScale(ctx.layout);
+    const unit = Math.max(1, Math.floor(getActorScale(ctx.layout) / 2));
+    const x = getX(state, ctx, unit);
+    const offScreen = x > ctx.layout.sceneWidth + 3 * unit;
     const expired = ctx.nowMs >= state.endAtMs;
     if (expired && offScreen) return { ...actor, done: true };
     return actor;
   }
 
   function render(ctx: { nowMs: number; config: CityWordmarkConfig; layout: CityWordmarkLayout }): CityWordmarkActorRect[] {
-    const x = getX(state, ctx);
-    const margin = Math.max(2, getActorScale(ctx.layout) * 2);
-    if (x > ctx.layout.sceneWidth + margin) return [];
-    if (x + state.width < -margin) return [];
-
     const scale = getActorScale(ctx.layout);
-    const isHd = scale > 1;
+    const unit = Math.max(1, Math.floor(scale / 2));
+    const width = AMBULANCE_WIDTH_UNITS * unit;
+
+    const x = getX(state, ctx, unit);
+    const margin = Math.max(2, unit * 2);
+    if (x > ctx.layout.sceneWidth + margin) return [];
+    if (x + width < -margin) return [];
+
     const out: CityWordmarkActorRect[] = [];
 
-    if (isHd) {
-      const roofInset = scale;
-      const windowInset = Math.max(1, Math.floor(scale / 2));
-      const stripeHeight = Math.max(1, Math.floor(scale / 2));
-      const stripeY = state.y + scale + Math.max(0, Math.floor(scale / 2));
-      const wheelSize = Math.max(1, Math.floor(scale / 2));
-      const wheelY = state.y + scale * 2;
-      out.push(
-        {
-          x: x + roofInset,
-          y: state.y,
-          width: state.width - roofInset * 2,
-          height: scale,
-          tone: "ambulance",
-          opacity: 0.78,
-        },
-        {
-          x,
-          y: state.y + scale,
-          width: state.width,
-          height: scale,
-          tone: "ambulance",
-          opacity: 0.9,
-        },
-        {
-          x,
-          y: state.y + scale * 2,
-          width: state.width,
-          height: scale,
-          tone: "ambulance",
-          opacity: 0.97,
-        },
-        {
-          x: x + windowInset,
-          y: state.y + scale,
-          width: Math.max(1, state.width - windowInset * 2 - scale),
-          height: scale,
-          tone: "ambulance",
-          opacity: 0.55,
-        },
-        {
-          x: x + scale,
-          y: stripeY,
-          width: Math.max(1, state.width - scale * 3),
-          height: stripeHeight,
-          tone: "sirenRed",
-          opacity: 0.45,
-        },
-        {
-          x: x + scale,
-          y: wheelY,
-          width: wheelSize,
-          height: wheelSize,
-          tone: "ambulance",
-          opacity: 0.6,
-        },
-        {
-          x: x + state.width - scale - wheelSize,
-          y: wheelY,
-          width: wheelSize,
-          height: wheelSize,
-          tone: "ambulance",
-          opacity: 0.6,
-        }
-      );
-    } else {
-      out.push(
-        { x: x + 1, y: state.y, width: state.width - 2, height: 1, tone: "ambulance", opacity: 0.85 },
-        { x, y: state.y + 1, width: state.width, height: 1, tone: "ambulance", opacity: 0.95 }
-      );
-    }
+    // Row 0 (top): Roof - inset by 2 units on each side
+    out.push({
+      x: x + unit * 2,
+      y: state.y,
+      width: unit * 6,  // 10 - 2 - 2 = 6 units wide
+      height: unit,
+      tone: "ambulance",
+      opacity: 0.78,
+    });
 
+    // Row 1 (middle): Full body with window
+    out.push({
+      x,
+      y: state.y + unit,
+      width: width,
+      height: unit,
+      tone: "ambulance",
+      opacity: 0.9,
+    });
+
+    // Window (darker, inset)
+    out.push({
+      x: x + unit * 2,
+      y: state.y + unit,
+      width: unit * 4,
+      height: unit,
+      tone: "ambulance",
+      opacity: 0.55,
+    });
+
+    // Red stripe (middle of body)
+    out.push({
+      x: x + unit * 2,
+      y: state.y + unit,
+      width: unit * 5,
+      height: unit,
+      tone: "sirenRed",
+      opacity: 0.35,
+    });
+
+    // Row 2 (bottom): Lower body with wheel wells
+    // Front section
+    out.push({
+      x,
+      y: state.y + unit * 2,
+      width: unit,
+      height: unit,
+      tone: "ambulance",
+      opacity: 0.97,
+    });
+
+    // Front wheel shadow
+    out.push({
+      x: x + unit,
+      y: state.y + unit * 2,
+      width: unit,
+      height: unit,
+      tone: "ambulance",
+      opacity: 0.5,
+    });
+
+    // Middle section (between wheels)
+    out.push({
+      x: x + unit * 2,
+      y: state.y + unit * 2,
+      width: unit * 6,
+      height: unit,
+      tone: "ambulance",
+      opacity: 0.97,
+    });
+
+    // Rear wheel shadow
+    out.push({
+      x: x + unit * 8,
+      y: state.y + unit * 2,
+      width: unit,
+      height: unit,
+      tone: "ambulance",
+      opacity: 0.5,
+    });
+
+    // Rear section
+    out.push({
+      x: x + unit * 9,
+      y: state.y + unit * 2,
+      width: unit,
+      height: unit,
+      tone: "ambulance",
+      opacity: 0.97,
+    });
+
+    // Sirens on top (above roof)
     const flashT = Math.max(0, ctx.nowMs - state.spawnAtMs);
     const phase = Math.floor(flashT / state.flashPeriodMs) % 2;
     const redOpacity = phase === 0 ? 1 : 0.22;
     const blueOpacity = phase === 1 ? 1 : 0.22;
-    const sirenSize = isHd ? scale : 1;
-    const sirenY = isHd ? state.y - scale : state.y - 1;
+    const sirenY = state.y - unit;
 
     out.push(
-      { x: x + 2 * scale, y: sirenY, width: sirenSize, height: sirenSize, tone: "sirenRed", opacity: redOpacity },
-      { x: x + 4 * scale, y: sirenY, width: sirenSize, height: sirenSize, tone: "sirenBlue", opacity: blueOpacity },
-      {
-        x: x + state.width,
-        y: isHd ? state.y + scale * 2 : state.y + 1,
-        width: sirenSize,
-        height: sirenSize,
-        tone: "headlight",
-        opacity: 1,
-      }
+      { x: x + unit * 3, y: sirenY, width: unit, height: unit, tone: "sirenRed", opacity: redOpacity },
+      { x: x + unit * 6, y: sirenY, width: unit, height: unit, tone: "sirenBlue", opacity: blueOpacity }
     );
+
+    // Headlight
+    out.push({
+      x: x + width,
+      y: state.y + unit * 2,
+      width: unit,
+      height: unit,
+      tone: "headlight",
+      opacity: 1,
+    });
 
     return out;
   }
@@ -150,19 +179,18 @@ export function spawnAmbulanceActor(
   if (!ctx.config.actors.ambulance) return null;
 
   const rng = createRng(`${ctx.config.seed}:ambulance:${ctx.triggerIndex}`);
-  const scale = getActorScale(ctx.layout);
-  const rowCount = scale > 1 ? 3 : 2;
-  const laneY = getActorLaneY(ctx.layout, rowCount);
-  const width = 7 * scale;
+  const unit = Math.max(1, Math.floor(getActorScale(ctx.layout) / 2));
+  const laneY = getActorLaneY(ctx.layout, AMBULANCE_HEIGHT_UNITS);
+  const width = AMBULANCE_WIDTH_UNITS * unit;
   const speedVps = 7 + rng.nextFloat() * 3;
-  const x0 = -width - 2 * scale + rng.nextFloat() * (2 * scale);
+  // x0 is in unit-less form, will be multiplied by unit in getX
+  const x0 = (-width / unit - 2 + rng.nextFloat() * 2);
 
   return createAmbulanceActor({
     spawnAtMs: ctx.nowMs,
     endAtMs: ctx.nowMs + 9_000,
     x0,
     speedVps,
-    width,
     y: laneY,
     flashPeriodMs: 180,
   });

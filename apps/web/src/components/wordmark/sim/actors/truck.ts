@@ -9,8 +9,6 @@ import type { CityWordmarkActor, CityWordmarkActorContext, CityWordmarkActorRect
 type TruckState = {
   x0: number;
   speedVps: number;
-  width: number;
-  cabWidth: number;
   y: number;
 };
 
@@ -21,6 +19,14 @@ function getTruckCount(config: CityWordmarkConfig): number {
   return 0;
 }
 
+// Truck dimensions in units (unit = half scale, same as birds/cars)
+// At scale=3: unit=1, truck is 14x3 voxels (cab + gap + trailer)
+// Cab: 4 units, Gap: 1 unit, Trailer: 9 units
+const TRUCK_WIDTH_UNITS = 14;
+const TRUCK_HEIGHT_UNITS = 3;
+const CAB_WIDTH_UNITS = 4;
+const GAP_UNITS = 1;
+
 function createTruckActor(state: TruckState): CityWordmarkActor {
   function update() {
     return actor;
@@ -29,147 +35,160 @@ function createTruckActor(state: TruckState): CityWordmarkActor {
   function render(ctx: { nowMs: number; config: CityWordmarkConfig; layout: CityWordmarkLayout }): CityWordmarkActorRect[] {
     const sceneWidth = ctx.layout.sceneWidth;
     const scale = getActorScale(ctx.layout);
-    const period = sceneWidth + state.width + 12 * scale;
+    const unit = Math.max(1, Math.floor(scale / 2));
+
+    const width = TRUCK_WIDTH_UNITS * unit;
+    const cabWidth = CAB_WIDTH_UNITS * unit;
+    const gap = GAP_UNITS * unit;
+    const trailerWidth = width - cabWidth - gap;
+
+    const period = sceneWidth + width + 12 * unit;
     const x = Math.floor(
-      ((state.x0 + (ctx.nowMs / 1000) * state.speedVps * ctx.config.timeScale) % period) - state.width
+      ((state.x0 + (ctx.nowMs / 1000) * state.speedVps * ctx.config.timeScale) % period) - width
     );
 
-    const margin = Math.max(2, scale * 2);
+    const margin = Math.max(2, unit * 2);
     if (x > sceneWidth + margin) return [];
-    if (x + state.width < -margin) return [];
+    if (x + width < -margin) return [];
 
     const bodyTone = "car" as const;
-    const isHd = scale > 1;
     const out: CityWordmarkActorRect[] = [];
 
-    if (isHd) {
-      const gap = scale;
-      const trailerWidth = state.width - state.cabWidth - gap;
-      const windowInset = Math.max(1, Math.floor(scale / 2));
-      const wheelSize = Math.max(1, Math.floor(scale / 2));
-      const wheelY = state.y + scale * 2;
-      out.push(
-        {
-          x: x + scale,
-          y: state.y,
-          width: state.cabWidth - scale,
-          height: scale,
-          tone: bodyTone,
-          opacity: 0.74,
-        },
-        {
-          x: x + state.cabWidth + gap,
-          y: state.y,
-          width: trailerWidth,
-          height: scale,
-          tone: bodyTone,
-          opacity: 0.78,
-        },
-        {
-          x,
-          y: state.y + scale,
-          width: state.cabWidth,
-          height: scale,
-          tone: bodyTone,
-          opacity: 0.88,
-        },
-        {
-          x: x + state.cabWidth + gap,
-          y: state.y + scale,
-          width: trailerWidth,
-          height: scale,
-          tone: bodyTone,
-          opacity: 0.84,
-        },
-        {
-          x,
-          y: state.y + scale * 2,
-          width: state.width,
-          height: scale,
-          tone: bodyTone,
-          opacity: 0.95,
-        },
-        {
-          x: x + windowInset,
-          y: state.y + scale,
-          width: Math.max(1, state.cabWidth - windowInset * 2),
-          height: scale,
-          tone: bodyTone,
-          opacity: 0.55,
-        },
-        {
-          x: x + scale,
-          y: wheelY,
-          width: wheelSize,
-          height: wheelSize,
-          tone: bodyTone,
-          opacity: 0.58,
-        },
-        {
-          x: x + state.cabWidth + gap + scale,
-          y: wheelY,
-          width: wheelSize,
-          height: wheelSize,
-          tone: bodyTone,
-          opacity: 0.58,
-        },
-        {
-          x: x + state.width - scale - wheelSize,
-          y: wheelY,
-          width: wheelSize,
-          height: wheelSize,
-          tone: bodyTone,
-          opacity: 0.58,
-        }
-      );
-    } else {
-      out.push(
-        {
-          x: x + state.cabWidth,
-          y: state.y,
-          width: state.width - state.cabWidth,
-          height: 1,
-          tone: bodyTone,
-          opacity: 0.82,
-        },
-        { x: x + 1, y: state.y, width: state.cabWidth - 1, height: 1, tone: bodyTone, opacity: 0.88 },
-        { x, y: state.y + 1, width: state.width, height: 1, tone: bodyTone, opacity: 0.95 }
-      );
-    }
+    // Row 0 (top): Cab roof (inset) and Trailer top
+    // Cab roof - inset by 1 unit
+    out.push({
+      x: x + unit,
+      y: state.y,
+      width: cabWidth - unit,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.74,
+    });
+    // Trailer top
+    out.push({
+      x: x + cabWidth + gap,
+      y: state.y,
+      width: trailerWidth,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.78,
+    });
 
+    // Row 1 (middle): Full cab with window, trailer body
+    out.push({
+      x,
+      y: state.y + unit,
+      width: cabWidth,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.88,
+    });
+    // Cab window (darker)
+    out.push({
+      x: x + unit,
+      y: state.y + unit,
+      width: cabWidth - unit * 2,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.55,
+    });
+    // Trailer middle
+    out.push({
+      x: x + cabWidth + gap,
+      y: state.y + unit,
+      width: trailerWidth,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.84,
+    });
+
+    // Row 2 (bottom): Lower body with wheel wells
+    // Cab front section
+    out.push({
+      x,
+      y: state.y + unit * 2,
+      width: unit,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.95,
+    });
+    // Cab wheel shadow
+    out.push({
+      x: x + unit,
+      y: state.y + unit * 2,
+      width: unit,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.5,
+    });
+    // Cab rear and gap
+    out.push({
+      x: x + unit * 2,
+      y: state.y + unit * 2,
+      width: cabWidth - unit * 2 + gap,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.95,
+    });
+    // Trailer front wheel shadow
+    out.push({
+      x: x + cabWidth + gap,
+      y: state.y + unit * 2,
+      width: unit,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.5,
+    });
+    // Trailer middle section
+    out.push({
+      x: x + cabWidth + gap + unit,
+      y: state.y + unit * 2,
+      width: trailerWidth - unit * 2,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.95,
+    });
+    // Trailer rear wheel shadow
+    out.push({
+      x: x + width - unit,
+      y: state.y + unit * 2,
+      width: unit,
+      height: unit,
+      tone: bodyTone,
+      opacity: 0.5,
+    });
+
+    // Headlights and taillights at night
     const { daylight } = getTimeOfDayPhase(ctx.config.timeOfDay);
     const nightness = clamp01(1 - daylight);
     if (nightness > 0.12) {
-      const lightY = isHd ? state.y + scale * 2 : state.y + 1;
-      const lightSize = isHd ? scale : 1;
+      const lightY = state.y + unit * 2;
       // Headlight (front)
       out.push({
-        x: x + state.width,
+        x: x + width,
         y: lightY,
-        width: lightSize,
-        height: lightSize,
+        width: unit,
+        height: unit,
         tone: "headlight",
         opacity: clamp01(nightness * 0.85),
       });
-      // Taillight (back) - trucks have two
+      // Taillights (back) - trucks have two stacked
       out.push({
-        x: x - lightSize,
+        x: x - unit,
         y: lightY,
-        width: lightSize,
-        height: lightSize,
+        width: unit,
+        height: unit,
         tone: "taillight",
         opacity: clamp01(nightness * 0.7),
       });
-      if (isHd) {
-        out.push({
-          x: x - lightSize,
-          y: lightY - lightSize,
-          width: lightSize,
-          height: lightSize,
-          tone: "taillight",
-          opacity: clamp01(nightness * 0.5),
-        });
-      }
+      out.push({
+        x: x - unit,
+        y: lightY - unit,
+        width: unit,
+        height: unit,
+        tone: "taillight",
+        opacity: clamp01(nightness * 0.5),
+      });
     }
 
     return out;
@@ -189,18 +208,16 @@ export function spawnTruckActors(ctx: CityWordmarkActorContext): CityWordmarkAct
   if (count === 0) return [];
 
   const rng = createRng(`${ctx.config.seed}:trucks`);
-  const scale = getActorScale(ctx.layout);
-  const rowCount = scale > 1 ? 3 : 2;
-  const laneY = getActorLaneY(ctx.layout, rowCount);
+  const unit = Math.max(1, Math.floor(getActorScale(ctx.layout) / 2));
+  const laneY = getActorLaneY(ctx.layout, TRUCK_HEIGHT_UNITS);
+  const width = TRUCK_WIDTH_UNITS * unit;
 
   const actors: CityWordmarkActor[] = [];
-  const width = 10 * scale;
-  const cabWidth = 4 * scale;
-  const period = ctx.layout.sceneWidth + width + 12 * scale;
+  const period = ctx.layout.sceneWidth + width + 12 * unit;
   for (let i = 0; i < count; i++) {
     const speedVps = 2 + rng.nextFloat() * 2;
-    const x0 = (i / count) * period + rng.nextFloat() * 6 * scale;
-    actors.push(createTruckActor({ x0, speedVps, width, cabWidth, y: laneY }));
+    const x0 = (i / count) * period + rng.nextFloat() * 6 * unit;
+    actors.push(createTruckActor({ x0, speedVps, y: laneY }));
   }
 
   return actors;

@@ -26,6 +26,16 @@ function getStreetlightCount(config: CityWordmarkConfig): number {
   return 4;
 }
 
+// Streetlight dimensions in units (unit = half scale, same as all actors)
+// At scale=3: unit=1, streetlight is 2 units wide, 6 units tall
+// Structure: cap (1 unit) + bulb (2 units) + post (4 units tall, 1 unit wide)
+const BULB_SIZE_UNITS = 2;
+const POST_WIDTH_UNITS = 1;
+const POST_HEIGHT_UNITS = 4;
+const CAP_HEIGHT_UNITS = 1;
+const GLOW_SIZE_UNITS = 3;
+const TOTAL_HEIGHT_UNITS = CAP_HEIGHT_UNITS + BULB_SIZE_UNITS + POST_HEIGHT_UNITS;
+
 function createStreetlightActor(state: StreetlightState): CityWordmarkActor {
   function update() {
     return actor;
@@ -38,9 +48,13 @@ function createStreetlightActor(state: StreetlightState): CityWordmarkActor {
 
     const out: CityWordmarkActorRect[] = [];
     const scale = getActorScale(ctx.layout);
-    const isHd = scale > 1;
-    const postWidth = Math.max(1, Math.floor(scale / 2));
-    const postHeight = scale * 2;
+    const unit = Math.max(1, Math.floor(scale / 2));
+
+    const bulbSize = BULB_SIZE_UNITS * unit;
+    const postWidth = POST_WIDTH_UNITS * unit;
+    const postHeight = POST_HEIGHT_UNITS * unit;
+    const capHeight = CAP_HEIGHT_UNITS * unit;
+    const glowSize = GLOW_SIZE_UNITS * unit;
 
     for (const light of state.lights) {
       if (light.x < 0 || light.x >= ctx.layout.sceneWidth) continue;
@@ -52,54 +66,57 @@ function createStreetlightActor(state: StreetlightState): CityWordmarkActor {
         opacity = t < 120 ? light.dimOpacity : t < 200 ? 1 : t < 320 ? light.dimOpacity * 0.7 : 1;
       }
 
-      if (isHd) {
-        const bulbSize = scale;
-        const postX = light.x + Math.floor((bulbSize - postWidth) / 2);
-        const postY = light.y + bulbSize;
-        const capHeight = Math.max(1, Math.floor(scale / 3));
-        const glowSize = bulbSize + Math.max(1, Math.floor(scale / 2));
-        const glowOffset = Math.floor((glowSize - bulbSize) / 2);
-
-        if (postY + postHeight <= ctx.layout.height) {
-          out.push({
-            x: postX,
-            y: postY,
-            width: postWidth,
-            height: postHeight,
-            tone: "pedestrian",
-            opacity: clamp01(opacity * 0.55),
-          });
-        }
-
-        const capY = light.y - capHeight;
-        if (capY >= 0) {
-          out.push({
-            x: light.x,
-            y: capY,
-            width: bulbSize,
-            height: capHeight,
-            tone: "pedestrian",
-            opacity: clamp01(opacity * 0.4),
-          });
-        }
-
-        const glowX = light.x - glowOffset;
-        const glowY = light.y - glowOffset;
-        if (glowX + glowSize >= 0 && glowY + glowSize >= 0) {
-          out.push({
-            x: glowX,
-            y: glowY,
-            width: glowSize,
-            height: glowSize,
-            tone: "headlight",
-            opacity: clamp01(opacity * 0.25),
-          });
-        }
-
-        out.push({ x: light.x, y: light.y, width: bulbSize, height: bulbSize, tone: "headlight", opacity });
-      } else {
-        out.push({ x: light.x, y: light.y, width: 1, height: 1, tone: "headlight", opacity });
+      // Post (below bulb)
+      const postX = light.x + Math.floor((bulbSize - postWidth) / 2);
+      const postY = light.y + bulbSize;
+      if (postY + postHeight <= ctx.layout.height) {
+        out.push({
+          x: postX,
+          y: postY,
+          width: postWidth,
+          height: postHeight,
+          tone: "pedestrian",
+          opacity: clamp01(opacity * 0.55),
+        });
       }
+
+      // Cap (above bulb)
+      const capY = light.y - capHeight;
+      if (capY >= 0) {
+        out.push({
+          x: light.x,
+          y: capY,
+          width: bulbSize,
+          height: capHeight,
+          tone: "pedestrian",
+          opacity: clamp01(opacity * 0.4),
+        });
+      }
+
+      // Glow (centered on bulb)
+      const glowOffset = Math.floor((glowSize - bulbSize) / 2);
+      const glowX = light.x - glowOffset;
+      const glowY = light.y - glowOffset;
+      if (glowX + glowSize >= 0 && glowY + glowSize >= 0) {
+        out.push({
+          x: glowX,
+          y: glowY,
+          width: glowSize,
+          height: glowSize,
+          tone: "headlight",
+          opacity: clamp01(opacity * 0.25),
+        });
+      }
+
+      // Bulb
+      out.push({
+        x: light.x,
+        y: light.y,
+        width: bulbSize,
+        height: bulbSize,
+        tone: "headlight",
+        opacity,
+      });
     }
 
     return out;
@@ -120,15 +137,16 @@ export function spawnStreetlightActors(ctx: CityWordmarkActorContext): CityWordm
   if (ctx.layout.sceneWidth <= 0) return [];
 
   const rng = createRng(`${ctx.config.seed}:streetlights`);
-  const scale = getActorScale(ctx.layout);
-  const y = Math.max(0, ctx.layout.baselineY - 3 * scale);
+  const unit = Math.max(1, Math.floor(getActorScale(ctx.layout) / 2));
+  const totalHeight = TOTAL_HEIGHT_UNITS * unit;
+  const y = Math.max(0, ctx.layout.baselineY - totalHeight + POST_HEIGHT_UNITS * unit);
   const xMax = Math.max(0, ctx.layout.sceneWidth - 1);
 
   const lights: Streetlight[] = [];
 
   for (let i = 0; i < count; i++) {
     const xBase = Math.round(((i + 1) / (count + 1)) * xMax);
-    const jitter = rng.nextInt(-1 * scale, 2 * scale + 1);
+    const jitter = rng.nextInt(-1 * unit, 2 * unit + 1);
     const x = clamp01((xBase + jitter) / Math.max(1, xMax)) * xMax;
 
     const cycleMs = rng.nextInt(2400, 7200);
