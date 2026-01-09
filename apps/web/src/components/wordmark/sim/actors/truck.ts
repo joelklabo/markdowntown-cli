@@ -83,14 +83,14 @@ function createTruckActor(state: TruckState): CityWordmarkActor {
       tone: bodyTone,
       opacity: 0.88,
     });
-    // Cab window (darker)
+    // Cab window (lighter to read as glass)
     out.push({
       x: x + unit,
       y: state.y + unit,
       width: cabWidth - unit * 2,
       height: unit,
       tone: bodyTone,
-      opacity: 0.55,
+      opacity: 0.65,
     });
     // Trailer middle
     out.push({

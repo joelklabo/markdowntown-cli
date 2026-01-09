@@ -68,14 +68,14 @@ function createAmbulanceActor(state: AmbulanceState): CityWordmarkActor {
       opacity: 0.9,
     });
 
-    // Window (darker, inset)
+    // Window (lighter to read as glass, inset)
     out.push({
       x: x + unit * 2,
       y: state.y + unit,
       width: unit * 4,
       height: unit,
       tone: "ambulance",
-      opacity: 0.55,
+      opacity: 0.65,
     });
 
     // Red stripe (middle of body)

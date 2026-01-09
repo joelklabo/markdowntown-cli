@@ -69,14 +69,14 @@ function createCarActor(state: CarState): CityWordmarkActor {
       opacity: 0.88,
     });
 
-    // Window (darker, inset)
+    // Window (lighter to read as glass, inset)
     out.push({
       x: x + unit * 2,
       y: state.y + unit,
       width: unit * 3,
       height: unit,
       tone: bodyTone,
-      opacity: 0.55,
+      opacity: 0.65,
     });
 
     // Row 2 (bottom): Lower body with wheel wells
