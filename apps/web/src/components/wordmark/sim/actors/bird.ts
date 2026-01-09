@@ -25,7 +25,7 @@ function getBirdCount(config: CityWordmarkConfig): number {
 
 // Simple bird silhouette - small V shape for distant birds
 // Each frame is [dx, dy, w, h] relative to bird position
-// At scale=3: total width ~5 voxels (comparable to a pedestrian, much smaller than cars)
+// At scale=3: half=1, total width = 3 voxels (appropriately small for distant sky objects)
 type BirdFrame = Array<[number, number, number, number]>;
 
 function getBirdFrames(scale: number): BirdFrame[] {
@@ -140,7 +140,8 @@ export function spawnBirdActors(ctx: CityWordmarkActorContext): CityWordmarkActo
   const period = ctx.layout.sceneWidth * 1.5;
 
   for (let i = 0; i < count; i++) {
-    const speedVps = 6 + rng.nextFloat() * 4; // Moderate speed
+    // Slower speed (3-5 vps) to maintain illusion of distance in sky
+    const speedVps = 3 + rng.nextFloat() * 2;
     const x0 = (i / count) * period + rng.nextFloat() * period * 0.3;
     const wingPhaseOffset = rng.nextFloat() * 4;
     const y = minY + Math.floor(rng.nextFloat() * Math.max(1, maxY - minY));

@@ -1,0 +1,51 @@
+{
+  "prompt": "Review the full implementation of the Context Explorer feature. It includes:\n- context command with --json, --compare, --search flags\n- TUI with file tree, client tabs, detailed context panel, and search overlay\n- Integrated audit rules for config validation\n- Comprehensive unit tests\n- Concurrency control (Generation Counter Pattern) and stability hardening\n- USER_GUIDE.md documentation",
+  "elapsed": 391.5984899997711,
+  "decomposition": {
+    "domains": [
+      {
+        "name": "Concurrency & Stability Analysis",
+        "agent_role": "You are The Adversary. Your goal is to identify race conditions, deadlocks, and state inconsistencies in the concurrent context generation logic.",
+        "negative_constraint": "Do NOT focus on UI rendering aesthetics or simple typo fixes. Focus purely on stability and correctness under load.",
+        "task": "Investigate the 'Generation Counter Pattern' and concurrency controls in `internal/context/` and `internal/tui/`. Trace the lifecycle of a context refresh event during active searching or rapid filtering. Look for potential race conditions where outdated results might overwrite newer ones, or where the application might panic due to unsynchronized map access."
+      },
+      {
+        "name": "TUI UX & Interaction Review",
+        "agent_role": "You are The Empath. Your goal is to evaluate the usability, accessibility, and coherence of the Terminal User Interface.",
+        "negative_constraint": "Do NOT suggest backend architectural changes. Focus strictly on the user interaction layer and visual hierarchy.",
+        "task": "Review the TUI implementation in `internal/tui/` (focusing on file tree navigation, detailed context panel, and search overlay) and the CLI flags in `cmd/markdowntown/`. Compare the implementation against `cli/docs/USER_GUIDE.md` to ensure the documented user journey is frictionless. Identify any confusing keybindings, layout issues, or missing feedback states for the user."
+      },
+      {
+        "name": "Code Structure & Idioms Review",
+        "agent_role": "You are The Minimalist. Your goal is to ensure the new code is idiomatic, maintainable, and free of unnecessary complexity.",
+        "negative_constraint": "Do NOT suggest new features. Focus only on reducing complexity and enforcing Go best practices.",
+        "task": "Audit the package structure of `internal/context`, `internal/tui`, and `internal/audit`. Look for circular dependencies, overly large functions, or unidiomatic Go patterns (e.g., improper error handling, overuse of interfaces). Evaluate if the 'integrated audit rules' are decoupled cleanly from the core context logic."
+      },
+      {
+        "name": "Feature Verification & Testing",
+        "agent_role": "You are The Pragmatist. Your goal is to verify that the core requirements (search, compare, json output) are functionally complete and covered by tests.",
+        "negative_constraint": "Do NOT get distracted by theoretical edge cases unrelated to the core requirements. Focus on the main functional paths.",
+        "task": "Examine the integration of flags (`--json`, `--compare`, `--search`) in the main command handler. Review the corresponding unit tests to ensure they cover these specific flags. Verify that the 'search' logic actually filters results as expected and that the 'compare' mode produces diffs or relevant comparison data."
+      }
+    ]
+  },
+  "results_summary": [
+    {
+      "name": "Code Structure & Idioms Review",
+      "len": 3916
+    },
+    {
+      "name": "TUI UX & Interaction Review",
+      "len": 828
+    },
+    {
+      "name": "Concurrency & Stability Analysis",
+      "len": 13097
+    },
+    {
+      "name": "Feature Verification & Testing",
+      "len": 1996
+    }
+  ],
+  "synthesis_len": 3993
+}

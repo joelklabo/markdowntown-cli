@@ -94,8 +94,9 @@ export function spawnCloudActors(ctx: CityWordmarkActorContext): CityWordmarkAct
   const period = ctx.layout.sceneWidth * 2;
 
   for (let i = 0; i < count; i++) {
-    // Cloud width: 3-6 scale units (at scale=3: 9-18 voxels, similar to car width)
-    const width = scale * (3 + Math.floor(rng.nextFloat() * 3));
+    // Cloud width: 2-4 scale units (at scale=3: 6-12 voxels)
+    // Reduced from 3-6 to maintain perspective (distant clouds should be smaller)
+    const width = scale * (2 + Math.floor(rng.nextFloat() * 2));
     // Cloud height: 1-2 scale units (at scale=3: 3-6 voxels)
     const height = scale * (1 + Math.floor(rng.nextFloat() * 2));
     const speedVps = 1 + rng.nextFloat() * 1.5; // Slow drift

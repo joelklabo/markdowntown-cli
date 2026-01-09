@@ -37,13 +37,14 @@ function pingPong(t: number, length: number): number {
 }
 
 // Pedestrian dimensions in units (unit = half scale, same as birds/cars)
-// At scale=3: unit=1, pedestrian is 1x4 voxels (head + body + legs)
-// Simple silhouette: head, torso, legs
-const PED_WIDTH_UNITS = 1;
+// At scale=3: unit=1, pedestrian is 2x4 voxels (head + body + legs)
+// Simple silhouette: head, torso, legs with proper human 1:2 ratio
+const PED_WIDTH_UNITS = 2;
 const PED_HEIGHT_UNITS = 4;
 
-// Dog dimensions: 4 units wide (body 2 + tail 1 + head 1), 1 unit tall
-const DOG_BODY_UNITS = 2;
+// Dog dimensions: 2 units total (body + head), 1 unit tall
+// Scaled to be appropriate pet-to-owner size
+const DOG_BODY_UNITS = 1;
 const DOG_HEAD_UNITS = 1;
 
 function createPedestrianActor(state: PedestrianState): CityWordmarkActor {
@@ -71,44 +72,46 @@ function createPedestrianActor(state: PedestrianState): CityWordmarkActor {
       if (x + pedWidth <= 0 || x >= ctx.layout.sceneWidth) continue;
       if (p.yBody < 0 || p.yBody + pedHeight > ctx.layout.height) continue;
 
-      // Row 0: Head
+      // Row 0: Head (brightest, focal point)
       out.push({
         x,
         y: p.yBody,
-        width: unit,
+        width: pedWidth,
         height: unit,
         tone: "pedestrian",
-        opacity: 0.55,
+        opacity: 0.85,
       });
 
       // Row 1-2: Torso (2 units tall)
       out.push({
         x,
         y: p.yBody + unit,
-        width: unit,
+        width: pedWidth,
         height: unit * 2,
         tone: "pedestrian",
-        opacity: 0.85,
+        opacity: 0.75,
       });
 
       // Row 3: Legs
       out.push({
         x,
         y: p.yBody + unit * 3,
-        width: unit,
+        width: pedWidth,
         height: unit,
         tone: "pedestrian",
-        opacity: 0.6,
+        opacity: 0.55,
       });
 
-      // Dog
+      // Dog (positioned relative to pedestrian center)
       if (p.hasDog) {
         const dogBodyWidth = DOG_BODY_UNITS * unit;
         const dogHeadWidth = DOG_HEAD_UNITS * unit;
+        const dogTotalWidth = dogBodyWidth + dogHeadWidth;
         const dogY = p.yBody + unit * 3; // Aligned with legs
-        const dogX = x + (p.dogOffset > 0 ? unit * 2 : -dogBodyWidth - dogHeadWidth);
+        // Position dog next to pedestrian with small gap
+        const dogX = x + (p.dogOffset > 0 ? pedWidth + unit : -dogTotalWidth - unit);
 
-        if (dogX >= 0 && dogX + dogBodyWidth + dogHeadWidth <= ctx.layout.sceneWidth) {
+        if (dogX >= 0 && dogX + dogTotalWidth <= ctx.layout.sceneWidth) {
           // Dog body
           out.push({
             x: dogX,

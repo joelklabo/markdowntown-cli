@@ -66,8 +66,9 @@ function createStreetlightActor(state: StreetlightState): CityWordmarkActor {
         opacity = t < 120 ? light.dimOpacity : t < 200 ? 1 : t < 320 ? light.dimOpacity * 0.7 : 1;
       }
 
-      // Post (below bulb)
-      const postX = light.x + Math.floor((bulbSize - postWidth) / 2);
+      // Post (below bulb, centered)
+      // Use Math.round for better centering when bulb-post difference is odd
+      const postX = light.x + Math.round((bulbSize - postWidth) / 2);
       const postY = light.y + bulbSize;
       if (postY + postHeight <= ctx.layout.height) {
         out.push({

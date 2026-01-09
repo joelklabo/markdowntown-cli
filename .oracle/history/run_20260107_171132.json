@@ -1,0 +1,51 @@
+{
+  "prompt": "Connected TUI to real context engine in cli/internal/tui/model.go. Replaced mock fetchContextCmd with actual engine calls. Updated View to show real resolution summary (applied files, warnings, errors) for all 5 clients. CI is green.",
+  "elapsed": 332.27960300445557,
+  "decomposition": {
+    "domains": [
+      {
+        "name": "Async & Concurrency Audit",
+        "agent_role": "You are The Adversary. Your goal is to identify race conditions and state desynchronization in the TUI event loop.",
+        "negative_constraint": "Do NOT suggest UI style changes. Focus only on logic correctness.",
+        "task": "Analyze the interaction between 'FileSelectedMsg' and 'ContextLoadedMsg' in 'cli/internal/tui/model.go'. Prove that rapid file selection can cause a race condition where the View displays stale data from a previous request. Suggest a fix using a generation counter or path validation."
+      },
+      {
+        "name": "Integration & Data Flow",
+        "agent_role": "You are The Pragmatist. Your goal is to ensure the integration with the 'context_pkg' Engine is robust and correct.",
+        "negative_constraint": "Do NOT discuss the visual design. Focus on the data pipeline.",
+        "task": "Review 'fetchContextCmd' in 'cli/internal/tui/model.go'. Verify that 'repoRoot' and 'path' are correctly propagated to 'engine.ResolveContext'. Check if 'context.Background()' is safe here or if it risks leaking operations upon TUI shutdown."
+      },
+      {
+        "name": "UI/UX & Layout",
+        "agent_role": "You are The Empath. Your goal is to ensure the TUI is resilient to window resizing and provides a clear user experience.",
+        "negative_constraint": "Do NOT optimize backend performance.",
+        "task": "Examine the 'View' method in 'cli/internal/tui/model.go'. Analyze the 'lipgloss' layout math (e.g., 'm.width/3 - 2'). Determine if small terminal sizes cause panic or rendering artifacts. Review the presentation of the 'resolution summary' for readability."
+      },
+      {
+        "name": "Code Structure & Idioms",
+        "agent_role": "You are The Minimalist. Your goal is to enforce Go idioms and code cleanliness.",
+        "negative_constraint": "Do NOT suggest new features.",
+        "task": "Review 'cli/internal/tui/model.go' for idiomatic Bubble Tea patterns. Check if the 'engine' should be passed into 'initialModel' or created there. Validate that imports like 'markdowntown-cli/internal/...' match the project's module name conventions."
+      }
+    ]
+  },
+  "results_summary": [
+    {
+      "name": "Code Structure & Idioms",
+      "len": 294
+    },
+    {
+      "name": "Async & Concurrency Audit",
+      "len": 7957
+    },
+    {
+      "name": "Integration & Data Flow",
+      "len": 558
+    },
+    {
+      "name": "UI/UX & Layout",
+      "len": 4171
+    }
+  ],
+  "synthesis_len": 6872
+}

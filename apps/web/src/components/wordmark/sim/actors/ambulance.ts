@@ -139,16 +139,17 @@ function createAmbulanceActor(state: AmbulanceState): CityWordmarkActor {
       opacity: 0.97,
     });
 
-    // Sirens on top (above roof)
+    // Sirens on top (above roof) - centered at 25% and 75% for visual balance
     const flashT = Math.max(0, ctx.nowMs - state.spawnAtMs);
     const phase = Math.floor(flashT / state.flashPeriodMs) % 2;
     const redOpacity = phase === 0 ? 1 : 0.22;
     const blueOpacity = phase === 1 ? 1 : 0.22;
     const sirenY = state.y - unit;
-
+    // Positions: 2.5 units (25%) and 7.5 units (75%) from left on 10-unit body
+    // Use 2 and 7 for integer positions
     out.push(
-      { x: x + unit * 3, y: sirenY, width: unit, height: unit, tone: "sirenRed", opacity: redOpacity },
-      { x: x + unit * 6, y: sirenY, width: unit, height: unit, tone: "sirenBlue", opacity: blueOpacity }
+      { x: x + unit * 2, y: sirenY, width: unit, height: unit, tone: "sirenRed", opacity: redOpacity },
+      { x: x + unit * 7, y: sirenY, width: unit, height: unit, tone: "sirenBlue", opacity: blueOpacity }
     );
 
     // Headlight
