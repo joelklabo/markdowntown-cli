@@ -140,16 +140,36 @@ function createTruckActor(state: TruckState): CityWordmarkActor {
     const { daylight } = getTimeOfDayPhase(ctx.config.timeOfDay);
     const nightness = clamp01(1 - daylight);
     if (nightness > 0.12) {
-      const headlightY = isHd ? state.y + scale * 2 : state.y + 1;
-      const headlightSize = isHd ? scale : 1;
+      const lightY = isHd ? state.y + scale * 2 : state.y + 1;
+      const lightSize = isHd ? scale : 1;
+      // Headlight (front)
       out.push({
         x: x + state.width,
-        y: headlightY,
-        width: headlightSize,
-        height: headlightSize,
+        y: lightY,
+        width: lightSize,
+        height: lightSize,
         tone: "headlight",
         opacity: clamp01(nightness * 0.85),
       });
+      // Taillight (back) - trucks have two
+      out.push({
+        x: x - lightSize,
+        y: lightY,
+        width: lightSize,
+        height: lightSize,
+        tone: "taillight",
+        opacity: clamp01(nightness * 0.7),
+      });
+      if (isHd) {
+        out.push({
+          x: x - lightSize,
+          y: lightY - lightSize,
+          width: lightSize,
+          height: lightSize,
+          tone: "taillight",
+          opacity: clamp01(nightness * 0.5),
+        });
+      }
     }
 
     return out;

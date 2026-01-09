@@ -30,6 +30,8 @@ export type CityWordmarkActorsConfig = {
   pedestrians: boolean;
   dogs: boolean;
   ambulance: boolean;
+  birds: boolean;
+  clouds: boolean;
 };
 
 /**

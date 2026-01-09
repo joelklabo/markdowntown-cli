@@ -6,6 +6,8 @@ import { spawnTruckActors } from "./actors/truck";
 import { spawnAmbulanceActor } from "./actors/ambulance";
 import { spawnStreetlightActors } from "./actors/streetlight";
 import { spawnPedestrianActors } from "./actors/pedestrian";
+import { spawnBirdActors } from "./actors/bird";
+import { spawnCloudActors } from "./actors/cloud";
 import { getActorScale } from "./actors/types";
 import { createCityWordmarkLayout } from "./layout";
 import { createRng } from "./rng";
@@ -77,6 +79,8 @@ export function createCityWordmarkEngine(options: { initialConfig?: CityWordmark
     ...spawnTruckActors({ config: snapshot.config, layout }),
     ...spawnStreetlightActors({ config: snapshot.config, layout }),
     ...spawnPedestrianActors({ config: snapshot.config, layout }),
+    ...spawnBirdActors({ config: snapshot.config, layout }),
+    ...spawnCloudActors({ config: snapshot.config, layout }),
   ];
   snapshot = {
     ...snapshot,
@@ -348,6 +352,8 @@ export function createCityWordmarkEngine(options: { initialConfig?: CityWordmark
       ...spawnTruckActors({ config: nextConfig, layout }),
       ...spawnStreetlightActors({ config: nextConfig, layout }),
       ...spawnPedestrianActors({ config: nextConfig, layout }),
+      ...spawnBirdActors({ config: nextConfig, layout }),
+      ...spawnCloudActors({ config: nextConfig, layout }),
     ];
     const actorRects = actors.flatMap((actor) => actor.render({ nowMs: snapshot.nowMs, config: nextConfig, layout }));
     snapshot = { ...snapshot, config: nextConfig, actorRects };

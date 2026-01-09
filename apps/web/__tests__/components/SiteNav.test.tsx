@@ -27,7 +27,7 @@ const prefersReducedMotion = (query: string) => query.includes("prefers-reduced-
 vi.mock("next/navigation", () => ({
   __esModule: true,
   useRouter: () => ({ push: pushMock }),
-  usePathname: () => "/library",
+  usePathname: () => "/atlas",
 }));
 
 describe("SiteNav", () => {
@@ -65,7 +65,7 @@ describe("SiteNav", () => {
 
     expect(screen.queryByRole("dialog", { name: "Search" })).not.toBeInTheDocument();
 
-    const input = screen.getByPlaceholderText("Search library…");
+    const input = screen.getByPlaceholderText("Search Atlas…");
     expect(document.activeElement).toBe(input);
   });
 
@@ -79,20 +79,18 @@ describe("SiteNav", () => {
     );
 
     const [desktopNav] = screen.getAllByRole("navigation", { name: "Primary" });
-    const desktopLibrary = within(desktopNav).getByRole("link", { name: "Library" });
-    const desktopWorkbench = within(desktopNav).getByRole("link", { name: "Workbench" });
-    const desktopTranslate = within(desktopNav).getByRole("link", { name: "Translate" });
-    const desktopScan = within(desktopNav).getByRole("link", { name: "Scan" });
-    const desktopDocs = within(desktopNav).getByRole("link", { name: "Docs" });
+    const desktopAtlas = within(desktopNav).getByRole("link", { name: "Atlas" });
+    const desktopPlatforms = within(desktopNav).getByRole("link", { name: "Platforms" });
+    const desktopCompare = within(desktopNav).getByRole("link", { name: "Compare" });
+    const desktopSimulator = within(desktopNav).getByRole("link", { name: "Simulator" });
     const desktopLinks = within(desktopNav).getAllByRole("link");
 
-    expect(desktopLibrary).toHaveAttribute("aria-current", "page");
-    expect(desktopWorkbench).not.toHaveAttribute("aria-current");
-    expect(desktopTranslate).not.toHaveAttribute("aria-current");
-    expect(desktopScan).not.toHaveAttribute("aria-current");
-    expect(desktopDocs).not.toHaveAttribute("aria-current");
-    expect(desktopLinks).toHaveLength(5);
-    expect(desktopLibrary.className).toContain("focus-visible:ring-2");
+    expect(desktopAtlas).toHaveAttribute("aria-current", "page");
+    expect(desktopPlatforms).not.toHaveAttribute("aria-current");
+    expect(desktopCompare).not.toHaveAttribute("aria-current");
+    expect(desktopSimulator).not.toHaveAttribute("aria-current");
+    expect(desktopLinks).toHaveLength(4);
+    expect(desktopAtlas.className).toContain("focus-visible:ring-2");
   });
 
   it("dispatches the command palette open event from the desktop trigger", async () => {

@@ -199,10 +199,25 @@ export function LivingCityWordmarkSvg({
 
   const starOpacity = clamp01(nightness * 1.1);
   const stars = [
-    { x: Math.round(sceneWidth * 0.18), y: 2 * resolution },
-    { x: Math.round(sceneWidth * 0.34), y: 4 * resolution },
+    // Row 1 - highest
+    { x: Math.round(sceneWidth * 0.08), y: 1 * resolution },
+    { x: Math.round(sceneWidth * 0.22), y: 2 * resolution },
+    { x: Math.round(sceneWidth * 0.38), y: 1 * resolution },
+    { x: Math.round(sceneWidth * 0.55), y: 2 * resolution },
+    { x: Math.round(sceneWidth * 0.72), y: 1 * resolution },
+    { x: Math.round(sceneWidth * 0.88), y: 2 * resolution },
+    // Row 2
+    { x: Math.round(sceneWidth * 0.12), y: 4 * resolution },
+    { x: Math.round(sceneWidth * 0.28), y: 3 * resolution },
+    { x: Math.round(sceneWidth * 0.45), y: 4 * resolution },
     { x: Math.round(sceneWidth * 0.62), y: 3 * resolution },
     { x: Math.round(sceneWidth * 0.78), y: 5 * resolution },
+    { x: Math.round(sceneWidth * 0.92), y: 4 * resolution },
+    // Row 3 - scattered
+    { x: Math.round(sceneWidth * 0.05), y: 6 * resolution },
+    { x: Math.round(sceneWidth * 0.32), y: 5 * resolution },
+    { x: Math.round(sceneWidth * 0.68), y: 6 * resolution },
+    { x: Math.round(sceneWidth * 0.85), y: 7 * resolution },
   ];
 
   const skyline = useMemo(() => {
@@ -275,8 +290,11 @@ export function LivingCityWordmarkSvg({
           else if (rect.tone === "ambulance") fill = palette.building;
           else if (rect.tone === "pedestrian") fill = palette.building;
           else if (rect.tone === "dog") fill = palette.buildingMuted;
+          else if (rect.tone === "bird") fill = palette.window;
+          else if (rect.tone === "taillight") fill = SIREN_RED;
           else if (rect.tone === "sirenRed") fill = SIREN_RED;
           else if (rect.tone === "sirenBlue") fill = SIREN_BLUE;
+          else if (rect.tone === "cloud") fill = palette.star; // Light color for clouds
           else fill = palette.buildingMuted;
 
           const baseOpacity = rect.opacity ?? 1;

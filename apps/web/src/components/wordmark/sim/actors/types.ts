@@ -1,7 +1,7 @@
 import type { CityWordmarkLayout, CityWordmarkVoxelRect } from "../layout";
 import type { CityWordmarkConfig } from "../types";
 
-export type CityWordmarkActorTone = "car" | "ambulance" | "headlight" | "sirenRed" | "sirenBlue" | "pedestrian" | "dog";
+export type CityWordmarkActorTone = "car" | "ambulance" | "headlight" | "taillight" | "sirenRed" | "sirenBlue" | "pedestrian" | "dog" | "bird" | "cloud";
 
 export type CityWordmarkActorRect = CityWordmarkVoxelRect & {
   tone: CityWordmarkActorTone;

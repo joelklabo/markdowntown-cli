@@ -16,15 +16,17 @@ const renderDetailSchema = z.enum(CITY_WORDMARK_RENDER_DETAILS) satisfies z.ZodT
 
 const defaultActors: CityWordmarkActorsConfig = {
   cars: true,
-  trucks: false,
+  trucks: true,
   streetlights: true,
   pedestrians: true,
-  dogs: false,
+  dogs: true,
   ambulance: true,
+  birds: true,
+  clouds: true,
 };
 
 const defaultRender: CityWordmarkRenderConfig = {
-  voxelScale: 3,
+  voxelScale: 9,
   bannerScale: 1,
   detail: "hd",
 };
@@ -43,6 +45,8 @@ const actorsSchema = z.object({
   pedestrians: z.boolean().default(defaultActors.pedestrians),
   dogs: z.boolean().default(defaultActors.dogs),
   ambulance: z.boolean().default(defaultActors.ambulance),
+  birds: z.boolean().default(defaultActors.birds),
+  clouds: z.boolean().default(defaultActors.clouds),
 });
 
 const actorsOverridesSchema = z
@@ -53,6 +57,8 @@ const actorsOverridesSchema = z
     pedestrians: z.boolean().optional(),
     dogs: z.boolean().optional(),
     ambulance: z.boolean().optional(),
+    birds: z.boolean().optional(),
+    clouds: z.boolean().optional(),
   })
   .strict();
 

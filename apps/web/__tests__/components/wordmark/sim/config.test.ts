@@ -4,7 +4,7 @@ import { getDefaultCityWordmarkConfig, mergeCityWordmarkConfig } from "@/compone
 describe("city wordmark config", () => {
   it("parses defaults including new tuning fields", () => {
     const config = getDefaultCityWordmarkConfig();
-    expect(config.render.voxelScale).toBe(3);
+    expect(config.render.voxelScale).toBe(9);
     expect(config.render.bannerScale).toBe(1);
     expect(config.render.detail).toBe("hd");
     expect(config.scheme).toBe("classic");
@@ -14,7 +14,8 @@ describe("city wordmark config", () => {
       minSegmentWidth: 2,
       maxSegmentWidth: 6,
     });
-    expect(config.actors.trucks).toBe(false);
+    expect(config.actors.trucks).toBe(true);
+    expect(config.actors.birds).toBe(true);
   });
 
   it("deep-merges nested overrides", () => {

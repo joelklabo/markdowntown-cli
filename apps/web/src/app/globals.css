@@ -699,14 +699,14 @@
 .mdt-site-header-banner {
   display: block;
   width: 100%;
-  min-height: max(var(--mdt-site-header-banner-height, 100px), 100px);
-  height: max(var(--mdt-site-header-banner-height, 100px), 100px);
+  min-height: max(var(--mdt-site-header-banner-height, 180px), 180px);
+  height: max(var(--mdt-site-header-banner-height, 180px), 180px);
 }
 
 @media (min-width: 768px) {
   .mdt-site-header-banner {
-    min-height: max(var(--mdt-site-header-banner-height-md, 150px), 150px);
-    height: max(var(--mdt-site-header-banner-height-md, 150px), 150px);
+    min-height: max(var(--mdt-site-header-banner-height-md, 280px), 280px);
+    height: max(var(--mdt-site-header-banner-height-md, 280px), 280px);
   }
 }
 
@@ -849,9 +849,15 @@
 @keyframes mdt-wordmark-twinkle {
   0%,
   100% {
-    opacity: 0.78;
+    opacity: 0.4;
+  }
+  25% {
+    opacity: 0.9;
   }
   50% {
+    opacity: 0.5;
+  }
+  75% {
     opacity: 1;
   }
 }
