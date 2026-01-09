@@ -11,6 +11,7 @@ function envBoolDefaultTrue(value: string | undefined) {
 const isServer = typeof window === "undefined";
 
 export const featureFlags = {
+  atlasOnlyMode: envBool(process.env.NEXT_PUBLIC_ATLAS_ONLY_MODE),
   publicLibrary: isServer && envBool(process.env.PUBLIC_LIBRARY),
   themeRefreshV1: envBool(process.env.NEXT_PUBLIC_THEME_REFRESH_V1),
   uxClarityV1: envBool(process.env.NEXT_PUBLIC_UX_CLARITY_V1),

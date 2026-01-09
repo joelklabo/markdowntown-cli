@@ -28,8 +28,8 @@ export type CityLogoLabClientProps = {
 const DEFAULT_CONFIG = getDefaultCityWordmarkConfig();
 const SNAPSHOT_BASE_VOXEL_SCALE = 3;
 const HEADER_DEFAULTS = {
-  bannerHeight: 48,
-  bannerHeightMd: 56,
+  bannerHeight: 100,
+  bannerHeightMd: 150,
   navMinHeight: 56,
   navMinHeightMd: 64,
   navPaddingY: 12,
