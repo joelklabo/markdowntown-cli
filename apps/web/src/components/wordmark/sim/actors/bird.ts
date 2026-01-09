@@ -14,70 +14,55 @@ type BirdState = {
   y: number;
   wingPhaseOffset: number;
   direction: 1 | -1;
-  size: number; // Base size multiplier
 };
 
 function getBirdCount(config: CityWordmarkConfig): number {
   if (!config.actors.birds) return 0;
-  if (config.density === "sparse") return 3;
-  if (config.density === "dense") return 8;
-  return 5;
+  if (config.density === "sparse") return 2;
+  if (config.density === "dense") return 6;
+  return 4;
 }
 
-// Bird silhouette frames - each frame is an array of [dx, dy, w, h] relative to bird center
-// Using pixel art style with proper wing animation
+// Simple bird silhouette - small V shape for distant birds
+// Each frame is [dx, dy, w, h] relative to bird position
+// At scale=3: total width ~5 voxels (comparable to a pedestrian, much smaller than cars)
 type BirdFrame = Array<[number, number, number, number]>;
 
 function getBirdFrames(scale: number): BirdFrame[] {
-  const s = scale; // shorthand
+  // Use half-scale for tiny bird parts, minimum 1
+  const half = Math.max(1, Math.floor(scale / 2));
 
-  // Frame 0: Wings up
+  // Frame 0: Wings up (V shape pointing down)
   const wingsUp: BirdFrame = [
-    // Body (horizontal oval)
-    [0, 0, s * 3, s],
-    // Head
-    [s * 3, 0, s, s],
-    // Tail
-    [-s, 0, s, s],
-    // Left wing (up)
-    [0, -s * 2, s, s * 2],
-    [s, -s * 2, s, s],
-    // Right wing (up)
-    [s * 2, -s * 2, s, s * 2],
-    [s, -s * 2, s, s],
+    // Body center dot
+    [half, half, half, half],
+    // Left wing tip (up-left)
+    [0, 0, half, half],
+    // Right wing tip (up-right)
+    [half * 2, 0, half, half],
   ];
 
-  // Frame 1: Wings middle
-  const wingsMid: BirdFrame = [
-    // Body
-    [0, 0, s * 3, s],
-    // Head
-    [s * 3, 0, s, s],
-    // Tail
-    [-s, 0, s, s],
-    // Left wing (horizontal)
-    [-s, 0, s * 2, s],
-    // Right wing (horizontal)
-    [s * 2, 0, s * 2, s],
+  // Frame 1: Wings level (flat line)
+  const wingsLevel: BirdFrame = [
+    // Body center
+    [half, half, half, half],
+    // Left wing
+    [0, half, half, half],
+    // Right wing
+    [half * 2, half, half, half],
   ];
 
-  // Frame 2: Wings down
+  // Frame 2: Wings down (V shape pointing up)
   const wingsDown: BirdFrame = [
-    // Body
-    [0, 0, s * 3, s],
-    // Head
-    [s * 3, 0, s, s],
-    // Tail
-    [-s, 0, s, s],
-    // Left wing (down)
-    [0, s, s, s * 2],
-    [s, s, s, s],
-    // Right wing (down)
-    [s * 2, s, s, s * 2],
-    [s, s, s, s],
+    // Body center
+    [half, half, half, half],
+    // Left wing tip (down-left)
+    [0, half * 2, half, half],
+    // Right wing tip (down-right)
+    [half * 2, half * 2, half, half],
   ];
 
-  return [wingsUp, wingsMid, wingsDown, wingsMid]; // Loop back through mid
+  return [wingsUp, wingsLevel, wingsDown, wingsLevel];
 }
 
 function createBirdActor(state: BirdState): CityWordmarkActor {
@@ -88,10 +73,11 @@ function createBirdActor(state: BirdState): CityWordmarkActor {
   function render(ctx: CityWordmarkActorRenderContext): CityWordmarkActorRect[] {
     const sceneWidth = ctx.layout.sceneWidth;
     const scale = getActorScale(ctx.layout);
-    const birdScale = Math.max(1, Math.floor(scale * state.size));
 
-    const frames = getBirdFrames(birdScale);
-    const totalWidth = birdScale * 6; // Approximate bird width
+    const frames = getBirdFrames(scale);
+    // Bird total width: 3 half-units = 1.5*scale
+    const half = Math.max(1, Math.floor(scale / 2));
+    const totalWidth = half * 3;
 
     const period = sceneWidth + totalWidth * 2;
     const rawX =
@@ -99,9 +85,7 @@ function createBirdActor(state: BirdState): CityWordmarkActor {
       period;
 
     const x = Math.floor(
-      state.direction === 1
-        ? rawX - totalWidth
-        : sceneWidth - rawX
+      state.direction === 1 ? rawX - totalWidth : sceneWidth - rawX
     );
 
     // Off-screen culling
@@ -109,15 +93,16 @@ function createBirdActor(state: BirdState): CityWordmarkActor {
     if (x > sceneWidth + margin) return [];
     if (x < -margin) return [];
 
-    // Wing animation - 6 flaps per second
-    const frameIndex = Math.floor((ctx.nowMs / 1000) * 6 + state.wingPhaseOffset) % frames.length;
+    // Wing animation - 4 flaps per second
+    const frameIndex =
+      Math.floor((ctx.nowMs / 1000) * 4 + state.wingPhaseOffset) % frames.length;
     const frame = frames[frameIndex];
 
     const out: CityWordmarkActorRect[] = [];
 
     for (const [dx, dy, w, h] of frame) {
       // Flip horizontally if flying left
-      const finalDx = state.direction === 1 ? dx : -dx - w + totalWidth / 2;
+      const finalDx = state.direction === 1 ? dx : totalWidth - dx - w;
 
       out.push({
         x: x + finalDx,
@@ -125,7 +110,7 @@ function createBirdActor(state: BirdState): CityWordmarkActor {
         width: w,
         height: h,
         tone: "bird",
-        opacity: 1.0,
+        opacity: 0.7,
       });
     }
 
@@ -146,24 +131,22 @@ export function spawnBirdActors(ctx: CityWordmarkActorContext): CityWordmarkActo
   if (count === 0) return [];
 
   const rng = createRng(`${ctx.config.seed}:birds`);
-  const scale = getActorScale(ctx.layout);
 
-  // Birds fly in the sky area (top 40% of the scene)
-  const minY = Math.max(scale * 2, Math.floor(ctx.layout.height * 0.05));
-  const maxY = Math.floor(ctx.layout.height * 0.4);
+  // Birds fly in the sky area (top portion of the scene)
+  const minY = Math.max(1, Math.floor(ctx.layout.height * 0.05));
+  const maxY = Math.floor(ctx.layout.height * 0.35);
 
   const actors: CityWordmarkActor[] = [];
   const period = ctx.layout.sceneWidth * 1.5;
 
   for (let i = 0; i < count; i++) {
-    const speedVps = 8 + rng.nextFloat() * 6; // Slower for visibility
+    const speedVps = 6 + rng.nextFloat() * 4; // Moderate speed
     const x0 = (i / count) * period + rng.nextFloat() * period * 0.3;
     const wingPhaseOffset = rng.nextFloat() * 4;
-    const y = minY + Math.floor(rng.nextFloat() * (maxY - minY));
+    const y = minY + Math.floor(rng.nextFloat() * Math.max(1, maxY - minY));
     const direction = rng.nextFloat() > 0.5 ? 1 : -1;
-    const size = 1.2 + rng.nextFloat() * 0.6; // Larger birds for visibility
 
-    actors.push(createBirdActor({ x0, speedVps, y, wingPhaseOffset, direction, size }));
+    actors.push(createBirdActor({ x0, speedVps, y, wingPhaseOffset, direction }));
   }
 
   return actors;
