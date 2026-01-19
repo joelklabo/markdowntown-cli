@@ -93,13 +93,13 @@ export function ArtifactRow({ item }: { item: ArtifactRowItem }) {
         </div>
 
         <div className="flex flex-wrap gap-mdt-3 text-caption text-mdt-muted">
-          <Text as="span" size="caption" tone="muted">
+          <Text as="span" size="caption" tone="muted" className="tabular-nums">
             {item.stats.views.toLocaleString()} views
           </Text>
-          <Text as="span" size="caption" tone="muted">
+          <Text as="span" size="caption" tone="muted" className="tabular-nums">
             {item.stats.copies.toLocaleString()} copies
           </Text>
-          <Text as="span" size="caption" tone="muted">
+          <Text as="span" size="caption" tone="muted" className="tabular-nums">
             {item.stats.votes.toLocaleString()} votes
           </Text>
         </div>
@@ -125,6 +125,11 @@ export function ArtifactRow({ item }: { item: ArtifactRowItem }) {
         <PreviewDrawer artifactId={item.id} title={item.title} targets={item.targets} />
         <Button size="xs" variant="ghost" onClick={handleCopy} aria-label={`Copy link for ${item.title}`}>
           {copied ? "Copied" : "Copy link"}
+          {copied ? (
+            <span className="sr-only" role="status" aria-live="polite">
+              Link copied
+            </span>
+          ) : null}
         </Button>
         <ForkButton
           artifactId={item.id}

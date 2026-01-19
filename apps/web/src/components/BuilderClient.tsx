@@ -273,6 +273,7 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
 
   const steps = ["Template", "Snippets", "Arrange", "Preview", "Export"] as const;
   const [stepIndex, setStepIndex] = useState(0);
+  const progress = (stepIndex + 1) / steps.length;
 
   function goStep(next: number) {
     const clamped = Math.max(0, Math.min(next, steps.length - 1));
@@ -348,12 +349,12 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
               <div className="flex items-center gap-mdt-2">
                 <div className="h-2 w-24 rounded-full bg-mdt-bg dark:bg-mdt-bg-dark sm:w-32">
                   <div
-                    className="h-2 rounded-full bg-mdt-blue transition-all motion-reduce:transition-none"
-                    style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }}
+                    className="h-2 w-full origin-left rounded-full bg-mdt-blue transition-transform motion-reduce:transition-none"
+                    style={{ transform: `scaleX(${progress})` }}
                     aria-hidden
                   />
                 </div>
-                <span className="text-caption text-mdt-muted dark:text-mdt-muted-dark">
+                <span className="text-caption text-mdt-muted dark:text-mdt-muted-dark tabular-nums">
                   Step {stepIndex + 1} of {steps.length}
                 </span>
               </div>
@@ -383,7 +384,7 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
           <div className="grid gap-mdt-5 lg:grid-cols-[320px_320px_minmax(0,1fr)] xl:grid-cols-[320px_320px_minmax(0,1fr)_280px]">
             <Surface padding="md" className="space-y-mdt-4" data-step-anchor="template">
               <div className="flex flex-col gap-mdt-2 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-h3">Templates</h3>
+                <h3 className="text-h3 text-balance">Templates</h3>
                 <Pill tone="yellow">Pick one</Pill>
               </div>
               <div className="max-h-[55vh] space-y-mdt-2 overflow-y-auto pr-1">
@@ -403,7 +404,9 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
                       <span className="font-semibold">{tpl.title}</span>
                       <Pill tone="gray">{tpl.tags[0]}</Pill>
                     </div>
-                    <p className="line-clamp-2 text-caption text-mdt-muted dark:text-mdt-muted-dark">{tpl.description}</p>
+                    <p className="line-clamp-2 text-caption text-mdt-muted dark:text-mdt-muted-dark text-pretty">
+                      {tpl.description}
+                    </p>
                   </button>
                 ))}
               </div>
@@ -411,7 +414,7 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
 
             <Surface padding="md" className="space-y-mdt-4" data-step-anchor="snippets">
               <div className="flex flex-col gap-mdt-2 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-h3">Snippets</h3>
+                <h3 className="text-h3 text-balance">Snippets</h3>
                 <Pill tone="blue">Add</Pill>
               </div>
               <div className="max-h-[55vh] space-y-mdt-2 overflow-y-auto pr-1">
@@ -444,7 +447,9 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
                             <span className="font-semibold">{snip.title}</span>
                             <Pill tone="gray">{snip.tags[0]}</Pill>
                           </div>
-                          <p className="line-clamp-2 text-caption text-mdt-muted dark:text-mdt-muted-dark">{snip.content}</p>
+                          <p className="line-clamp-2 text-caption text-mdt-muted dark:text-mdt-muted-dark text-pretty">
+                            {snip.content}
+                          </p>
                         </button>
                         {active && (
                           <div className="flex flex-col gap-mdt-1">
@@ -477,6 +482,8 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
                           className="font-mono text-caption"
                           rows={2}
                           aria-label={`Override content for ${snip.title}`}
+                          autoComplete="off"
+                          spellCheck={false}
                         />
                       )}
                     </div>
@@ -487,7 +494,7 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
 
             <Surface padding="md" className="flex flex-col gap-mdt-4" data-step-anchor="preview">
               <div className="flex flex-col gap-mdt-3 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-h3">Preview</h3>
+                <h3 className="text-h3 text-balance">Preview</h3>
                 <div className="flex flex-wrap gap-mdt-2">
                   <Button variant="secondary" size="sm" onClick={copyMarkdown} disabled={!rendered}>
                     Copy
@@ -495,7 +502,7 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
                   <Button variant="secondary" size="sm" onClick={downloadMarkdown} disabled={!rendered}>
                     Download
                   </Button>
-                  <Button size="sm" onClick={saveDocument} disabled={!rendered || saving}>
+                  <Button size="sm" onClick={saveDocument} disabled={!rendered || saving} aria-busy={saving}>
                     {saving ? "Saving…" : "Save"}
                   </Button>
                 </div>
@@ -508,20 +515,32 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
                   </Button>
                 </div>
               )}
-              {error && <p className="text-body-sm text-[color:var(--mdt-color-danger)]">Preview error: {error}</p>}
-              {saveError && <p className="text-body-sm text-[color:var(--mdt-color-danger)]">Save error: {saveError}</p>}
+              {error && (
+                <p className="text-body-sm text-[color:var(--mdt-color-danger)] text-pretty" role="alert">
+                  Preview error: {error}
+                </p>
+              )}
+              {saveError && (
+                <p className="text-body-sm text-[color:var(--mdt-color-danger)] text-pretty" role="alert">
+                  Save error: {saveError}
+                </p>
+              )}
               {hasPrivateContent && (
-                <p className="rounded-mdt-sm border border-[color:var(--mdt-color-warning)]/30 bg-[color:var(--mdt-color-warning)]/10 px-mdt-2 py-mdt-1 text-caption text-[color:var(--mdt-color-warning)]">
+                <p className="rounded-mdt-sm border border-[color:var(--mdt-color-warning)]/30 bg-[color:var(--mdt-color-warning)]/10 px-mdt-2 py-mdt-1 text-caption text-[color:var(--mdt-color-warning)] text-pretty">
                   Private or unlisted snippets detected — export is fine but sharing may leak non-public content.
                 </p>
               )}
-              {previewLoading && <p className="text-caption text-mdt-muted">Refreshing preview…</p>}
+              {previewLoading && (
+                <p className="text-caption text-mdt-muted text-pretty" role="status" aria-live="polite">
+                  Refreshing preview…
+                </p>
+              )}
               <div
                 ref={previewRef}
                 className="min-h-[300px] space-y-mdt-2 rounded-mdt-md border border-mdt-border bg-mdt-surface p-mdt-4 font-mono text-body-sm shadow-mdt-sm"
               >
                 {visibleLines.length === 0 && (
-                  <p className="text-mdt-muted">Select a template and add snippets to see your agents.md.</p>
+                    <p className="text-mdt-muted text-pretty">Select a template and add snippets to see your agents.md.</p>
                 )}
                 {lines.map((line, idx) => {
                   const owner = lineOwner[idx];
@@ -545,7 +564,7 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
                     );
                   }
                   return (
-                    <p key={`line-${idx}`} className="leading-6 text-mdt-muted">
+                    <p key={`line-${idx}`} className="leading-6 text-mdt-muted text-pretty">
                       {line || "\u00a0"}
                     </p>
                   );
@@ -555,7 +574,7 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
 
             <Surface padding="md" className="space-y-mdt-4" data-step-anchor="outline">
               <div className="flex flex-col gap-mdt-3 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-h3">Outline</h3>
+                <h3 className="text-h3 text-balance">Outline</h3>
                 <div className="flex flex-wrap gap-mdt-2">
                   <Button size="sm" variant="secondary" onClick={() => setCollapsed(new Set())}>
                     Expand all
@@ -566,7 +585,9 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
                 </div>
               </div>
               {outline.length === 0 ? (
-                <p className="text-body-sm text-mdt-muted">Headings will appear here once you add a template/snippet.</p>
+                <p className="text-body-sm text-mdt-muted text-pretty">
+                  Headings will appear here once you add a template/snippet.
+                </p>
               ) : (
                 <DragDropContext onDragStart={() => setDraggingOutline(true)} onDragEnd={handleOutlineDragEnd}>
                   <Droppable droppableId="outline">
@@ -582,7 +603,7 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
                           return (
                             <Draggable draggableId={node.id} index={idx} key={node.id} isDragDisabled={node.level === 1}>
                               {(drag) => (
-                                <button
+                                <div
                                   key={node.id}
                                   role="treeitem"
                                   aria-level={node.level}
@@ -594,6 +615,12 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
                                   onClick={() => {
                                     jumpTo(node.id);
                                   }}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      jumpTo(node.id);
+                                    }
+                                  }}
                                   onDoubleClick={() => toggleCollapse(node.id)}
                                   className={cn(
                                     "flex w-full items-center justify-between rounded-mdt-sm px-mdt-2 py-mdt-2 text-left text-body-sm transition duration-mdt-fast ease-mdt-standard motion-reduce:transition-none",
@@ -601,25 +628,27 @@ export function BuilderClient({ templates, snippets, requireAuth }: Props) {
                                     draggingOutline && node.level === 1 ? "opacity-80" : ""
                                   )}
                                   style={{ paddingLeft: `${(node.level - 1) * 12 + 8}px` }}
+                                  tabIndex={0}
                                 >
                                   <span className="flex items-center gap-mdt-2">
-                                    <span
-                                      aria-hidden
+                                    <button
+                                      type="button"
+                                      aria-label={isCollapsed ? "Expand section" : "Collapse section"}
                                       className={cn(
                                         "inline-flex h-5 w-5 items-center justify-center rounded-mdt-sm border border-mdt-border text-[11px]",
                                         isCollapsed ? "bg-mdt-surface-subtle" : "bg-mdt-surface-strong"
                                       )}
                                       onClick={(e) => {
-                                        e.preventDefault();
+                                        e.stopPropagation();
                                         toggleCollapse(node.id);
                                       }}
                                     >
-                                      {isCollapsed ? "+" : "–"}
-                                    </span>
+                                      <span aria-hidden>{isCollapsed ? "+" : "–"}</span>
+                                    </button>
                                     <span className="font-medium text-mdt-text">{node.title}</span>
                                   </span>
                                   <span className="text-caption text-mdt-muted">#{node.line + 1}</span>
-                                </button>
+                                </div>
                               )}
                             </Draggable>
                           );

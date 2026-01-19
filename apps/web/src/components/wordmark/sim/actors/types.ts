@@ -33,6 +33,11 @@ export function getActorScale(layout: CityWordmarkLayout): number {
   return Math.max(1, Math.floor(layout.gridScale));
 }
 
+export function getActorUnit(layout: CityWordmarkLayout): number {
+  const scale = getActorScale(layout);
+  return Math.max(1, Math.round(scale / 2));
+}
+
 export function getActorLaneY(layout: CityWordmarkLayout, rows: number): number {
   const scale = getActorScale(layout);
   return Math.max(0, layout.baselineY - rows * scale);

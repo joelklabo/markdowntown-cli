@@ -96,13 +96,13 @@ export function RepoList({ items }: RepoListProps) {
                     <Text size="caption" tone="muted" className="truncate">
                       {item.path}
                     </Text>
-                    <Text size="caption" tone="muted">
+                    <Text size="caption" tone="muted" className="tabular-nums">
                       {formatRepoMeta(item)}
                     </Text>
                   </Stack>
                   <div className="flex flex-wrap items-center gap-mdt-3">
                     <Pill tone={status.tone}>{status.label}</Pill>
-                    <Text size="caption" tone="muted">
+                    <Text size="caption" tone="muted" className="tabular-nums">
                       {item.lastSync}
                     </Text>
                     <Button asChild size="xs" variant="secondary">

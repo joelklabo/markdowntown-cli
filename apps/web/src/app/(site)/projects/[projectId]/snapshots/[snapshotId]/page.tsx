@@ -56,7 +56,7 @@ export default async function SnapshotPage({
                 Open Workspace
               </Link>
             </Button>
-            <Text tone="muted" size="caption">
+            <Text tone="muted" size="caption" className="tabular-nums">
               Created on {new Date(snapshot.createdAt).toLocaleString()}
             </Text>
           </div>

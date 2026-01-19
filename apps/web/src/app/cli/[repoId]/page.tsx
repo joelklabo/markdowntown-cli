@@ -171,7 +171,7 @@ export default async function RepoDetailPage({ params }: RepoDetailPageProps) {
               CLI Sync
             </Text>
             <Heading level="h1">{project.name}</Heading>
-            <Text tone="muted" className="truncate">
+            <Text tone="muted" className="truncate tabular-nums">
               Snapshot {latestSnapshot.id.substring(0, 7)} · {issues.length} issues · {files.length} files
             </Text>
           </Stack>
@@ -186,7 +186,7 @@ export default async function RepoDetailPage({ params }: RepoDetailPageProps) {
         </Row>
 
         {auditStatus === "error" ? (
-          <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle p-mdt-4 text-body-sm text-mdt-danger">
+          <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle p-mdt-4 text-body-sm text-mdt-danger" role="alert">
             WASM audit failed to load. {error ? `(${error})` : null}
           </div>
         ) : null}

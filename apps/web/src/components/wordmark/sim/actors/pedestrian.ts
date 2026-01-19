@@ -1,7 +1,7 @@
 import type { CityWordmarkLayout } from "../layout";
 import { createRng } from "../rng";
 import type { CityWordmarkConfig } from "../types";
-import { getActorLaneY, getActorScale } from "./types";
+import { getActorLaneY, getActorScale, getActorUnit } from "./types";
 import type { CityWordmarkActor, CityWordmarkActorContext, CityWordmarkActorRect } from "./types";
 
 type Pedestrian = {
@@ -37,7 +37,7 @@ function pingPong(t: number, length: number): number {
 }
 
 // Pedestrian dimensions in units (unit = half scale, same as birds/cars)
-// At scale=3: unit=1, pedestrian is 2x4 voxels (head + body + legs)
+// At scale=3: unit=2, pedestrian is 4x8 voxels (head + body + legs)
 // Simple silhouette: head, torso, legs with proper human 1:2 ratio
 const PED_WIDTH_UNITS = 2;
 const PED_HEIGHT_UNITS = 4;
@@ -58,7 +58,8 @@ function createPedestrianActor(state: PedestrianState): CityWordmarkActor {
 
     const out: CityWordmarkActorRect[] = [];
     const scale = getActorScale(ctx.layout);
-    const unit = Math.max(1, Math.floor(scale / 2));
+    const unit = getActorUnit(ctx.layout);
+    const isDetailed = scale >= 3;
 
     const pedWidth = PED_WIDTH_UNITS * unit;
     const pedHeight = PED_HEIGHT_UNITS * unit;
@@ -91,6 +92,17 @@ function createPedestrianActor(state: PedestrianState): CityWordmarkActor {
         tone: "pedestrian",
         opacity: 0.75,
       });
+
+      if (isDetailed) {
+        out.push({
+          x,
+          y: p.yBody + unit * 2,
+          width: pedWidth,
+          height: unit,
+          tone: "pedestrian",
+          opacity: 0.62,
+        });
+      }
 
       // Row 3: Legs
       out.push({
@@ -155,7 +167,7 @@ export function spawnPedestrianActors(ctx: CityWordmarkActorContext): CityWordma
   const xMax = Math.max(0, ctx.layout.sceneWidth - 1);
   if (xMax < 4) return [];
 
-  const unit = Math.max(1, Math.floor(getActorScale(ctx.layout) / 2));
+  const unit = getActorUnit(ctx.layout);
   const laneY = getActorLaneY(ctx.layout, PED_HEIGHT_UNITS);
   const yBody = laneY;
   const pedHeight = PED_HEIGHT_UNITS * unit;

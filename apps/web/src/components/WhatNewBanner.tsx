@@ -23,8 +23,8 @@ export function WhatNewBanner() {
     <Container size="lg" padding="md" className="mt-mdt-4">
       <div className="flex flex-col gap-mdt-3 rounded-mdt-md border border-mdt-border bg-mdt-surface shadow-mdt-sm px-mdt-4 py-mdt-3 md:flex-row md:items-center md:justify-between">
         <div className="space-y-1">
-          <p className="text-sm font-semibold text-mdt-text">What’s new: December 2025 redesign</p>
-          <p className="text-sm text-mdt-muted">
+          <p className="text-sm font-semibold text-mdt-text text-balance">What’s new: December 2025 redesign</p>
+          <p className="text-sm text-mdt-muted text-pretty">
             Dual-theme tokens, calmer landing, faceted browse, builder status strip, and new quality signals.
           </p>
         </div>

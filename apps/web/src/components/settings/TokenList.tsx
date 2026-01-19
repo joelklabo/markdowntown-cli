@@ -72,21 +72,34 @@ export function TokenList({ initialTokens }: TokenListProps) {
           Create a new CLI token
         </Heading>
         <form onSubmit={handleCreate} className="flex gap-4">
+          <label htmlFor="token-label" className="sr-only">
+            Token label
+          </label>
           <Input
+            id="token-label"
+            name="tokenLabel"
             placeholder="Token label (e.g. My MacBook)"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             disabled={isCreating}
             className="flex-1"
+            autoComplete="off"
+            enterKeyHint="done"
           />
-          <Button type="submit" disabled={isCreating || !label.trim()}>
+          <Button type="submit" disabled={isCreating || !label.trim()} aria-busy={isCreating}>
             {isCreating ? "Creating..." : "Create Token"}
           </Button>
         </form>
       </Card>
 
       {newToken && (
-        <Card padding="lg" tone="raised" className="bg-mdt-success-soft/10 border-mdt-success-soft">
+        <Card
+          padding="lg"
+          tone="raised"
+          className="bg-mdt-success-soft/10 border-mdt-success-soft"
+          role="status"
+          aria-live="polite"
+        >
           <Heading level="h3" className="mb-2">
             New token created!
           </Heading>
@@ -125,7 +138,9 @@ export function TokenList({ initialTokens }: TokenListProps) {
         <div className="px-6">
           {tokens.length === 0 ? (
             <div className="py-8 text-center">
-              <Text tone="muted">No active tokens.</Text>
+              <Text tone="muted" role="status" aria-live="polite">
+                No active tokens.
+              </Text>
             </div>
           ) : (
             tokens.map((token) => (

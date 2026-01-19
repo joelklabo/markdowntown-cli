@@ -262,13 +262,21 @@ export function CommandPalette({ suggestions = [] }: PaletteProps) {
         <Input
           data-cmd-input
           autoFocus
+          type="search"
           placeholder="Type a command or search…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search commands"
+          autoComplete="off"
+          spellCheck={false}
+          enterKeyHint="search"
+          inputMode="search"
         />
         <div className="mt-mdt-3 max-h-[60vh] overflow-auto rounded-mdt-md border border-mdt-border bg-mdt-surface">
           {commands.length === 0 && (
-            <div className="p-mdt-4 text-body-sm text-mdt-muted">No matches.</div>
+            <div className="p-mdt-4 text-body-sm text-mdt-muted text-pretty" role="status" aria-live="polite">
+              No matches.
+            </div>
           )}
           {Object.entries(grouped).map(([group, items]) => (
             <div key={group} className="border-b border-mdt-border last:border-none">

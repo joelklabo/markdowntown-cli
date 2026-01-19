@@ -56,9 +56,13 @@ export function BrowseSearch({ initialQuery, baseQueryString, debounceMs = 250 }
         placeholder="Search snippets, templates…"
         className="pr-20"
         aria-label="Search library"
+        autoComplete="off"
+        spellCheck={false}
+        enterKeyHint="search"
+        inputMode="search"
       />
       {isPending && (
-        <Text as="span" size="caption" tone="muted" className="absolute right-3 top-3">
+        <Text as="span" size="caption" tone="muted" className="absolute right-3 top-3" role="status" aria-live="polite">
           Updating…
         </Text>
       )}

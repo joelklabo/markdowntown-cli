@@ -57,14 +57,14 @@ export function BuilderStatus({ saveState = "idle" }: { saveState?: SaveState })
         <span>{bundleOk ? "Bundle within budget" : "Bundle size warning"}</span>
         <Divider />
         <Dot ok={perf.nav !== null} />
-        <span>TTFB {perf.nav ? `${perf.nav}ms` : "—"}</span>
+        <span className="tabular-nums">TTFB {perf.nav ? `${perf.nav}ms` : "—"}</span>
         <Divider />
         <span className="flex items-center gap-1">
           <Dot ok={perf.cache !== "bypass"} />
           Cache {perf.cache ?? "n/a"}
         </span>
         <Divider />
-        <span className={cn("flex items-center gap-1 font-medium", saveTone)}>
+        <span className={cn("flex items-center gap-1 font-medium", saveTone)} role="status" aria-live="polite">
           <Dot ok={saveState !== "dirty"} />
           {saveLabel}
         </span>

@@ -60,6 +60,7 @@ export function ExportButton({ workspaceId }: ExportButtonProps) {
                 className="w-full"
                 onClick={() => handleExport("zip")}
                 disabled={isExporting}
+                aria-busy={isExporting}
               >
                 Download .zip
               </Button>
@@ -76,11 +77,12 @@ export function ExportButton({ workspaceId }: ExportButtonProps) {
                 className="w-full"
                 onClick={() => handleExport("patch")}
                 disabled={isExporting || exported}
+                aria-busy={isExporting}
               >
                 {exported ? "Patches Created" : "Create Patches"}
               </Button>
               {exported && (
-                <Text size="caption" className="mt-2 text-mdt-success font-medium">
+                <Text size="caption" className="mt-2 text-mdt-success font-medium" role="status" aria-live="polite">
                   Success! Run `markdowntown sync` in your repo to apply.
                 </Text>
               )}

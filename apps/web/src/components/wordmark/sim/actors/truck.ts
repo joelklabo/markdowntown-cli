@@ -3,7 +3,7 @@ import type { CityWordmarkLayout } from "../layout";
 import { createRng } from "../rng";
 import { getTimeOfDayPhase } from "../time";
 import type { CityWordmarkConfig } from "../types";
-import { getActorLaneY, getActorScale } from "./types";
+import { getActorLaneY, getActorScale, getActorUnit } from "./types";
 import type { CityWordmarkActor, CityWordmarkActorContext, CityWordmarkActorRect } from "./types";
 
 type TruckState = {
@@ -20,7 +20,7 @@ function getTruckCount(config: CityWordmarkConfig): number {
 }
 
 // Truck dimensions in units (unit = half scale, same as birds/cars)
-// At scale=3: unit=1, truck is 14x3 voxels (cab + gap + trailer)
+// At scale=3: unit=2, truck is 28x6 voxels (cab + gap + trailer)
 // Cab: 4 units, Gap: 1 unit, Trailer: 9 units
 const TRUCK_WIDTH_UNITS = 14;
 const TRUCK_HEIGHT_UNITS = 3;
@@ -35,7 +35,8 @@ function createTruckActor(state: TruckState): CityWordmarkActor {
   function render(ctx: { nowMs: number; config: CityWordmarkConfig; layout: CityWordmarkLayout }): CityWordmarkActorRect[] {
     const sceneWidth = ctx.layout.sceneWidth;
     const scale = getActorScale(ctx.layout);
-    const unit = Math.max(1, Math.floor(scale / 2));
+    const unit = getActorUnit(ctx.layout);
+    const isDetailed = scale >= 3;
 
     const width = TRUCK_WIDTH_UNITS * unit;
     const cabWidth = CAB_WIDTH_UNITS * unit;
@@ -101,6 +102,18 @@ function createTruckActor(state: TruckState): CityWordmarkActor {
       tone: bodyTone,
       opacity: 0.84,
     });
+
+    if (isDetailed) {
+      const stripeWidth = Math.max(unit, trailerWidth - unit * 4);
+      out.push({
+        x: x + cabWidth + gap + unit * 2,
+        y: state.y + unit,
+        width: stripeWidth,
+        height: unit,
+        tone: bodyTone,
+        opacity: 0.68,
+      });
+    }
 
     // Row 2 (bottom): Lower body with wheel wells
     // Cab front section
@@ -208,7 +221,7 @@ export function spawnTruckActors(ctx: CityWordmarkActorContext): CityWordmarkAct
   if (count === 0) return [];
 
   const rng = createRng(`${ctx.config.seed}:trucks`);
-  const unit = Math.max(1, Math.floor(getActorScale(ctx.layout) / 2));
+  const unit = getActorUnit(ctx.layout);
   const laneY = getActorLaneY(ctx.layout, TRUCK_HEIGHT_UNITS);
   const width = TRUCK_WIDTH_UNITS * unit;
 

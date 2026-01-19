@@ -361,6 +361,8 @@ export function ExportPanel({ entrySource = 'direct' }: ExportPanelProps) {
                       }}
                       className="w-20 font-mono"
                       aria-label={`Adapter version for ${target.targetId}`}
+                      autoComplete="off"
+                      spellCheck={false}
                     />
                   </div>
                 </div>
@@ -378,6 +380,8 @@ export function ExportPanel({ entrySource = 'direct' }: ExportPanelProps) {
                     className="font-mono text-xs"
                     aria-describedby={optionsErrors[target.targetId] ? optionsErrorId : undefined}
                     aria-invalid={Boolean(optionsErrors[target.targetId])}
+                    autoComplete="off"
+                    spellCheck={false}
                     onBlur={(e) => {
                       const text = e.target.value.trim();
                       try {
@@ -399,6 +403,7 @@ export function ExportPanel({ entrySource = 'direct' }: ExportPanelProps) {
                     <div
                       id={optionsErrorId}
                       className="mt-mdt-1 text-caption text-[color:var(--mdt-color-danger)]"
+                      role="alert"
                     >
                       {optionsErrors[target.targetId]}
                     </div>
@@ -507,6 +512,7 @@ export function ExportPanel({ entrySource = 'direct' }: ExportPanelProps) {
             disabled={loading || uam.targets.length === 0}
             variant={exportReady ? 'secondary' : 'primary'}
             size="sm"
+            aria-busy={loading}
           >
             {loading ? 'Compiling…' : 'Compile'}
           </Button>
@@ -520,10 +526,14 @@ export function ExportPanel({ entrySource = 'direct' }: ExportPanelProps) {
           </Button>
         </div>
         <div className="flex flex-wrap items-center gap-mdt-3">
-          <Text size="caption" tone="muted">
+          <Text size="caption" tone="muted" role="status" aria-live="polite">
             {exportStatus}
           </Text>
-          {error && <div className="text-caption text-[color:var(--mdt-color-danger)]">{error}</div>}
+          {error && (
+            <div className="text-caption text-[color:var(--mdt-color-danger)]" role="alert">
+              {error}
+            </div>
+          )}
         </div>
       </div>
 
@@ -587,7 +597,11 @@ export function ExportPanel({ entrySource = 'direct' }: ExportPanelProps) {
               <div className="flex items-center justify-between gap-mdt-2 border-b border-mdt-border px-mdt-3 py-mdt-2">
                 <div className="font-mono text-caption text-mdt-text">{f.path}</div>
                 <div className="flex items-center gap-mdt-2">
-                  {copiedPath === f.path && <div className="text-[11px] text-mdt-muted">Copied</div>}
+                  {copiedPath === f.path && (
+                    <div className="text-[11px] text-mdt-muted" role="status" aria-live="polite">
+                      Copied
+                    </div>
+                  )}
                   <Button
                     size="sm"
                     variant="secondary"
@@ -635,7 +649,7 @@ export function ExportPanel({ entrySource = 'direct' }: ExportPanelProps) {
       )}
 
       {loading && (
-        <div className="text-caption text-mdt-muted">
+        <div className="text-caption text-mdt-muted tabular-nums">
           Compiling… (debounced {COMPILE_DEBOUNCE_MS}ms)
         </div>
       )}

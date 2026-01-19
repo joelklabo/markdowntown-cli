@@ -136,7 +136,9 @@ export default async function TemplateDetail({ params }: { params: Promise<Templ
                 <LibraryCard key={rel.id} item={rel} />
               ))}
               {related.length === 0 && (
-                <Text size="bodySm" tone="muted">No related templates yet.</Text>
+                <Text size="bodySm" tone="muted" role="status" aria-live="polite">
+                  No related templates yet.
+                </Text>
               )}
             </div>
           </Surface>

@@ -1766,7 +1766,11 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                 />
 
                 {isScanning ? (
-                  <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2">
+                  <div
+                    className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2"
+                    role="status"
+                    aria-live="polite"
+                  >
                     <Text size="bodySm" weight="semibold">
                       Scanning…
                     </Text>
@@ -1777,17 +1781,28 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                 ) : null}
 
                 {scanError ? (
-                  <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2 text-caption text-[color:var(--mdt-color-danger)]">
+                  <div
+                    className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2 text-caption text-[color:var(--mdt-color-danger)]"
+                    role="alert"
+                  >
                     {scanError.message}
                   </div>
                 ) : null}
                 {scanNotice ? (
-                  <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2 text-caption text-mdt-muted">
+                  <div
+                    className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2 text-caption text-mdt-muted"
+                    role="status"
+                    aria-live="polite"
+                  >
                     {scanNotice}
                   </div>
                 ) : null}
                 {handoffNotice ? (
-                  <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2 text-caption text-mdt-muted">
+                  <div
+                    className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2 text-caption text-mdt-muted"
+                    role="status"
+                    aria-live="polite"
+                  >
                     {handoffNotice}
                   </div>
                 ) : null}
@@ -1800,7 +1815,7 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                     {scanMeta ? (
                       <SimulatorScanMeta {...scanMeta} tool={tool} toolRulesMeta={toolRulesMeta} />
                     ) : (
-                      <Text tone="muted" size="bodySm">
+                      <Text tone="muted" size="bodySm" className="tabular-nums">
                         {scanCounts}
                       </Text>
                     )}
@@ -1826,7 +1841,7 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                 open={advancedOpen}
                 onToggle={(event) => setShowAdvanced((event.currentTarget as HTMLDetailsElement).open)}
               >
-                <summary className="cursor-pointer text-body-sm font-semibold text-mdt-text">
+                <summary className="cursor-pointer text-body-sm font-semibold text-mdt-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mdt-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--mdt-color-surface)]">
                   Show advanced settings
                 </summary>
                 <div className="mt-mdt-3 space-y-mdt-3">
@@ -1862,6 +1877,8 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                       placeholder="e.g. src/app"
                       value={cwd}
                       onChange={(e) => setCwd(e.target.value)}
+                      autoComplete="off"
+                      spellCheck={false}
                     />
                     <Text tone="muted" size="bodySm">
                       Used for tools that scan parent directories (e.g., `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`).
@@ -1911,6 +1928,8 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                         readOnly
                         placeholder="Scanned paths will appear here."
                         aria-labelledby="sim-tree-preview-label"
+                        autoComplete="off"
+                        spellCheck={false}
                       />
                     )}
                   </div>
@@ -1996,9 +2015,17 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                       }}
                       placeholder="One path per line (e.g. .github/copilot-instructions.md)"
                       aria-labelledby="sim-tree-manual-label"
+                      autoComplete="off"
+                      spellCheck={false}
+                      aria-invalid={manualIssues.length > 0}
+                      aria-describedby={manualIssues.length > 0 ? "sim-tree-manual-errors" : undefined}
                     />
                     {manualIssues.length > 0 ? (
-                      <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2">
+                      <div
+                        className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2"
+                        role="alert"
+                        id="sim-tree-manual-errors"
+                      >
                         <Text size="bodySm" weight="semibold" className="text-[color:var(--mdt-color-danger)]">
                           Fix these lines before you run the scan
                         </Text>
@@ -2019,7 +2046,7 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                     ) : null}
                   </div>
 
-                  <Text tone="muted" size="bodySm">
+                  <Text tone="muted" size="bodySm" className="tabular-nums">
                     {repoFileCount} file(s) in the current source. Lines starting with `#` or `//` are ignored.
                     {manualIssues.length > 0 ? ` ${manualIssues.length} line(s) need attention.` : ""}
                   </Text>
@@ -2101,7 +2128,11 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                 </div>
 
                 {isScanning ? (
-                  <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2">
+                  <div
+                    className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2"
+                    role="status"
+                    aria-live="polite"
+                  >
                     <Text size="bodySm" weight="semibold">
                       Scanning…
                     </Text>
@@ -2112,12 +2143,19 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                 ) : null}
 
                 {scanError ? (
-                  <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2 text-caption text-[color:var(--mdt-color-danger)]">
+                  <div
+                    className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2 text-caption text-[color:var(--mdt-color-danger)]"
+                    role="alert"
+                  >
                     {scanError.message}
                   </div>
                 ) : null}
                 {scanNotice ? (
-                  <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2 text-caption text-mdt-muted">
+                  <div
+                    className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2 text-caption text-mdt-muted"
+                    role="status"
+                    aria-live="polite"
+                  >
                     {scanNotice}
                   </div>
                 ) : null}
@@ -2130,7 +2168,7 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                 open={advancedOpen}
                 onToggle={(event) => setShowAdvanced((event.currentTarget as HTMLDetailsElement).open)}
               >
-                <summary className="cursor-pointer text-body-sm font-semibold text-mdt-text">
+                <summary className="cursor-pointer text-body-sm font-semibold text-mdt-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mdt-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--mdt-color-surface)]">
                   Show advanced settings
                 </summary>
                 <div className="mt-mdt-3 space-y-mdt-3">
@@ -2156,13 +2194,15 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                     <label htmlFor="sim-cwd" className="text-caption font-semibold uppercase tracking-wide text-mdt-muted">
                       Current directory (cwd)
                     </label>
-                    <Input
-                      id="sim-cwd"
-                      name="sim-cwd"
-                      placeholder="e.g. src/app"
-                      value={cwd}
-                      onChange={(e) => setCwd(e.target.value)}
-                    />
+                  <Input
+                    id="sim-cwd"
+                    name="sim-cwd"
+                    placeholder="e.g. src/app"
+                    value={cwd}
+                    onChange={(e) => setCwd(e.target.value)}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
                     <Text tone="muted" size="bodySm">
                       Used for tools that scan parent directories (e.g., `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`).
                     </Text>
@@ -2201,6 +2241,8 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                         readOnly
                         placeholder="Scanned paths will appear here."
                         aria-label="Scanned paths preview"
+                        autoComplete="off"
+                        spellCheck={false}
                       />
                     )}
                   </div>
@@ -2226,7 +2268,14 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                   </div>
 
                   <div className="space-y-mdt-2 rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2">
-                    <Text as="h4" size="caption" weight="semibold" tone="muted" className="uppercase tracking-wide">
+                    <Text
+                      as="h4"
+                      id="sim-tree-manual-label-alt"
+                      size="caption"
+                      weight="semibold"
+                      tone="muted"
+                      className="uppercase tracking-wide"
+                    >
                       Paste repo paths
                     </Text>
                     <Text tone="muted" size="bodySm">
@@ -2278,9 +2327,18 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                         setRepoText(e.target.value);
                       }}
                       placeholder="One path per line (e.g. .github/copilot-instructions.md)"
+                      aria-labelledby="sim-tree-manual-label-alt"
+                      autoComplete="off"
+                      spellCheck={false}
+                      aria-invalid={manualIssues.length > 0}
+                      aria-describedby={manualIssues.length > 0 ? "sim-tree-manual-errors-alt" : undefined}
                     />
                     {manualIssues.length > 0 ? (
-                      <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2">
+                      <div
+                        className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2"
+                        role="alert"
+                        id="sim-tree-manual-errors-alt"
+                      >
                         <Text size="bodySm" weight="semibold" className="text-[color:var(--mdt-color-danger)]">
                           Fix these lines before you run the scan
                         </Text>
@@ -2301,7 +2359,7 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                     ) : null}
                   </div>
 
-                  <Text tone="muted" size="bodySm">
+                  <Text tone="muted" size="bodySm" className="tabular-nums">
                     {repoFileCount} file(s) in the current source. Lines starting with `#` or `//` are ignored.
                     {manualIssues.length > 0 ? ` ${manualIssues.length} line(s) need attention.` : ""}
                   </Text>
@@ -2324,7 +2382,9 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                 <li>Agent folders (e.g., .github/, .cursor/, .codex/)</li>
               </ul>
               <details className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2">
-                <summary className="cursor-pointer text-body-sm font-semibold text-mdt-text">View example tree</summary>
+                <summary className="cursor-pointer text-body-sm font-semibold text-mdt-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mdt-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--mdt-color-surface)]">
+                  View example tree
+                </summary>
                 <pre className="mt-mdt-2 whitespace-pre-wrap rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle px-mdt-3 py-mdt-2 text-body-xs text-mdt-muted">
                   {SCAN_EXAMPLE_TREE}
                 </pre>
@@ -2453,7 +2513,9 @@ export function ContextSimulator({ toolRulesMeta }: ContextSimulatorProps) {
                 {result.loaded.length === 0 ? (
                   <li className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2">
                     <Stack gap={1}>
-                      <Text tone="muted" size="bodySm">No files would be loaded for this input.</Text>
+                      <Text tone="muted" size="bodySm" role="status" aria-live="polite">
+                        No files would be loaded for this input.
+                      </Text>
                       {emptyStateHint ? (
                         <Text tone="muted" size="bodySm">
                           {emptyStateHint}

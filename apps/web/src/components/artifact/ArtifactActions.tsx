@@ -105,8 +105,13 @@ export function ArtifactActions({ artifactId, slug, uam, targets }: ArtifactActi
         </Button>
         <Button size="sm" variant="secondary" onClick={handleCopy}>
           {copied ? "Copied" : "Copy"}
+          {copied ? (
+            <span className="sr-only" role="status" aria-live="polite">
+              Copied to clipboard
+            </span>
+          ) : null}
         </Button>
-        <Button size="sm" variant="secondary" onClick={handleExport} disabled={exporting}>
+        <Button size="sm" variant="secondary" onClick={handleExport} disabled={exporting} aria-busy={exporting}>
           {exporting ? "Exporting…" : "Export"}
         </Button>
         <ForkButton
@@ -115,7 +120,7 @@ export function ArtifactActions({ artifactId, slug, uam, targets }: ArtifactActi
           analytics={{ source: "artifact_detail", slug }}
         />
       </Row>
-      {error && <div className="text-xs text-mdt-danger">{error}</div>}
+      {error && <div className="text-xs text-mdt-danger" role="alert">{error}</div>}
     </Stack>
   );
 }

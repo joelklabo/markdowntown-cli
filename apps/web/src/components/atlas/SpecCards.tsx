@@ -22,7 +22,7 @@ export function SpecCards({ featureSupport }: SpecCardsProps) {
   return (
     <section className="rounded-mdt-xl border border-mdt-border bg-mdt-surface p-mdt-4 shadow-mdt-sm">
       <div className="text-body-sm font-semibold text-mdt-text">Spec</div>
-      <div className="mt-mdt-2 text-body-xs text-mdt-muted">High-level support signals for key behaviors.</div>
+      <div className="mt-mdt-2 text-body-xs text-mdt-muted text-pretty">High-level support signals for key behaviors.</div>
 
       <div className="mt-mdt-4 grid gap-mdt-3 md:grid-cols-3">
         {ATLAS_FEATURES.map((feature) => {

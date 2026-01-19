@@ -43,7 +43,7 @@ export default async function Home() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-mdt-bg text-mdt-text">
+      <div className="min-h-dvh bg-mdt-bg text-mdt-text">
         <div className="relative overflow-hidden border-b border-mdt-border-strong bg-mdt-surface-raised">
           <Container size="lg" padding="lg" className="py-mdt-14 md:py-mdt-16">
             <Surface tone="raised" padding="lg" className="mx-auto max-w-3xl space-y-mdt-5 border-mdt-border-strong text-center shadow-mdt-lg">
@@ -91,7 +91,7 @@ export default async function Home() {
     .slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-mdt-bg text-mdt-text">
+    <div className="min-h-dvh bg-mdt-bg text-mdt-text">
       <div className="relative overflow-hidden border-b border-mdt-border-strong bg-mdt-surface-raised">
         <div
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_0%,var(--mdt-color-primary-soft),transparent_60%)]"

@@ -18,9 +18,9 @@ export function ClaimList({ claims }: ClaimListProps) {
     <section className="rounded-mdt-xl border border-mdt-border bg-mdt-surface p-mdt-4 shadow-mdt-sm">
       <div className="flex items-center justify-between gap-mdt-3">
         <div className="text-body-sm font-semibold text-mdt-text">Claims</div>
-        <div className="text-caption text-mdt-muted">{claims.length}</div>
+        <div className="text-caption text-mdt-muted tabular-nums">{claims.length}</div>
       </div>
-      <div className="mt-mdt-2 text-body-xs text-mdt-muted">Statements with citations about platform behavior.</div>
+      <div className="mt-mdt-2 text-body-xs text-mdt-muted text-pretty">Statements with citations about platform behavior.</div>
 
       {claims.length === 0 ? (
         <Text className="mt-mdt-3" size="bodySm" tone="muted">
@@ -51,7 +51,7 @@ export function ClaimList({ claims }: ClaimListProps) {
                     .map((item) => (
                       <blockquote
                         key={`${claim.id}:${item.url}`}
-                        className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2 text-body-xs text-mdt-muted"
+                        className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2 text-body-xs text-mdt-muted text-pretty"
                       >
                         {item.excerpt}
                       </blockquote>

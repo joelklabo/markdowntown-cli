@@ -4,7 +4,7 @@ import React from 'react';
 import { useWorkbenchStore } from '@/hooks/useWorkbenchStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { cn } from '@/lib/cn';
+import { cn, focusRing, interactiveBase } from '@/lib/cn';
 import { UamScopeV1Schema } from '@/lib/uam/uamValidate';
 
 function scopeLabel(scope: { kind: string; name?: string; patterns?: string[]; dir?: string }) {
@@ -80,8 +80,17 @@ export function ScopesPanel() {
             onChange={(e) => setPattern(e.target.value)}
             placeholder="src/**/*.ts"
             size="sm"
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={Boolean(validation.message)}
+            aria-describedby={validation.message ? "workbench-scope-pattern-error" : undefined}
+            enterKeyHint="done"
           />
-          {validation.message && <div className="text-caption text-mdt-danger">{validation.message}</div>}
+          {validation.message && (
+            <div id="workbench-scope-pattern-error" className="text-caption text-mdt-danger" role="alert">
+              {validation.message}
+            </div>
+          )}
           <div className="flex justify-end">
             <Button size="xs" onClick={handleAdd} disabled={!validation.ok}>
               Add
@@ -126,7 +135,11 @@ export function ScopesPanel() {
                     e.stopPropagation();
                     removeScope(scope.id);
                   }}
-                  className="px-mdt-1 text-mdt-muted hover:text-mdt-danger"
+                  className={cn(
+                    "inline-flex h-mdt-8 w-mdt-8 items-center justify-center rounded-mdt-sm text-mdt-muted hover:text-mdt-danger",
+                    interactiveBase,
+                    focusRing
+                  )}
                   aria-label="Remove scope"
                 >
                   ×

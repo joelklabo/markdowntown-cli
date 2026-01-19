@@ -37,7 +37,9 @@ export function RunResults({ runs }: RunResultsProps) {
           <Heading level="h2">Audit Issues</Heading>
           {issues.length === 0 ? (
             <Card padding="md" tone="default" className="border-mdt-success-soft">
-              <Text tone="default">No issues found. Your instructions look healthy!</Text>
+              <Text tone="default" role="status" aria-live="polite">
+                No issues found. Your instructions look healthy!
+              </Text>
             </Card>
           ) : (
             <div className="flex flex-col gap-3">

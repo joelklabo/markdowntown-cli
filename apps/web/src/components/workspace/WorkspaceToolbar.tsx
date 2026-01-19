@@ -26,15 +26,15 @@ export function WorkspaceToolbar({
   return (
     <div className="mb-8">
       <div className="flex items-center gap-2 mb-2 text-sm text-mdt-muted">
-        <Link href="/projects" className="hover:text-mdt-text transition-colors">
+        <Link href="/projects" className="hover:text-mdt-text transition-colors motion-reduce:transition-none">
           {strings.projects.title}
         </Link>
         <span>/</span>
-        <Link href={`/projects/${projectId}`} className="hover:text-mdt-text transition-colors">
+        <Link href={`/projects/${projectId}`} className="hover:text-mdt-text transition-colors motion-reduce:transition-none">
           {projectName}
         </Link>
         <span>/</span>
-        <Link href={`/projects/${projectId}/snapshots/${snapshotId}`} className="hover:text-mdt-text transition-colors font-mono">
+        <Link href={`/projects/${projectId}/snapshots/${snapshotId}`} className="hover:text-mdt-text transition-colors motion-reduce:transition-none font-mono">
           {snapshotId.slice(0, 8)}
         </Link>
         <span>/</span>
@@ -50,6 +50,7 @@ export function WorkspaceToolbar({
             size="sm"
             onClick={onRerun}
             disabled={isRerunning}
+            aria-busy={isRerunning}
           >
             {isRerunning ? "Analyzing..." : "Rerun Analysis"}
           </Button>

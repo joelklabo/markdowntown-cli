@@ -121,7 +121,7 @@ export function PreviewDrawer({ artifactId, title, targets }: PreviewDrawerProps
       <DrawerContent aria-describedby={undefined}>
         <DrawerHeader>
           <div className="min-w-0">
-            <DrawerTitle className="text-h3">Preview</DrawerTitle>
+            <DrawerTitle className="text-h3 text-balance">Preview</DrawerTitle>
             <div className="mt-1 text-body-sm text-mdt-muted truncate">{title}</div>
             <Text size="bodySm" tone="muted" className="mt-2">
               This preview shows what will load in Workbench. Open in Workbench to export agents.md.
@@ -149,12 +149,15 @@ export function PreviewDrawer({ artifactId, title, targets }: PreviewDrawerProps
 
         <div className="flex-1 space-y-mdt-5 overflow-auto px-mdt-5 py-mdt-6">
           {loading && (
-            <Text tone="muted" size="bodySm">
+            <Text tone="muted" size="bodySm" role="status" aria-live="polite">
               Loading preview…
             </Text>
           )}
           {error && (
-            <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle p-mdt-4 text-body-sm text-mdt-danger">
+            <div
+              className="rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle p-mdt-4 text-body-sm text-mdt-danger"
+              role="alert"
+            >
               {error}
             </div>
           )}

@@ -6,4 +6,4 @@ export const focusRing =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mdt-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--mdt-color-surface)]";
 
 export const interactiveBase =
-  "transition duration-mdt-fast ease-mdt-emphasized disabled:opacity-60 disabled:cursor-not-allowed";
+  "transition duration-mdt-fast ease-mdt-emphasized motion-reduce:transition-none disabled:opacity-60 disabled:cursor-not-allowed";

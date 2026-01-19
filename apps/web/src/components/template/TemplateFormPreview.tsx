@@ -49,7 +49,10 @@ export function TemplateFormPreview({ title, body, fields }: Props) {
           </Pill>
         </div>
         <div className="space-y-mdt-3">
-          {fields.map((field) => (
+          {fields.map((field) => {
+            const inputId = `template-field-${field.name}`;
+            const descriptionId = field.description ? `${inputId}-description` : undefined;
+            return (
             <label
               key={field.name}
               className="flex flex-col gap-mdt-1 rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle px-mdt-3 py-mdt-2 focus-within:border-[color:var(--mdt-color-border-strong)] focus-within:ring-2 focus-within:ring-mdt-ring focus-within:ring-offset-2 focus-within:ring-offset-mdt-surface"
@@ -65,15 +68,19 @@ export function TemplateFormPreview({ title, body, fields }: Props) {
                 )}
               </div>
               <Input
+                id={inputId}
+                name={field.name}
                 placeholder={field.placeholder}
                 value={values[field.name] ?? ""}
                 onChange={(e) => setValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
+                autoComplete="off"
+                aria-describedby={descriptionId}
               />
               {field.description && (
-                <Text size="caption" tone="muted">{field.description}</Text>
+                <Text id={descriptionId} size="caption" tone="muted">{field.description}</Text>
               )}
             </label>
-          ))}
+          )})}
         </div>
         <div className="flex flex-wrap gap-mdt-2">
           <Button size="xs" onClick={() => setValues(initial)}>

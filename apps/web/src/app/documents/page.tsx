@@ -51,13 +51,15 @@ export default async function DocumentsPage() {
                       <Pill key={tag} tone="gray">#{tag}</Pill>
                     ))}
                   </Row>
-                  <Text size="caption" tone="muted">Updated {doc.updatedAt.toDateString()}</Text>
+                  <Text size="caption" tone="muted" className="tabular-nums">
+                    Updated {doc.updatedAt.toDateString()}
+                  </Text>
                 </Card>
               );
             })}
             {docs.length === 0 && (
               <Card className="p-mdt-6">
-                <Text size="bodySm" tone="muted">
+                <Text size="bodySm" tone="muted" role="status" aria-live="polite">
                   No documents yet. Create your first agents.md.
                 </Text>
               </Card>

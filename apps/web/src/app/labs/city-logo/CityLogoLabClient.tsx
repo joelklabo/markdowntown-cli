@@ -344,7 +344,7 @@ export function CityLogoLabClient({
 
   if (snapshotMode) {
     return (
-      <div className="fixed inset-0 z-[999] overflow-hidden bg-mdt-bg p-mdt-6">
+      <div className="fixed inset-0 z-50 overflow-hidden bg-mdt-bg p-mdt-6">
         {preview}
       </div>
     );
@@ -380,12 +380,18 @@ export function CityLogoLabClient({
         </Checkbox>
         <div className="grid gap-mdt-3 md:grid-cols-3 xl:grid-cols-6">
           <div className="space-y-mdt-1">
-            <div className="text-caption text-mdt-muted">Banner height</div>
+            <label htmlFor="city-logo-banner-height" className="text-caption text-mdt-muted">
+              Banner height
+            </label>
             <Input
+              id="city-logo-banner-height"
               type="number"
+              inputMode="numeric"
               min={48}
               max={120}
               value={headerBannerHeight}
+              autoComplete="off"
+              spellCheck={false}
               onChange={(e) => {
                 const next = Number(e.target.value);
                 if (!Number.isFinite(next)) return;
@@ -394,12 +400,18 @@ export function CityLogoLabClient({
             />
           </div>
           <div className="space-y-mdt-1">
-            <div className="text-caption text-mdt-muted">Banner height (md)</div>
+            <label htmlFor="city-logo-banner-height-md" className="text-caption text-mdt-muted">
+              Banner height (md)
+            </label>
             <Input
+              id="city-logo-banner-height-md"
               type="number"
+              inputMode="numeric"
               min={56}
               max={140}
               value={headerBannerHeightMd}
+              autoComplete="off"
+              spellCheck={false}
               onChange={(e) => {
                 const next = Number(e.target.value);
                 if (!Number.isFinite(next)) return;
@@ -408,12 +420,18 @@ export function CityLogoLabClient({
             />
           </div>
           <div className="space-y-mdt-1">
-            <div className="text-caption text-mdt-muted">Nav min height</div>
+            <label htmlFor="city-logo-nav-min-height" className="text-caption text-mdt-muted">
+              Nav min height
+            </label>
             <Input
+              id="city-logo-nav-min-height"
               type="number"
+              inputMode="numeric"
               min={56}
               max={140}
               value={headerNavMinHeight}
+              autoComplete="off"
+              spellCheck={false}
               onChange={(e) => {
                 const next = Number(e.target.value);
                 if (!Number.isFinite(next)) return;
@@ -422,12 +440,18 @@ export function CityLogoLabClient({
             />
           </div>
           <div className="space-y-mdt-1">
-            <div className="text-caption text-mdt-muted">Nav min height (md)</div>
+            <label htmlFor="city-logo-nav-min-height-md" className="text-caption text-mdt-muted">
+              Nav min height (md)
+            </label>
             <Input
+              id="city-logo-nav-min-height-md"
               type="number"
+              inputMode="numeric"
               min={64}
               max={160}
               value={headerNavMinHeightMd}
+              autoComplete="off"
+              spellCheck={false}
               onChange={(e) => {
                 const next = Number(e.target.value);
                 if (!Number.isFinite(next)) return;
@@ -436,12 +460,18 @@ export function CityLogoLabClient({
             />
           </div>
           <div className="space-y-mdt-1">
-            <div className="text-caption text-mdt-muted">Nav padding Y</div>
+            <label htmlFor="city-logo-nav-padding-y" className="text-caption text-mdt-muted">
+              Nav padding Y
+            </label>
             <Input
+              id="city-logo-nav-padding-y"
               type="number"
+              inputMode="numeric"
               min={12}
               max={32}
               value={headerNavPaddingY}
+              autoComplete="off"
+              spellCheck={false}
               onChange={(e) => {
                 const next = Number(e.target.value);
                 if (!Number.isFinite(next)) return;
@@ -450,12 +480,18 @@ export function CityLogoLabClient({
             />
           </div>
           <div className="space-y-mdt-1">
-            <div className="text-caption text-mdt-muted">Nav padding Y (md)</div>
+            <label htmlFor="city-logo-nav-padding-y-md" className="text-caption text-mdt-muted">
+              Nav padding Y (md)
+            </label>
             <Input
+              id="city-logo-nav-padding-y-md"
               type="number"
+              inputMode="numeric"
               min={16}
               max={40}
               value={headerNavPaddingYMd}
+              autoComplete="off"
+              spellCheck={false}
               onChange={(e) => {
                 const next = Number(e.target.value);
                 if (!Number.isFinite(next)) return;

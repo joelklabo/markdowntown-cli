@@ -5,6 +5,7 @@ import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
 import { track } from "@/lib/analytics";
+import { cn, focusRing, interactiveBase } from "@/lib/cn";
 
 type Option = { label: string; key: string; href: string; active: boolean };
 type TagOption = { label: string; href: string; active: boolean };
@@ -31,6 +32,7 @@ export function BrowseFilterPills({ sortOptions, typeOptions, popularTags, activ
               key={option.key}
               href={option.href}
               onClick={() => track("browse_filter_select", { type: "sort", value: option.key })}
+              aria-current={option.active ? "true" : undefined}
               className="inline-flex rounded-mdt-pill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mdt-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--mdt-color-surface)]"
             >
               <Pill
@@ -54,6 +56,7 @@ export function BrowseFilterPills({ sortOptions, typeOptions, popularTags, activ
               key={option.key}
               href={option.href}
               onClick={() => track("browse_filter_select", { type: "content_type", value: option.key })}
+              aria-current={option.active ? "true" : undefined}
               className="inline-flex rounded-mdt-pill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mdt-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--mdt-color-surface)]"
             >
               <Pill
@@ -77,6 +80,7 @@ export function BrowseFilterPills({ sortOptions, typeOptions, popularTags, activ
               key={tag.label}
               href={tag.href}
               onClick={() => track("browse_filter_select", { type: "tag", value: tag.label })}
+              aria-current={tag.active ? "true" : undefined}
               className="inline-flex rounded-mdt-pill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mdt-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--mdt-color-surface)]"
             >
               <Pill
@@ -101,7 +105,11 @@ export function BrowseFilterPills({ sortOptions, typeOptions, popularTags, activ
                 <span>#{tag.label}</span>
                 <Link
                   href={tag.removeHref}
-                  className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-mdt-surface-strong text-[11px] text-mdt-text"
+                  className={cn(
+                    "ml-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-mdt-surface-strong text-[11px] text-mdt-text",
+                    interactiveBase,
+                    focusRing
+                  )}
                   aria-label={`Remove tag ${tag.label}`}
                   onClick={() => track("browse_filter_remove", { type: "tag", value: tag.label })}
                 >

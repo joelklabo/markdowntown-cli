@@ -9,8 +9,8 @@ export const metadata = {
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-mdt-bg-soft text-mdt-text">
-      <main className="mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center px-4 py-mdt-12 text-center">
+    <div className="min-h-dvh bg-mdt-bg-soft text-mdt-text">
+      <main className="mx-auto flex min-h-dvh max-w-4xl flex-col items-center justify-center px-4 py-mdt-12 text-center">
         <div className="mb-mdt-6 flex items-center justify-center">
           <BrandLogo />
         </div>
@@ -21,8 +21,8 @@ export default function NotFound() {
             </div>
           </div>
           <div className="space-y-2">
-            <h1 className="text-h1">Page not found</h1>
-            <p className="text-body text-mdt-muted">
+            <h1 className="text-h1 text-balance">Page not found</h1>
+            <p className="text-body text-mdt-muted text-pretty">
               That link doesn’t exist. Jump back to the town square, or scan a folder to get quick
               guidance.
             </p>

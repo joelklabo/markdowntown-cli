@@ -24,7 +24,7 @@ export function FileTree({ paths, selectedPath, emptyLabel = "No files in this s
         </Row>
       </Stack>
       {sortedPaths.length === 0 ? (
-        <Text tone="muted" size="bodySm">
+        <Text tone="muted" size="bodySm" role="status" aria-live="polite">
           {emptyLabel}
         </Text>
       ) : (

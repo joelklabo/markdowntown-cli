@@ -27,12 +27,20 @@ export function LivingHeader() {
   const latest = activeRuns[0];
 
   return (
-    <div className="flex items-center gap-2 bg-mdt-surface-subtle px-4 py-1 border-b border-mdt-border overflow-hidden">
+    <div
+      className="flex items-center gap-2 bg-mdt-surface-subtle px-4 py-1 border-b border-mdt-border overflow-hidden"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    >
       <div className="flex-1 flex items-center gap-2 min-w-0">
         <div className="flex items-center gap-1.5 shrink-0">
           <div className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-mdt-primary opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-mdt-primary"></span>
+            <span
+              aria-hidden
+              className="animate-ping absolute inline-flex h-full w-full rounded-full bg-mdt-primary opacity-75 motion-reduce:animate-none"
+            />
+            <span aria-hidden className="relative inline-flex rounded-full h-2 w-2 bg-mdt-primary" />
           </div>
           <Text size="caption" weight="semibold" className="uppercase tracking-wider text-mdt-primary">
             Live

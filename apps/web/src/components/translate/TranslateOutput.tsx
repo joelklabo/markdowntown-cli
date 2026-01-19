@@ -154,6 +154,8 @@ export function TranslateOutput({
                           onUpdateTarget(target.targetId, { adapterVersion: next.length > 0 ? next : DEFAULT_ADAPTER_VERSION });
                         }}
                         className="w-24 font-mono"
+                        autoComplete="off"
+                        spellCheck={false}
                       />
                     </div>
                   </div>
@@ -168,6 +170,10 @@ export function TranslateOutput({
                       defaultValue={JSON.stringify(target.options ?? {}, null, 2)}
                       rows={4}
                       className="font-mono text-body-sm"
+                      autoComplete="off"
+                      spellCheck={false}
+                      aria-invalid={Boolean(optionsErrors[target.targetId])}
+                      aria-describedby={optionsErrors[target.targetId] ? `${optionsId}-error` : undefined}
                       onBlur={(e) => {
                         const text = e.target.value.trim();
                         try {
@@ -185,7 +191,12 @@ export function TranslateOutput({
                       }}
                     />
                     {optionsErrors[target.targetId] ? (
-                      <Text size="caption" className="text-[color:var(--mdt-color-danger)]">
+                      <Text
+                        id={`${optionsId}-error`}
+                        size="caption"
+                        className="text-[color:var(--mdt-color-danger)]"
+                        role="alert"
+                      >
                         {optionsErrors[target.targetId]}
                       </Text>
                     ) : null}
@@ -203,10 +214,10 @@ export function TranslateOutput({
           </Text>
           {error ? (
             <div className="space-y-mdt-2 rounded-mdt-md border border-[color:var(--mdt-color-danger-soft)] bg-[color:var(--mdt-color-danger-soft)]/40 px-mdt-3 py-mdt-3">
-              <Text size="bodySm" className="text-[color:var(--mdt-color-danger)]">
+              <Text size="bodySm" className="text-[color:var(--mdt-color-danger)]" role="alert">
                 {error}
               </Text>
-              <Button onClick={onCompile} disabled={compileDisabled} variant="primary" size="sm">
+              <Button onClick={onCompile} disabled={compileDisabled} variant="primary" size="sm" aria-busy={loading}>
                 {loading ? 'Compiling…' : 'Try compile again'}
               </Button>
             </div>
@@ -216,7 +227,7 @@ export function TranslateOutput({
                 <Text size="bodySm" weight="semibold">
                   Ready for Workbench
                 </Text>
-                <Text size="caption" tone="muted">
+                <Text size="caption" tone="muted" className="text-pretty">
                   Open a fresh Workbench draft in a new tab. Keep this page open so you can copy or download the compiled files
                   into Workbench.
                 </Text>
@@ -235,7 +246,7 @@ export function TranslateOutput({
                 >
                   Download zip
                 </Button>
-                <Button onClick={onCompile} disabled={compileDisabled} variant="ghost" size="sm">
+                <Button onClick={onCompile} disabled={compileDisabled} variant="ghost" size="sm" aria-busy={loading}>
                   Recompile
                 </Button>
               </Row>
@@ -248,6 +259,7 @@ export function TranslateOutput({
                 variant="primary"
                 size="sm"
                 data-testid="translate-compile"
+                aria-busy={loading}
               >
                 {loading ? 'Compiling…' : 'Compile files'}
               </Button>
@@ -256,7 +268,7 @@ export function TranslateOutput({
               </Button>
             </Row>
           )}
-          <Text size="caption" tone="muted">
+          <Text size="caption" tone="muted" className="text-pretty">
             Compile generates instruction files you can copy or download before opening Workbench to refine and export.
           </Text>
         </Surface>
@@ -266,7 +278,7 @@ export function TranslateOutput({
         <div className="flex flex-wrap items-center justify-between gap-mdt-3">
           <Heading level="h3" as="h2">Results</Heading>
           {showResult ? (
-            <Text size="caption" tone="muted">
+            <Text size="caption" tone="muted" className="tabular-nums">
               {showResult.files.length} file{showResult.files.length === 1 ? '' : 's'}
             </Text>
           ) : null}
@@ -305,7 +317,7 @@ export function TranslateOutput({
             )}
 
             {showResult.files.length === 0 && showResult.warnings.length === 0 && (
-              <Text size="bodySm" tone="muted">
+              <Text size="bodySm" tone="muted" role="status" aria-live="polite">
                 No files generated yet. Adjust your targets or input and compile again.
               </Text>
             )}
@@ -318,7 +330,7 @@ export function TranslateOutput({
                   </Text>
                   <Row gap={2} align="center">
                     {copiedPath === f.path && (
-                      <Text size="caption" tone="muted">
+                      <Text size="caption" tone="muted" role="status" aria-live="polite">
                         Copied
                       </Text>
                     )}

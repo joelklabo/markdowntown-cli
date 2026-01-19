@@ -43,7 +43,9 @@ export function SimulatorInsights({ insights, shadowedFiles }: SimulatorInsights
               These patterns were expected but not found. Add the files or use Next steps to copy a template.
             </Text>
             {insights.missingFiles.length === 0 ? (
-              <Text tone="muted" size="bodySm">No missing instruction files detected.</Text>
+              <Text tone="muted" size="bodySm" role="status" aria-live="polite">
+                No missing instruction files detected.
+              </Text>
             ) : (
               <ul className="space-y-mdt-2" aria-label="Missing instruction files">
                 {insights.missingFiles.map((item) => (
@@ -64,7 +66,9 @@ export function SimulatorInsights({ insights, shadowedFiles }: SimulatorInsights
               These files exist but do not load for the selected tool. Review the reason and switch tools if needed.
             </Text>
             {shadowedFiles.length === 0 ? (
-              <Text tone="muted" size="bodySm">No shadowed instruction files detected for this tool.</Text>
+              <Text tone="muted" size="bodySm" role="status" aria-live="polite">
+                No shadowed instruction files detected for this tool.
+              </Text>
             ) : (
               <ul className="space-y-mdt-2" aria-label="Shadowed instruction files">
                 {shadowedFiles.map((file) => (
@@ -89,7 +93,9 @@ export function SimulatorInsights({ insights, shadowedFiles }: SimulatorInsights
               .
             </Text>
             {insights.expectedPatterns.length === 0 ? (
-              <Text tone="muted" size="bodySm">No expected patterns available.</Text>
+              <Text tone="muted" size="bodySm" role="status" aria-live="polite">
+                No expected patterns available.
+              </Text>
             ) : (
               <ul className="space-y-mdt-2" aria-label="Expected patterns">
                 {insights.expectedPatterns.map((pattern) => (
@@ -114,7 +120,9 @@ export function SimulatorInsights({ insights, shadowedFiles }: SimulatorInsights
               .
             </Text>
             {insights.precedenceNotes.length === 0 ? (
-              <Text tone="muted" size="bodySm">No precedence notes for this tool.</Text>
+              <Text tone="muted" size="bodySm" role="status" aria-live="polite">
+                No precedence notes for this tool.
+              </Text>
             ) : (
               <ul className="space-y-mdt-2" aria-label="Precedence notes">
                 {insights.precedenceNotes.map((note, index) => (

@@ -12,7 +12,7 @@ export function ArtifactTable({ artifacts }: ArtifactTableProps) {
     <section className="rounded-mdt-xl border border-mdt-border bg-mdt-surface p-mdt-4 shadow-mdt-sm">
       <div className="flex items-center justify-between gap-mdt-3">
         <div className="text-body-sm font-semibold text-mdt-text">Artifacts</div>
-        <div className="text-caption text-mdt-muted">{artifacts.length}</div>
+        <div className="text-caption text-mdt-muted tabular-nums">{artifacts.length}</div>
       </div>
 
       {artifacts.length === 0 ? (
@@ -35,7 +35,7 @@ export function ArtifactTable({ artifacts }: ArtifactTableProps) {
               </div>
 
               {artifact.description ? (
-                <div className="mt-mdt-2 text-body-sm text-mdt-muted">{artifact.description}</div>
+                <div className="mt-mdt-2 text-body-sm text-mdt-muted text-pretty">{artifact.description}</div>
               ) : null}
 
               <div className="mt-mdt-3 flex flex-wrap gap-mdt-2">

@@ -100,14 +100,16 @@ export function TranslateInput({ value, onChange, disabled, helperText }: Transl
           placeholder="Paste Markdown or UAM v1 JSON…"
           aria-describedby={describedBy}
           disabled={disabled}
+          autoComplete="off"
+          spellCheck={false}
         />
         <div className="space-y-mdt-1">
           {helperText && (
-            <Text id={helperTextId} size="caption" tone="muted">
+            <Text id={helperTextId} size="caption" tone="muted" className="tabular-nums text-pretty">
               {helperText}
             </Text>
           )}
-          <Text id={tipId} size="caption" tone="muted">
+          <Text id={tipId} size="caption" tone="muted" className="text-pretty">
             Tip: drop a single file here to replace the input.
           </Text>
         </div>

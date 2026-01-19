@@ -92,7 +92,9 @@ export function NextStepsPanel({
         </Stack>
 
         {visibleSteps.length === 0 ? (
-          <Text tone="muted">No next steps yet. Run a scan or refresh results to generate guidance.</Text>
+          <Text tone="muted" role="status" aria-live="polite">
+            No next steps yet. Run a scan or refresh results to generate guidance.
+          </Text>
         ) : (
           <Stack gap={3}>
             {visibleSteps.map((step) => {

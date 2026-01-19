@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Text } from '@/components/ui/Text';
 import { TextArea } from '@/components/ui/TextArea';
-import { cn } from '@/lib/cn';
+import { cn, focusRing, interactiveBase } from '@/lib/cn';
 import { trackSkillWorkbenchEdit } from '@/lib/analytics';
 
 function formatParams(params?: Record<string, unknown>) {
@@ -110,7 +110,11 @@ export function SkillsPanel() {
                   removeSkill(skill.id);
                   trackSkillWorkbenchEdit({ action: 'remove', id: skill.id });
                 }}
-                className="px-mdt-1 text-mdt-muted opacity-0 group-hover:opacity-100 hover:text-mdt-danger"
+                className={cn(
+                  "inline-flex h-mdt-8 w-mdt-8 items-center justify-center rounded-mdt-sm text-mdt-muted opacity-0 group-hover:opacity-100 hover:text-mdt-danger",
+                  interactiveBase,
+                  focusRing
+                )}
                 aria-label="Remove skill"
               >
                 ×
@@ -121,7 +125,9 @@ export function SkillsPanel() {
 
         {skills.length === 0 && (
           <div className="rounded-mdt-md border border-dashed border-mdt-border bg-mdt-surface-subtle p-mdt-3 text-body-sm text-mdt-muted">
-            <div className="mb-mdt-1 text-body-sm font-semibold text-mdt-text">No skills yet</div>
+            <div className="mb-mdt-1 text-body-sm font-semibold text-mdt-text" role="status" aria-live="polite">
+              No skills yet
+            </div>
             <div className="mb-mdt-3">Add a skill capability to make exports more powerful.</div>
             <Button size="xs" onClick={handleAdd}>
               Add a skill
@@ -152,6 +158,8 @@ export function SkillsPanel() {
               onBlur={() => trackSkillWorkbenchEdit({ action: 'update', id: selectedSkill.id, field: 'title' })}
               placeholder="Short skill title"
               size="sm"
+              autoComplete="off"
+              enterKeyHint="done"
             />
           </div>
 
@@ -168,6 +176,7 @@ export function SkillsPanel() {
               placeholder="What does this skill do?"
               size="sm"
               rows={3}
+              autoComplete="off"
             />
           </div>
 
@@ -185,9 +194,13 @@ export function SkillsPanel() {
               size="sm"
               rows={4}
               className={cn(paramsError ? 'border-mdt-danger' : '')}
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={Boolean(paramsError)}
+              aria-describedby={paramsError ? "skill-params-error" : undefined}
             />
             {paramsError && (
-              <Text size="caption" className="text-mdt-danger">
+              <Text id="skill-params-error" size="caption" className="text-mdt-danger" role="alert">
                 {paramsError}
               </Text>
             )}

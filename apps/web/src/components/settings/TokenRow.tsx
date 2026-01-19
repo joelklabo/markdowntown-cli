@@ -46,16 +46,16 @@ export function TokenRow({ token, onRevoke }: TokenRowProps) {
           </div>
         </div>
         <div className="flex gap-4">
-          <Text tone="muted" size="caption">
+          <Text tone="muted" size="caption" className="tabular-nums">
             Created on {new Date(token.createdAt).toLocaleDateString()}
           </Text>
           {token.lastUsedAt && (
-            <Text tone="muted" size="caption">
+            <Text tone="muted" size="caption" className="tabular-nums">
               Last used {new Date(token.lastUsedAt).toLocaleDateString()}
             </Text>
           )}
           {token.expiresAt && (
-            <Text tone="muted" size="caption">
+            <Text tone="muted" size="caption" className="tabular-nums">
               Expires on {new Date(token.expiresAt).toLocaleDateString()}
             </Text>
           )}
@@ -67,6 +67,7 @@ export function TokenRow({ token, onRevoke }: TokenRowProps) {
         size="sm"
         onClick={handleRevoke}
         disabled={isRevoking}
+        aria-busy={isRevoking}
       >
         Revoke
       </Button>

@@ -402,10 +402,11 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
             <form
               role="search"
               onSubmit={onSearch}
-              className="hidden min-w-[220px] flex-1 items-center gap-mdt-2 rounded-mdt-md border border-mdt-border bg-mdt-surface-raised px-mdt-3 py-mdt-2 text-body-sm shadow-mdt-sm transition duration-mdt-fast ease-mdt-standard focus-within:border-mdt-border-strong focus-within:shadow-mdt-md md:flex lg:max-w-[420px]"
+              className="hidden min-w-[220px] flex-1 items-center gap-mdt-2 rounded-mdt-md border border-mdt-border bg-mdt-surface-raised px-mdt-3 py-mdt-2 text-body-sm shadow-mdt-sm transition duration-mdt-fast ease-mdt-standard motion-reduce:transition-none focus-within:border-mdt-border-strong focus-within:shadow-mdt-md md:flex lg:max-w-[420px]"
             >
               <input
                 name="q"
+                type="search"
                 className="w-full bg-transparent text-mdt-text outline-none placeholder:text-mdt-muted"
                 placeholder="Search Atlas…"
                 value={query}
@@ -413,6 +414,10 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
                 aria-label="Search"
                 ref={inputRef}
                 aria-keyshortcuts="/"
+                autoComplete="off"
+                spellCheck={false}
+                enterKeyHint="search"
+                inputMode="search"
               />
               <Button type="submit" size="sm">
                 Search
@@ -533,7 +538,7 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
               {item.type === "link" ? (
                 <Link
                   href={item.href!}
-                  className={`group flex h-14 min-h-[56px] flex-col items-center justify-center gap-1 rounded-mdt-md px-mdt-2 transition duration-mdt-fast ease-mdt-standard ${
+                  className={`group flex h-14 min-h-[56px] flex-col items-center justify-center gap-1 rounded-mdt-md px-mdt-2 transition duration-mdt-fast ease-mdt-standard motion-reduce:transition-none ${
                     active ? "bg-mdt-surface-strong text-mdt-text" : "hover:bg-mdt-surface-subtle hover:text-mdt-text"
                   } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mdt-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--mdt-color-surface)]`}
                   onClick={() => track("nav_click", { href: item.href, placement: "bottom" })}
@@ -551,7 +556,7 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
                   onClick={() => {
                     openMobileSearch("bottom_nav");
                   }}
-                  className="flex h-14 min-h-[56px] w-full flex-col items-center justify-center gap-1 rounded-mdt-md px-mdt-2 text-mdt-text transition duration-mdt-fast ease-mdt-standard hover:bg-mdt-surface-subtle hover:text-mdt-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mdt-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--mdt-color-surface)]"
+                  className="flex h-14 min-h-[56px] w-full flex-col items-center justify-center gap-1 rounded-mdt-md px-mdt-2 text-mdt-text transition duration-mdt-fast ease-mdt-standard motion-reduce:transition-none hover:bg-mdt-surface-subtle hover:text-mdt-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mdt-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--mdt-color-surface)]"
                   aria-label="Open search"
                   aria-keyshortcuts="/"
                 >
@@ -585,9 +590,13 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
         >
           <SheetTitle className="sr-only">Search</SheetTitle>
           <div className="flex items-center justify-between mb-mdt-3">
-            <p className="text-sm font-semibold text-mdt-text">Search</p>
+            <p className="text-sm font-semibold text-mdt-text text-balance">Search</p>
             <SheetClose asChild>
-              <button className="text-sm text-mdt-muted hover:text-mdt-text" aria-label="Close search">
+              <button
+                type="button"
+                className={cn("text-sm text-mdt-muted hover:text-mdt-text", interactiveBase, focusRing)}
+                aria-label="Close search"
+              >
                 Close
               </button>
             </SheetClose>
@@ -595,16 +604,21 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
           <form
             role="search"
             onSubmit={onSearch}
-            className="flex flex-col gap-mdt-3 rounded-mdt-lg border border-mdt-border-strong bg-mdt-surface px-mdt-4 py-mdt-3 text-body-sm shadow-mdt-sm"
+            className="flex flex-col gap-mdt-3 rounded-mdt-lg border border-mdt-border-strong bg-mdt-surface px-mdt-4 py-mdt-3 text-body-sm shadow-mdt-sm focus-within:border-mdt-border-strong focus-within:shadow-mdt-md"
           >
             <input
               ref={inputRef}
+              type="search"
               className="w-full bg-transparent text-mdt-text outline-none placeholder:text-mdt-muted"
               placeholder="Search Atlas documentation…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Search"
               aria-keyshortcuts="/"
+              autoComplete="off"
+              spellCheck={false}
+              enterKeyHint="search"
+              inputMode="search"
             />
             <div className="flex items-center justify-end">
               <Button type="submit" size="sm">
@@ -614,7 +628,7 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
           </form>
 
           <div className="mt-mdt-3 space-y-2">
-            <p className="text-caption font-semibold text-mdt-muted">Quick filters</p>
+            <p className="text-caption font-semibold text-mdt-muted text-balance">Quick filters</p>
             <div className="flex flex-wrap gap-2">
               {quickFilters.map((filter) => (
                 <Button
@@ -648,13 +662,17 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
           {recentSearches.length > 0 && (
             <div className="mt-mdt-3 space-y-2">
               <div>
-                <p className="text-caption font-semibold text-mdt-muted">Recent</p>
+                <p className="text-caption font-semibold text-mdt-muted text-balance">Recent</p>
                 <div className="mt-1 flex flex-wrap gap-2">
                   {recentSearches.map((term) => (
                     <button
                       key={term}
                       type="button"
-                      className="rounded-mdt-md border border-mdt-border px-mdt-3 py-mdt-2 text-body-sm text-mdt-text hover:bg-mdt-surface-subtle"
+                      className={cn(
+                        "rounded-mdt-md border border-mdt-border px-mdt-3 py-mdt-2 text-body-sm text-mdt-text hover:bg-mdt-surface-subtle",
+                        interactiveBase,
+                        focusRing
+                      )}
                       onClick={() => {
                         setQuery(term);
                         requestAnimationFrame(() => inputRef.current?.focus());
@@ -688,7 +706,11 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
           <div className="mb-mdt-3 flex items-center justify-between">
             <div className="h-1.5 w-12 rounded-full bg-mdt-border" aria-hidden />
             <SheetClose asChild>
-              <button type="button" className="text-sm text-mdt-muted hover:text-mdt-text" aria-expanded={showOverflowSheet}>
+              <button
+                type="button"
+                className={cn("text-sm text-mdt-muted hover:text-mdt-text", interactiveBase, focusRing)}
+                aria-expanded={showOverflowSheet}
+              >
                 Close
               </button>
             </SheetClose>
@@ -724,7 +746,7 @@ export function SiteNav({ user, sticky = true }: { user?: User; sticky?: boolean
                 href={link.href}
                 target={link.external ? "_blank" : undefined}
                 rel={link.external ? "noreferrer" : undefined}
-                className="rounded-mdt-lg border border-mdt-border-strong bg-mdt-surface px-mdt-3 py-mdt-2 text-body-sm font-semibold text-mdt-text shadow-mdt-sm transition duration-mdt-fast ease-mdt-standard hover:bg-mdt-surface-subtle hover:shadow-mdt-md"
+                className="rounded-mdt-lg border border-mdt-border-strong bg-mdt-surface px-mdt-3 py-mdt-2 text-body-sm font-semibold text-mdt-text shadow-mdt-sm transition duration-mdt-fast ease-mdt-standard motion-reduce:transition-none hover:bg-mdt-surface-subtle hover:shadow-mdt-md"
                 onClick={() => {
                   setShowOverflowSheet(false);
                   track("nav_click", { href: link.href, placement: "overflow" });

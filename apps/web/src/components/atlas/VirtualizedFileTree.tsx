@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { cn } from "@/lib/cn";
+import { cn, focusRing, interactiveBase } from "@/lib/cn";
 
 const ROW_HEIGHT = 28;
 const OVERSCAN_COUNT = 6;
@@ -142,7 +142,11 @@ export function VirtualizedFileTree({
   }, [expanded, tree]);
 
   if (paths.length === 0) {
-    return <div className={cn("text-mdt-muted text-body-sm", className)}>{emptyLabel}</div>;
+    return (
+      <div className={cn("text-mdt-muted text-body-sm", className)} role="status" aria-live="polite">
+        {emptyLabel}
+      </div>
+    );
   }
 
   const totalHeight = rows.length * ROW_HEIGHT;
@@ -177,11 +181,19 @@ export function VirtualizedFileTree({
                   isSelected ? "bg-mdt-primary/10" : "hover:bg-mdt-surface-subtle",
                 )}
                 style={{ height: ROW_HEIGHT, paddingLeft: row.depth * 12 }}
+                role="treeitem"
+                aria-level={row.depth + 1}
+                aria-expanded={row.hasChildren ? isExpanded : undefined}
+                aria-selected={row.isFile ? isSelected : undefined}
               >
                 {row.hasChildren ? (
                   <button
                     type="button"
-                    className="text-mdt-muted"
+                    className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded-mdt-sm text-mdt-muted",
+                      interactiveBase,
+                      focusRing
+                    )}
                     aria-label={isExpanded ? "Collapse folder" : "Expand folder"}
                     onClick={() => {
                       setExpanded((prev) => {
@@ -206,10 +218,13 @@ export function VirtualizedFileTree({
                     onClick={() => onSelect?.(row.fullPath)}
                     disabled={!onSelect}
                     className={cn(
-                      "flex-1 truncate text-left font-mono",
+                      "flex-1 truncate text-left font-mono rounded-mdt-sm",
+                      interactiveBase,
+                      focusRing,
                       isSelected ? "text-mdt-primary" : "text-mdt-text",
                       !onSelect ? "cursor-default" : "",
                     )}
+                    aria-current={isSelected ? "true" : undefined}
                   >
                     {row.name}
                   </button>

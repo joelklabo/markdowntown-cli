@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Surface } from "@/components/ui/Surface";
-import { cn } from "@/lib/cn";
+import { cn, focusRing, interactiveBase } from "@/lib/cn";
 import { track } from "@/lib/analytics";
 
 type StepKey = "search" | "add" | "export";
@@ -63,8 +63,8 @@ export function OnboardingChecklist({ onLoadSample }: { onLoadSample: () => void
       <Surface tone="raised" padding="md" className="space-y-mdt-3 shadow-mdt-lg">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <p className="text-caption text-mdt-muted">Guided steps</p>
-            <p className="text-sm font-semibold text-mdt-text">Get to export fast ({doneCount}/3)</p>
+            <p className="text-caption text-mdt-muted text-balance">Guided steps</p>
+            <p className="text-sm font-semibold text-mdt-text tabular-nums">Get to export fast ({doneCount}/3)</p>
           </div>
           <Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
             {expanded ? "Hide" : "Show"}
@@ -80,7 +80,9 @@ export function OnboardingChecklist({ onLoadSample }: { onLoadSample: () => void
                   key={step.key}
                   role="listitem"
                   className={cn(
-                    "w-full rounded-mdt-sm border px-3 py-2 text-left text-sm transition",
+                    "w-full rounded-mdt-sm border px-3 py-2 text-left text-sm transition motion-reduce:transition-none",
+                    interactiveBase,
+                    focusRing,
                     isDone
                       ? "border-mdt-success bg-[color:var(--mdt-color-success)]/10 text-mdt-text"
                       : "border-mdt-border hover:border-mdt-border-strong"
@@ -91,7 +93,7 @@ export function OnboardingChecklist({ onLoadSample }: { onLoadSample: () => void
                     <span className="font-semibold">{step.label}</span>
                     <span className="text-xs text-mdt-muted">{isDone ? "Done" : "Tap to mark"}</span>
                   </div>
-                  <p className="text-xs text-mdt-muted">{step.desc}</p>
+                  <p className="text-xs text-mdt-muted text-pretty">{step.desc}</p>
                 </button>
               );
             })}

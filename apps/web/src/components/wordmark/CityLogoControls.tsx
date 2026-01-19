@@ -223,21 +223,28 @@ export function CityLogoControls({ sim, eventOrigin = "labs", preview, share, ac
 
         <div className="grid grid-cols-2 gap-mdt-3">
           <div className="space-y-mdt-1">
-	            <div className="text-caption text-mdt-muted">Seed</div>
-	            <Input
-	              id="city-logo-seed"
-	              name="seed"
-	              value={seedDraft}
-	              onChange={(e) => {
-	                const next = e.target.value;
-	                setSeedDraft(next);
-	                if (next.trim().length > 0) sim.setConfig({ seed: next.trim() });
+	            <label htmlFor="city-logo-seed" className="text-caption text-mdt-muted">
+                Seed
+              </label>
+            <Input
+              id="city-logo-seed"
+              name="seed"
+              value={seedDraft}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => {
+                const next = e.target.value;
+                setSeedDraft(next);
+                if (next.trim().length > 0) sim.setConfig({ seed: next.trim() });
               }}
             />
           </div>
           <div className="space-y-mdt-1">
-	            <div className="text-caption text-mdt-muted">Density</div>
+	            <label htmlFor="city-logo-density" className="text-caption text-mdt-muted">
+                Density
+              </label>
 	            <Select
+                id="city-logo-density"
 	              name="density"
 	              value={sim.config.density}
 	              onChange={(e) => sim.setConfig({ density: e.target.value as CityWordmarkDensity })}
@@ -251,15 +258,20 @@ export function CityLogoControls({ sim, eventOrigin = "labs", preview, share, ac
 
         <div className="grid grid-cols-2 gap-mdt-3">
           <div className="space-y-mdt-1">
-	            <div className="text-caption text-mdt-muted">Time scale</div>
-	            <Input
-	              type="number"
-	              inputMode="decimal"
-	              name="timeScale"
-	              min={0.1}
-	              step={0.1}
-	              value={timeScaleDraft}
-	              onChange={(e) => {
+	            <label htmlFor="city-logo-time-scale" className="text-caption text-mdt-muted">
+                Time scale
+              </label>
+            <Input
+              id="city-logo-time-scale"
+              type="number"
+              inputMode="decimal"
+              name="timeScale"
+              min={0.1}
+              step={0.1}
+              value={timeScaleDraft}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => {
                 const next = e.target.value;
                 setTimeScaleDraft(next);
                 const parsed = Number(next);
@@ -323,8 +335,11 @@ export function CityLogoControls({ sim, eventOrigin = "labs", preview, share, ac
           <div className="text-body-sm font-medium text-mdt-text">Preview</div>
           <div className="grid grid-cols-2 gap-mdt-3">
             <div className="space-y-mdt-1">
-              <div className="text-caption text-mdt-muted">Banner width</div>
+              <label htmlFor="city-logo-preview-width" className="text-caption text-mdt-muted">
+                Banner width
+              </label>
               <Select
+                id="city-logo-preview-width"
                 name="previewWidth"
                 value={preview.widthMode}
                 onChange={(e) => preview.setWidthMode(e.target.value as CityLogoPreviewWidthMode)}
@@ -334,15 +349,20 @@ export function CityLogoControls({ sim, eventOrigin = "labs", preview, share, ac
               </Select>
             </div>
             <div className="space-y-mdt-1">
-              <div className="text-caption text-mdt-muted">Banner scale</div>
+              <label htmlFor="city-logo-banner-scale" className="text-caption text-mdt-muted">
+                Banner scale
+              </label>
               <Input
+                id="city-logo-banner-scale"
                 type="number"
-                inputMode="numeric"
+              inputMode="numeric"
                 name="bannerScale"
                 min={1}
                 max={32}
                 step={1}
                 value={bannerScaleDraft}
+                autoComplete="off"
+                spellCheck={false}
                 onChange={(e) => {
                   const next = e.target.value;
                   setBannerScaleDraft(next);
@@ -402,16 +422,21 @@ export function CityLogoControls({ sim, eventOrigin = "labs", preview, share, ac
         <div className="text-body-sm font-medium text-mdt-text">Renderer</div>
         <div className="grid grid-cols-2 gap-mdt-3">
           <div className="space-y-mdt-1">
-	            <div className="text-caption text-mdt-muted">Voxel resolution (scene detail)</div>
-	            <Input
-	              type="number"
-	              inputMode="numeric"
-	              name="voxelScale"
-	              min={1}
-	              max={32}
-	              step={1}
-	              value={voxelScaleDraft}
-	              onChange={(e) => {
+	            <label htmlFor="city-logo-voxel-scale" className="text-caption text-mdt-muted">
+                Voxel resolution (scene detail)
+              </label>
+            <Input
+              id="city-logo-voxel-scale"
+              type="number"
+              inputMode="numeric"
+              name="voxelScale"
+              min={1}
+              max={32}
+              step={1}
+              value={voxelScaleDraft}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => {
                 const next = e.target.value;
                 setVoxelScaleDraft(next);
                 const parsed = Math.floor(Number(next));
@@ -422,8 +447,11 @@ export function CityLogoControls({ sim, eventOrigin = "labs", preview, share, ac
           </div>
 
           <div className="space-y-mdt-1">
-            <div className="text-caption text-mdt-muted">Detail</div>
+            <label htmlFor="city-logo-render-detail" className="text-caption text-mdt-muted">
+              Detail
+            </label>
             <Select
+              id="city-logo-render-detail"
               name="renderDetail"
               value={renderDetailDraft}
               onChange={(e) => {
@@ -437,19 +465,22 @@ export function CityLogoControls({ sim, eventOrigin = "labs", preview, share, ac
             </Select>
           </div>
 
-	          <div className="space-y-mdt-1">
-	            <div className="text-caption text-mdt-muted">Scheme</div>
-	            <Select
-	              name="scheme"
-	              value={sim.config.scheme}
-	              onChange={(e) => sim.setConfig({ scheme: e.target.value as CityWordmarkScheme })}
-	            >
-	              {CITY_WORDMARK_SCHEME_OPTIONS.map((option) => (
-	                <option key={option.value} value={option.value}>
-	                  {option.label}
-	                </option>
-	              ))}
-	            </Select>
+          <div className="space-y-mdt-1">
+            <label htmlFor="city-logo-scheme" className="text-caption text-mdt-muted">
+              Scheme
+            </label>
+            <Select
+              id="city-logo-scheme"
+              name="scheme"
+              value={sim.config.scheme}
+              onChange={(e) => sim.setConfig({ scheme: e.target.value as CityWordmarkScheme })}
+            >
+              {CITY_WORDMARK_SCHEME_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
           </div>
 
         </div>
@@ -458,17 +489,22 @@ export function CityLogoControls({ sim, eventOrigin = "labs", preview, share, ac
       <Card className="p-mdt-4 space-y-mdt-3">
         <div className="text-body-sm font-medium text-mdt-text">Skyline</div>
         <div className="grid grid-cols-2 gap-mdt-3">
-	          <div className="space-y-mdt-1">
-	            <div className="text-caption text-mdt-muted">Min height</div>
-	            <Input
-	              type="number"
-	              inputMode="numeric"
-	              name="skyMinH"
-	              min={1}
-	              max={32}
-	              step={1}
-	              value={skylineMinHeightDraft}
-	              onChange={(e) => {
+          <div className="space-y-mdt-1">
+            <label htmlFor="city-logo-sky-min-height" className="text-caption text-mdt-muted">
+              Min height
+            </label>
+            <Input
+              id="city-logo-sky-min-height"
+              type="number"
+              inputMode="numeric"
+              name="skyMinH"
+              min={1}
+              max={32}
+              step={1}
+              value={skylineMinHeightDraft}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => {
                 const next = e.target.value;
                 setSkylineMinHeightDraft(next);
                 const parsed = Math.floor(Number(next));
@@ -482,17 +518,22 @@ export function CityLogoControls({ sim, eventOrigin = "labs", preview, share, ac
             />
           </div>
 
-	          <div className="space-y-mdt-1">
-	            <div className="text-caption text-mdt-muted">Max height</div>
-	            <Input
-	              type="number"
-	              inputMode="numeric"
-	              name="skyMaxH"
-	              min={1}
-	              max={64}
-	              step={1}
-	              value={skylineMaxHeightDraft}
-	              onChange={(e) => {
+          <div className="space-y-mdt-1">
+            <label htmlFor="city-logo-sky-max-height" className="text-caption text-mdt-muted">
+              Max height
+            </label>
+            <Input
+              id="city-logo-sky-max-height"
+              type="number"
+              inputMode="numeric"
+              name="skyMaxH"
+              min={1}
+              max={64}
+              step={1}
+              value={skylineMaxHeightDraft}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => {
                 const next = e.target.value;
                 setSkylineMaxHeightDraft(next);
                 const parsed = Math.floor(Number(next));
@@ -506,17 +547,22 @@ export function CityLogoControls({ sim, eventOrigin = "labs", preview, share, ac
             />
           </div>
 
-	          <div className="space-y-mdt-1">
-	            <div className="text-caption text-mdt-muted">Min segment width</div>
-	            <Input
-	              type="number"
-	              inputMode="numeric"
-	              name="skyMinW"
-	              min={1}
-	              max={64}
-	              step={1}
-	              value={skylineMinSegmentWidthDraft}
-	              onChange={(e) => {
+          <div className="space-y-mdt-1">
+            <label htmlFor="city-logo-sky-min-width" className="text-caption text-mdt-muted">
+              Min segment width
+            </label>
+            <Input
+              id="city-logo-sky-min-width"
+              type="number"
+              inputMode="numeric"
+              name="skyMinW"
+              min={1}
+              max={64}
+              step={1}
+              value={skylineMinSegmentWidthDraft}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => {
                 const next = e.target.value;
                 setSkylineMinSegmentWidthDraft(next);
                 const parsed = Math.floor(Number(next));
@@ -530,17 +576,22 @@ export function CityLogoControls({ sim, eventOrigin = "labs", preview, share, ac
             />
           </div>
 
-	          <div className="space-y-mdt-1">
-	            <div className="text-caption text-mdt-muted">Max segment width</div>
-	            <Input
-	              type="number"
-	              inputMode="numeric"
-	              name="skyMaxW"
-	              min={1}
-	              max={128}
-	              step={1}
-	              value={skylineMaxSegmentWidthDraft}
-	              onChange={(e) => {
+          <div className="space-y-mdt-1">
+            <label htmlFor="city-logo-sky-max-width" className="text-caption text-mdt-muted">
+              Max segment width
+            </label>
+            <Input
+              id="city-logo-sky-max-width"
+              type="number"
+              inputMode="numeric"
+              name="skyMaxW"
+              min={1}
+              max={128}
+              step={1}
+              value={skylineMaxSegmentWidthDraft}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => {
                 const next = e.target.value;
                 setSkylineMaxSegmentWidthDraft(next);
                 const parsed = Math.floor(Number(next));

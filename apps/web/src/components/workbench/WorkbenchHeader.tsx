@@ -109,6 +109,8 @@ export function WorkbenchHeader({ session, cliSnapshotContext, entrySource = 'di
               onChange={(e) => setTitle(e.target.value)}
               size="sm"
               className="w-full font-semibold sm:w-72 md:w-80"
+              autoComplete="off"
+              enterKeyHint="done"
             />
             <Badge
               tone={visibilityBadge.tone}
@@ -187,6 +189,11 @@ export function WorkbenchHeader({ session, cliSnapshotContext, entrySource = 'di
                     }}
                   >
                     {cliCopied ? 'Copied' : 'Copy CLI command'}
+                    {cliCopied ? (
+                      <span className="sr-only" role="status" aria-live="polite">
+                        CLI command copied
+                      </span>
+                    ) : null}
                 </Button>
               ) : null}
             </div>
@@ -228,6 +235,9 @@ export function WorkbenchHeader({ session, cliSnapshotContext, entrySource = 'di
               aria-label="Tags"
               size="sm"
               className="w-full sm:w-52 md:w-64"
+              autoComplete="off"
+              spellCheck={false}
+              enterKeyHint="done"
             />
             <Button
               size="sm"
@@ -245,7 +255,12 @@ export function WorkbenchHeader({ session, cliSnapshotContext, entrySource = 'di
           </div>
 
           <div className="flex flex-wrap items-center gap-mdt-3 md:justify-end">
-            <div className="min-w-[180px] rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle px-mdt-3 py-mdt-2 text-[11px] text-mdt-muted tabular-nums leading-snug">
+            <div
+              className="min-w-[180px] rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle px-mdt-3 py-mdt-2 text-[11px] text-mdt-muted tabular-nums leading-snug"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
               <div>
                 {autosaveStatus === 'saving'
                   ? 'Draft: saving…'
@@ -275,11 +290,14 @@ export function WorkbenchHeader({ session, cliSnapshotContext, entrySource = 'di
                 variant="secondary"
                 onClick={handleSave}
                 disabled={saving || cloudSaveStatus === 'saving' || !session}
+                aria-busy={saving || cloudSaveStatus === 'saving'}
               >
                 {saving || cloudSaveStatus === 'saving' ? 'Saving...' : 'Save'}
               </Button>
               {!session && (
-                <span className="text-caption text-[color:var(--mdt-color-danger)]">Sign in to save</span>
+                <span className="text-caption text-[color:var(--mdt-color-danger)]" role="alert">
+                  Sign in to save
+                </span>
               )}
             </div>
           </div>

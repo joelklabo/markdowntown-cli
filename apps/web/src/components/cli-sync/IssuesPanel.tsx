@@ -43,7 +43,13 @@ export function IssuesPanel({ issues, auditStatus = "ready" }: IssuesPanelProps)
         </Text>
         <Row align="center" justify="between" wrap className="gap-mdt-3">
           <Heading level="h3">Findings</Heading>
-          <Text size="caption" tone="muted" className={auditStatus === "error" ? "text-mdt-danger" : undefined}>
+          <Text
+            size="caption"
+            tone="muted"
+            className={auditStatus === "error" ? "text-mdt-danger" : undefined}
+            role={auditStatus === "error" ? "alert" : "status"}
+            aria-live={auditStatus === "error" ? undefined : "polite"}
+          >
             {auditStatus === "pending" && "Audit pending"}
             {auditStatus === "ready" && "WASM audit complete"}
             {auditStatus === "error" && "Audit unavailable"}
@@ -52,13 +58,15 @@ export function IssuesPanel({ issues, auditStatus = "ready" }: IssuesPanelProps)
       </Stack>
 
       <Row align="center" gap={2} wrap>
-        <Pill tone="red">Errors · {counts.error}</Pill>
-        <Pill tone="yellow">Warnings · {counts.warning}</Pill>
-        <Pill tone="blue">Info · {counts.info}</Pill>
+        <Pill tone="red" className="tabular-nums">Errors · {counts.error}</Pill>
+        <Pill tone="yellow" className="tabular-nums">Warnings · {counts.warning}</Pill>
+        <Pill tone="blue" className="tabular-nums">Info · {counts.info}</Pill>
       </Row>
 
       {issues.length === 0 ? (
-        <Text tone="muted">No issues found for this snapshot.</Text>
+        <Text tone="muted" role="status" aria-live="polite">
+          No issues found for this snapshot.
+        </Text>
       ) : (
         <div className="space-y-mdt-3">
           {issues.map((issue) => {

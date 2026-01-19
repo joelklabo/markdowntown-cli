@@ -208,9 +208,9 @@ export default function TokensPage() {
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 space-y-10">
       <header className="space-y-2">
-        <p className="text-caption text-mdt-muted">Design System</p>
-        <h1 className="text-h1 font-display text-mdt-text">Core design tokens</h1>
-        <p className="text-body text-mdt-muted max-w-3xl">
+        <p className="text-caption text-mdt-muted text-balance">Design System</p>
+        <h1 className="text-h1 font-display text-mdt-text text-balance">Core design tokens</h1>
+        <p className="text-body text-mdt-muted max-w-3xl text-pretty">
           Single source of truth for color, shadow, radius, typography, spacing, and motion tokens. Values are sourced
           from CSS custom properties so updates cascade across Tailwind and components.
         </p>
@@ -223,7 +223,7 @@ export default function TokensPage() {
       </header>
 
       <section className="space-y-4">
-        <h2 className="text-h2 font-display text-mdt-text">Typography</h2>
+        <h2 className="text-h2 font-display text-mdt-text text-balance">Typography</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {typography.map((item) => (
             <TypeSample
@@ -238,7 +238,7 @@ export default function TokensPage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-h2 font-display text-mdt-text">Colors</h2>
+        <h2 className="text-h2 font-display text-mdt-text text-balance">Colors</h2>
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
           {colors.map((c) => (
             <ColorSwatch key={c.varName} name={c.name} varName={c.varName} />
@@ -247,7 +247,7 @@ export default function TokensPage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-h2 font-display text-mdt-text">Spacing</h2>
+        <h2 className="text-h2 font-display text-mdt-text text-balance">Spacing</h2>
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
           {spacing.map((s) => (
             <SpacingSwatch key={s.varName} name={s.name} varName={s.varName} />
@@ -256,7 +256,7 @@ export default function TokensPage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-h2 font-display text-mdt-text">Shadows</h2>
+        <h2 className="text-h2 font-display text-mdt-text text-balance">Shadows</h2>
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
           {shadows.map((s) => (
             <ShadowSwatch key={s.varName} name={s.name} varName={s.varName} />
@@ -265,7 +265,7 @@ export default function TokensPage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-h2 font-display text-mdt-text">Radii</h2>
+        <h2 className="text-h2 font-display text-mdt-text text-balance">Radii</h2>
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
           {radii.map((r) => (
             <RadiusSwatch key={r.name} name={r.name} token={r.token} />
@@ -274,7 +274,7 @@ export default function TokensPage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-h2 font-display text-mdt-text">Motion</h2>
+        <h2 className="text-h2 font-display text-mdt-text text-balance">Motion</h2>
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
           {motion.map((m) => (
             <MotionSwatch key={m.varName} name={m.name} varName={m.varName} note={m.note} />

@@ -14,7 +14,7 @@ export function StatBar({ label, value, max = 100, colorVar = "var(--mdt-data-2)
     <div className={cn("space-y-mdt-1 rounded-mdt-md border border-mdt-border bg-mdt-surface p-mdt-3", className)}>
       <div className="flex items-center justify-between text-body-sm text-mdt-muted">
         <span>{label}</span>
-        <span className="font-semibold text-mdt-text">{value.toLocaleString()}</span>
+        <span className="font-semibold text-mdt-text tabular-nums">{value.toLocaleString()}</span>
       </div>
       <div className="h-2 rounded-full bg-mdt-surface-strong">
         <div

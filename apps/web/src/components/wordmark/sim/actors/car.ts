@@ -3,7 +3,7 @@ import type { CityWordmarkLayout } from "../layout";
 import { createRng } from "../rng";
 import { getTimeOfDayPhase } from "../time";
 import type { CityWordmarkConfig } from "../types";
-import { getActorLaneY, getActorScale } from "./types";
+import { getActorLaneY, getActorScale, getActorUnit } from "./types";
 import type { CityWordmarkActor, CityWordmarkActorContext, CityWordmarkActorRect } from "./types";
 
 type CarState = {
@@ -20,7 +20,7 @@ function getCarCount(config: CityWordmarkConfig): number {
 }
 
 // Car dimensions in units (unit = half scale, same as birds)
-// At scale=3: unit=1, car is 8x3 voxels
+// At scale=3: unit=2, car is 16x6 voxels
 // Simple silhouette: roof inset, body, wheel shadows
 const CAR_WIDTH_UNITS = 8;
 const CAR_HEIGHT_UNITS = 3;
@@ -33,7 +33,8 @@ function createCarActor(state: CarState): CityWordmarkActor {
   function render(ctx: { nowMs: number; config: CityWordmarkConfig; layout: CityWordmarkLayout }): CityWordmarkActorRect[] {
     const sceneWidth = ctx.layout.sceneWidth;
     const scale = getActorScale(ctx.layout);
-    const unit = Math.max(1, Math.floor(scale / 2));
+    const unit = getActorUnit(ctx.layout);
+    const isDetailed = scale >= 3;
 
     const width = CAR_WIDTH_UNITS * unit;
 
@@ -78,6 +79,17 @@ function createCarActor(state: CarState): CityWordmarkActor {
       tone: bodyTone,
       opacity: 0.65,
     });
+
+    if (isDetailed) {
+      out.push({
+        x: x + unit * 5,
+        y: state.y + unit,
+        width: unit,
+        height: unit,
+        tone: bodyTone,
+        opacity: 0.6,
+      });
+    }
 
     // Row 2 (bottom): Lower body with wheel wells
     // Front section (before front wheel)
@@ -172,8 +184,7 @@ export function spawnCarActors(ctx: CityWordmarkActorContext): CityWordmarkActor
   if (count === 0) return [];
 
   const rng = createRng(`${ctx.config.seed}:cars`);
-  const scale = getActorScale(ctx.layout);
-  const unit = Math.max(1, Math.floor(scale / 2));
+  const unit = getActorUnit(ctx.layout);
   const laneY = getActorLaneY(ctx.layout, CAR_HEIGHT_UNITS);
   const width = CAR_WIDTH_UNITS * unit;
 

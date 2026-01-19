@@ -73,6 +73,10 @@ export function AtlasSearch({ className }: { className?: string }) {
         aria-label="Search Atlas"
         placeholder="Search Atlas…"
         value={query}
+        autoComplete="off"
+        spellCheck={false}
+        enterKeyHint="search"
+        inputMode="search"
         onFocus={() => {
           setOpen(true);
           setHighlight(0);
@@ -125,9 +129,13 @@ export function AtlasSearch({ className }: { className?: string }) {
           )}
         >
           {!hasQuery ? (
-            <div className="px-mdt-3 py-mdt-3 text-body-sm text-mdt-muted">Start typing to search Atlas.</div>
+            <div className="px-mdt-3 py-mdt-3 text-body-sm text-mdt-muted text-pretty" role="status" aria-live="polite">
+              Start typing to search Atlas.
+            </div>
           ) : results.length === 0 ? (
-            <div className="px-mdt-3 py-mdt-3 text-body-sm text-mdt-muted">No results.</div>
+            <div className="px-mdt-3 py-mdt-3 text-body-sm text-mdt-muted text-pretty" role="status" aria-live="polite">
+              No results.
+            </div>
           ) : (
             <ul role="listbox" aria-label="Atlas search results" className="max-h-[360px] overflow-auto px-mdt-1 py-mdt-1">
               {results.map((result, idx) => {

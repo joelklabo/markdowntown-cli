@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { LibraryCard } from "@/components/LibraryCard";
 import type { SampleItem } from "@/lib/sampleContent";
 import { Button } from "@/components/ui/Button";
@@ -24,10 +24,18 @@ export function BrowseResults({ initialItems, query, sortParam, typeParam, activ
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<SampleItem | null>(null);
+  const resultsId = useId();
+  const resultsStatusId = useId();
+  const dialogTitleId = useId();
+  const dialogDescId = useId();
+  const previewCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previewReturnFocusRef = useRef<HTMLElement | null>(null);
+  const previewWasOpenRef = useRef(false);
   const hasFilters =
     Boolean(query && query.trim().length > 0) ||
     activeTags.length > 0 ||
     (typeParam !== undefined && typeParam !== null && typeParam !== "all");
+  const resultsCountLabel = `${items.length} result${items.length === 1 ? "" : "s"} loaded`;
 
   const paramsForFetch = useMemo(() => {
     const p = new URLSearchParams();
@@ -40,6 +48,7 @@ export function BrowseResults({ initialItems, query, sortParam, typeParam, activ
   }, [limit, query, sortParam, typeParam, activeTags]);
 
   const loadMore = useCallback(async () => {
+    if (loading) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/public/items?${paramsForFetch.toString()}`, { cache: "no-store" });
@@ -53,7 +62,7 @@ export function BrowseResults({ initialItems, query, sortParam, typeParam, activ
     } finally {
       setLoading(false);
     }
-  }, [paramsForFetch, sortParam, typeParam]);
+  }, [loading, paramsForFetch, sortParam, typeParam]);
 
   async function handleCopy(item: SampleItem) {
     try {
@@ -70,6 +79,16 @@ export function BrowseResults({ initialItems, query, sortParam, typeParam, activ
     track("browse_card_add_builder", { id: item.id, type: item.type });
     window.location.href = item.slug ? `/workbench?slug=${item.slug}` : `/workbench?id=${item.id}`;
   }
+
+  const handlePreviewOpen = useCallback(
+    (item: SampleItem) => {
+      previewReturnFocusRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setPreview(item);
+      track("browse_preview_open", { id: item.id, type: item.type, sort: sortParam, q: query });
+    },
+    [query, sortParam]
+  );
 
   function handleDragStart(item: SampleItem) {
     const data = {
@@ -123,6 +142,19 @@ export function BrowseResults({ initialItems, query, sortParam, typeParam, activ
     }
   }, [loadMore, preview]);
 
+  useEffect(() => {
+    if (preview && !previewWasOpenRef.current) {
+      previewWasOpenRef.current = true;
+      previewCloseButtonRef.current?.focus();
+      return;
+    }
+    if (!preview && previewWasOpenRef.current) {
+      previewWasOpenRef.current = false;
+      previewReturnFocusRef.current?.focus();
+      previewReturnFocusRef.current = null;
+    }
+  }, [preview]);
+
   function handleUseTemplate(item: SampleItem) {
     track("browse_card_use_template", { id: item.id });
     window.location.href = `/templates/${item.slug ?? item.id}`;
@@ -136,7 +168,7 @@ export function BrowseResults({ initialItems, query, sortParam, typeParam, activ
   if (!items.length) {
     return (
       <Card className="space-y-mdt-3 text-center" padding="lg" tone="raised">
-        <p className="text-h3">{hasFilters ? "No results yet." : "Library is empty."}</p>
+        <p className="text-h3 text-balance">{hasFilters ? "No results yet." : "Library is empty."}</p>
         <Text tone="muted">
           {hasFilters
             ? "Try clearing filters or scan a folder to build your own Workbench instructions."
@@ -162,48 +194,83 @@ export function BrowseResults({ initialItems, query, sortParam, typeParam, activ
   }
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-mdt-5 md:gap-mdt-6">
-      {items.map((item) => (
-        <LibraryCard
-          key={item.id}
-          item={item}
-          copied={copiedId === item.id}
-          onCopySnippet={item.type === "snippet" ? handleCopy : undefined}
-          onAddToBuilder={item.type !== "file" ? handleWorkbench : undefined}
-          onUseTemplate={item.type === "template" ? handleUseTemplate : undefined}
-          onDownloadFile={item.type === "file" ? handleDownload : undefined}
-          onPreview={
-            item.type !== "file"
-              ? (it) => {
-                  setPreview(it);
-                  track("browse_preview_open", { id: it.id, type: it.type, sort: sortParam, q: query });
-                }
-              : undefined
-          }
-          draggable
-          onDragStart={() => handleDragStart(item)}
-          onDragEnd={handleDragEnd}
-        />
-      ))}
-      <div className="col-span-full flex justify-center">
-        <Button variant="secondary" size="md" onClick={loadMore} disabled={loading}>
+    <>
+      <span id={resultsStatusId} className="sr-only" role="status" aria-live="polite">
+        {loading ? "Loading more results" : resultsCountLabel}
+      </span>
+      <div
+        id={resultsId}
+        role="list"
+        aria-label="Browse results"
+        aria-busy={loading}
+        className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-mdt-5 md:gap-mdt-6"
+      >
+        {items.map((item) => (
+          <LibraryCard
+            key={item.id}
+            item={item}
+            copied={copiedId === item.id}
+            role="listitem"
+            onCopySnippet={item.type === "snippet" ? handleCopy : undefined}
+            onAddToBuilder={item.type !== "file" ? handleWorkbench : undefined}
+            onUseTemplate={item.type === "template" ? handleUseTemplate : undefined}
+            onDownloadFile={item.type === "file" ? handleDownload : undefined}
+            onPreview={item.type !== "file" ? handlePreviewOpen : undefined}
+            draggable
+            onDragStart={() => handleDragStart(item)}
+            onDragEnd={handleDragEnd}
+          />
+        ))}
+      </div>
+      <div className="mt-mdt-5 flex justify-center md:mt-mdt-6">
+        <Button
+          variant="secondary"
+          size="md"
+          onClick={loadMore}
+          disabled={loading}
+          aria-busy={loading}
+          aria-controls={resultsId}
+          aria-describedby={resultsStatusId}
+        >
           {loading ? "Loading…" : "Load more"}
         </Button>
       </div>
       {preview && (
         <div className="fixed inset-0 z-40 bg-[color:var(--mdt-color-overlay)] backdrop-blur-sm motion-fade-in motion-reduce:animate-none">
-          <div className="absolute inset-0" onClick={() => setPreview(null)} aria-label="Close preview" />
-          <div className="pointer-events-auto motion-slide-up absolute inset-x-4 top-[10vh] max-h-[80vh] overflow-y-auto rounded-mdt-lg border border-mdt-border-strong bg-mdt-surface-raised p-mdt-6 shadow-mdt-lg md:inset-x-1/4 motion-reduce:animate-none">
+          <button
+            type="button"
+            className="absolute inset-0 bg-transparent border-0 p-0"
+            onClick={() => setPreview(null)}
+            aria-hidden="true"
+            tabIndex={-1}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={dialogTitleId}
+            aria-describedby={dialogDescId}
+            className="pointer-events-auto motion-slide-up absolute inset-x-4 top-[10vh] max-h-[80vh] overflow-y-auto rounded-mdt-lg border border-mdt-border-strong bg-mdt-surface-raised p-mdt-6 shadow-mdt-lg md:inset-x-1/4 motion-reduce:animate-none"
+          >
             <div className="flex flex-col gap-mdt-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-mdt-1">
-                <p className="text-caption text-mdt-muted uppercase tracking-wide">{preview.type}</p>
-                <h2 className="text-h2">{preview.title}</h2>
+                <p className="text-caption text-mdt-muted uppercase tracking-wide text-balance">{preview.type}</p>
+                <h2 id={dialogTitleId} className="text-h2 text-balance">
+                  {preview.title}
+                </h2>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setPreview(null)} aria-label="Close preview">
+              <Button
+                ref={previewCloseButtonRef}
+                variant="ghost"
+                size="sm"
+                onClick={() => setPreview(null)}
+                aria-label="Close preview"
+              >
                 Close
               </Button>
             </div>
-            <p className="mt-mdt-2 text-body text-mdt-muted">{preview.description}</p>
+            <p id={dialogDescId} className="mt-mdt-2 text-body text-mdt-muted text-pretty">
+              {preview.description}
+            </p>
             <div className="mt-mdt-4 flex flex-wrap gap-mdt-2">
               {preview.tags.map((tag) => (
                 <Pill key={tag} tone="gray">
@@ -245,15 +312,15 @@ export function BrowseResults({ initialItems, query, sortParam, typeParam, activ
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface px-mdt-3 py-mdt-2">
-      <p className="text-caption text-mdt-muted">{label}</p>
-      <p className="text-body font-semibold text-mdt-text">{value.toLocaleString()}</p>
+      <p className="text-caption text-mdt-muted text-pretty">{label}</p>
+      <p className="text-body font-semibold text-mdt-text tabular-nums">{value.toLocaleString()}</p>
     </div>
   );
 }

@@ -8,7 +8,11 @@ import { Badge } from "./ui/Badge";
 import { normalizeTags, TAG_MAX_COUNT, TAG_MAX_LENGTH } from "@/lib/tags";
 
 const ReactMarkdown = dynamic(() => import("react-markdown"), {
-  loading: () => <p className="text-sm text-zinc-500">Loading preview…</p>,
+  loading: () => (
+    <p className="text-sm text-zinc-500 text-pretty" role="status" aria-live="polite">
+      Loading preview…
+    </p>
+  ),
 });
 
 type Section = {
@@ -208,23 +212,33 @@ export function SectionComposer() {
   }
 
 const panelClass =
-  "composer-panel rounded-2xl border border-mdt-border bg-mdt-surface shadow-mdt-sm transition duration-mdt-base ease-mdt-emphasized hover:shadow-mdt-md focus-within:border-mdt-primary-strong focus-within:shadow-mdt-md";
+  "composer-panel rounded-2xl border border-mdt-border bg-mdt-surface shadow-mdt-sm transition duration-mdt-base ease-mdt-emphasized motion-reduce:transition-none hover:shadow-mdt-md focus-within:border-mdt-primary-strong focus-within:shadow-mdt-md";
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-mdt-lg border border-mdt-border bg-mdt-surface px-4 py-3 shadow-mdt-sm">
         <div className="flex items-center gap-2 text-sm text-mdt-muted">
-          <Badge tone={status === "saving" ? "info" : status === "saved" ? "success" : "neutral"}>
+          <Badge
+            tone={status === "saving" ? "info" : status === "saved" ? "success" : "neutral"}
+            role="status"
+            aria-live="polite"
+          >
             {status === "saving" ? "Saving…" : status === "saved" ? "Saved" : "Idle"}
           </Badge>
           <Badge tone="info">Outline · Editor · Preview</Badge>
           <Badge tone="primary">Cmd/Ctrl+S saves</Badge>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={loadSections} disabled={isLoading || saving}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={loadSections}
+            disabled={isLoading || saving}
+            aria-busy={isLoading}
+          >
             Refresh
           </Button>
-          <Button size="sm" onClick={createSection} disabled={saving} aria-label="Add a new section">
+          <Button size="sm" onClick={createSection} disabled={saving} aria-label="Add a new section" aria-busy={saving}>
             New section
           </Button>
         </div>
@@ -233,19 +247,21 @@ const panelClass =
       <div className="composer-grid grid grid-cols-1 gap-6 lg:grid-cols-[320px_1.1fr_1.1fr]">
         <div className={panelClass} aria-live="polite" aria-busy={isLoading}>
           <div className="flex items-center justify-between border-b border-mdt-border px-4 py-3">
-            <h2 className="text-sm font-semibold text-mdt-text">Outline</h2>
-            <Button onClick={createSection} disabled={saving} size="sm" aria-label="Add a new section">
+            <h2 className="text-sm font-semibold text-mdt-text text-balance">Outline</h2>
+            <Button onClick={createSection} disabled={saving} size="sm" aria-label="Add a new section" aria-busy={saving}>
               Add
             </Button>
           </div>
           <div className="max-h-[70vh] overflow-y-auto px-2 py-2" role="list">
             {isLoading && (
-              <p className="px-2 py-2 text-sm text-mdt-muted" role="status">
+              <p className="px-2 py-2 text-sm text-mdt-muted text-pretty" role="status">
                 Loading...
               </p>
             )}
             {!isLoading && sections.length === 0 && (
-              <p className="px-2 py-2 text-sm text-mdt-muted">No sections yet. Create your first one.</p>
+              <p className="px-2 py-2 text-sm text-mdt-muted text-pretty">
+                No sections yet. Create your first one.
+              </p>
             )}
             {sections.map((section, idx) => (
               <div role="listitem" key={section.id}>
@@ -260,7 +276,7 @@ const panelClass =
                   }`}
                 >
                   <span className="truncate text-sm font-medium">{section.title || "Untitled"}</span>
-                  <span className="text-[11px] text-mdt-muted" aria-label={`Order ${section.order}`}>
+                  <span className="text-[11px] text-mdt-muted tabular-nums" aria-label={`Order ${section.order}`}>
                     #{section.order}
                   </span>
                 </button>
@@ -289,7 +305,12 @@ const panelClass =
             )}
           </div>
           <div className="flex flex-col gap-3 px-4 py-4">
+            <label htmlFor="section-title" className="sr-only">
+              Section title
+            </label>
             <input
+              id="section-title"
+              name="sectionTitle"
               type="text"
               placeholder="Section title"
               value={selected?.title ?? ""}
@@ -297,6 +318,8 @@ const panelClass =
               onBlur={() => selectedRef.current && saveSection(selectedRef.current)}
               disabled={!selected}
               className="w-full rounded-lg border border-mdt-border bg-mdt-surface-subtle px-3 py-2 text-sm focus:border-mdt-ring focus:outline-none focus:ring-2 focus:ring-mdt-ring disabled:cursor-not-allowed disabled:bg-mdt-surface"
+              autoComplete="off"
+              enterKeyHint="done"
             />
             <div className="space-y-1">
               <label className="text-xs font-semibold text-mdt-text" htmlFor="section-tags">
@@ -304,6 +327,7 @@ const panelClass =
               </label>
               <input
                 id="section-tags"
+                name="sectionTags"
                 type="text"
                 placeholder="system, tools, style"
                 value={tagInput}
@@ -311,22 +335,32 @@ const panelClass =
                 onBlur={() => selectedRef.current && !tagError && saveSection(selectedRef.current)}
                 disabled={!selected}
                 className="w-full rounded-lg border border-mdt-border bg-mdt-surface-subtle px-3 py-2 text-sm focus:border-mdt-ring focus:outline-none focus:ring-2 focus:ring-mdt-ring disabled:cursor-not-allowed disabled:bg-mdt-surface"
+                autoComplete="off"
+                spellCheck={false}
+                aria-invalid={Boolean(tagError)}
+                aria-describedby={tagError ? "section-tags-error" : undefined}
+                enterKeyHint="done"
               />
               <div className="flex items-center justify-between text-[11px] text-mdt-muted">
                 <span>
                   Lowercase & kebab-case enforced. Max {TAG_MAX_COUNT} tags, {TAG_MAX_LENGTH} chars each.
                 </span>
-                <span>
+                <span className="tabular-nums">
                   {selected?.tags?.length ?? 0}/{TAG_MAX_COUNT}
                 </span>
               </div>
               {tagError && (
-                <p className="text-xs font-semibold text-mdt-danger" role="alert">
+                <p id="section-tags-error" className="text-xs font-semibold text-mdt-danger text-pretty" role="alert">
                   {tagError}
                 </p>
               )}
             </div>
+            <label htmlFor="section-content" className="sr-only">
+              Section content
+            </label>
             <textarea
+              id="section-content"
+              name="sectionContent"
               placeholder="Write markdown here..."
               value={selected?.content ?? ""}
               onChange={(e) => updateSelected({ content: e.target.value })}
@@ -334,9 +368,11 @@ const panelClass =
               disabled={!selected}
               rows={18}
               className="w-full rounded-lg border border-mdt-border bg-mdt-surface-subtle px-3 py-2 text-sm font-mono focus:border-mdt-ring focus:outline-none focus:ring-2 focus:ring-mdt-ring disabled:cursor-not-allowed disabled:bg-mdt-surface"
+              autoComplete="off"
+              spellCheck={false}
             />
             {error && (
-              <p className="text-sm font-medium text-mdt-danger" role="alert">
+              <p className="text-sm font-medium text-mdt-danger text-pretty" role="alert">
                 {error}
               </p>
             )}
@@ -359,7 +395,7 @@ const panelClass =
                 {combinedMarkdown}
               </ReactMarkdown>
             ) : (
-              <p className="text-sm text-mdt-muted">Start typing to see a preview.</p>
+            <p className="text-sm text-mdt-muted text-pretty">Start typing to see a preview.</p>
             )}
           </div>
         </div>

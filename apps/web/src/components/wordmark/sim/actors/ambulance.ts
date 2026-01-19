@@ -1,7 +1,7 @@
 import type { CityWordmarkLayout } from "../layout";
 import { createRng } from "../rng";
 import type { CityWordmarkConfig } from "../types";
-import { getActorLaneY, getActorScale } from "./types";
+import { getActorLaneY, getActorScale, getActorUnit } from "./types";
 import type { CityWordmarkActor, CityWordmarkActorContext, CityWordmarkActorRect, CityWordmarkActorUpdateContext } from "./types";
 
 type AmbulanceState = {
@@ -14,7 +14,7 @@ type AmbulanceState = {
 };
 
 // Ambulance dimensions in units (unit = half scale, same as all actors)
-// At scale=3: unit=1, ambulance is 10x3 voxels (between car and truck)
+// At scale=3: unit=2, ambulance is 20x6 voxels (between car and truck)
 // Structure: roof (inset), body, lower body with wheels, sirens on top
 const AMBULANCE_WIDTH_UNITS = 10;
 const AMBULANCE_HEIGHT_UNITS = 3;
@@ -28,7 +28,7 @@ function createAmbulanceActor(state: AmbulanceState): CityWordmarkActor {
   function update(ctx: CityWordmarkActorUpdateContext): CityWordmarkActor {
     if (!ctx.config.actors.ambulance) return { ...actor, done: true };
 
-    const unit = Math.max(1, Math.floor(getActorScale(ctx.layout) / 2));
+    const unit = getActorUnit(ctx.layout);
     const x = getX(state, ctx, unit);
     const offScreen = x > ctx.layout.sceneWidth + 3 * unit;
     const expired = ctx.nowMs >= state.endAtMs;
@@ -38,7 +38,8 @@ function createAmbulanceActor(state: AmbulanceState): CityWordmarkActor {
 
   function render(ctx: { nowMs: number; config: CityWordmarkConfig; layout: CityWordmarkLayout }): CityWordmarkActorRect[] {
     const scale = getActorScale(ctx.layout);
-    const unit = Math.max(1, Math.floor(scale / 2));
+    const unit = getActorUnit(ctx.layout);
+    const isDetailed = scale >= 3;
     const width = AMBULANCE_WIDTH_UNITS * unit;
 
     const x = getX(state, ctx, unit);
@@ -87,6 +88,29 @@ function createAmbulanceActor(state: AmbulanceState): CityWordmarkActor {
       tone: "sirenRed",
       opacity: 0.35,
     });
+
+    if (isDetailed) {
+      const crossX = x + unit * 5;
+      const crossY = state.y + unit;
+      out.push(
+        {
+          x: crossX,
+          y: crossY - unit,
+          width: unit,
+          height: unit * 3,
+          tone: "sirenRed",
+          opacity: 0.45,
+        },
+        {
+          x: crossX - unit,
+          y: crossY,
+          width: unit * 3,
+          height: unit,
+          tone: "sirenRed",
+          opacity: 0.45,
+        }
+      );
+    }
 
     // Row 2 (bottom): Lower body with wheel wells
     // Front section
@@ -180,7 +204,7 @@ export function spawnAmbulanceActor(
   if (!ctx.config.actors.ambulance) return null;
 
   const rng = createRng(`${ctx.config.seed}:ambulance:${ctx.triggerIndex}`);
-  const unit = Math.max(1, Math.floor(getActorScale(ctx.layout) / 2));
+  const unit = getActorUnit(ctx.layout);
   const laneY = getActorLaneY(ctx.layout, AMBULANCE_HEIGHT_UNITS);
   const width = AMBULANCE_WIDTH_UNITS * unit;
   const speedVps = 7 + rng.nextFloat() * 3;

@@ -119,6 +119,7 @@ export function EditorPanel() {
           placeholder="Block title (optional)"
           size="sm"
           className="w-full sm:max-w-lg"
+          autoComplete="off"
         />
         <Badge tone="neutral" className="w-fit font-mono uppercase tracking-wide">
           {block.kind}
@@ -137,6 +138,7 @@ export function EditorPanel() {
         className="flex-1 resize-none"
         placeholder={helpersByKind[block.kind].placeholder}
         autoFocus
+        spellCheck={false}
       />
 
       <div className="mt-mdt-3 rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle px-mdt-3 py-mdt-2 text-caption text-mdt-muted">

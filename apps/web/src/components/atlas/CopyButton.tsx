@@ -49,8 +49,15 @@ export function CopyButton({
   }
 
   return (
-    <Button type="button" className={cn(className)} onClick={handleCopy} {...props}>
-      {copied ? copiedLabel : label}
-    </Button>
+    <>
+      <Button type="button" className={cn(className)} onClick={handleCopy} {...props}>
+        {copied ? copiedLabel : label}
+      </Button>
+      {copied ? (
+        <span className="sr-only" role="status" aria-live="polite">
+          {copiedLabel}
+        </span>
+      ) : null}
+    </>
   );
 }

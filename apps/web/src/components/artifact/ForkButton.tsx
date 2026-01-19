@@ -63,7 +63,14 @@ export function ForkButton({
   };
 
   return (
-    <Button className={className} variant={variant} size={size} onClick={handleFork} disabled={loading}>
+    <Button
+      className={className}
+      variant={variant}
+      size={size}
+      onClick={handleFork}
+      disabled={loading}
+      aria-busy={loading}
+    >
       {loading ? 'Forking...' : label}
     </Button>
   );

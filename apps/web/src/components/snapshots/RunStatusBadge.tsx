@@ -14,7 +14,7 @@ export function RunStatusBadge({ status }: RunStatusBadgeProps) {
   };
 
   return (
-    <Badge tone={toneMap[status]} className="font-mono">
+    <Badge tone={toneMap[status]} className="font-mono" role="status" aria-live="polite">
       {status}
     </Badge>
   );

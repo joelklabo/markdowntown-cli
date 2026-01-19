@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 
 type HeadingLevel = "display" | "h1" | "h2" | "h3";
 
-const headingVariants = cva("font-display", {
+const headingVariants = cva("font-display text-balance", {
   variants: {
     level: {
       display: "text-display",

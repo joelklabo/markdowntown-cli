@@ -143,6 +143,11 @@ export function LibraryCard({
           className="w-full justify-start"
         >
           {copied ? "Copied" : "Copy snippet"}
+          {copied ? (
+            <span className="sr-only" role="status" aria-live="polite">
+              Copied to clipboard
+            </span>
+          ) : null}
         </Button>
       );
     }
@@ -251,20 +256,20 @@ export function LibraryCard({
             </Pill>
           ))}
           {overflowCount > 0 && (
-            <Pill tone="gray">+{overflowCount}</Pill>
+            <Pill tone="gray" className="tabular-nums">+{overflowCount}</Pill>
           )}
         </Row>
       </Stack>
 
       <div className="mt-auto space-y-mdt-4 border-t border-mdt-border pt-mdt-4">
         <Row gap={3} wrap className="text-caption text-mdt-muted">
-          <Text as="span" size="caption" tone="muted">
+          <Text as="span" size="caption" tone="muted" className="tabular-nums">
             {item.stats.views.toLocaleString()} views
           </Text>
-          <Text as="span" size="caption" tone="muted">
+          <Text as="span" size="caption" tone="muted" className="tabular-nums">
             {item.stats.copies.toLocaleString()} copies
           </Text>
-          <Text as="span" size="caption" tone="muted">
+          <Text as="span" size="caption" tone="muted" className="tabular-nums">
             {item.stats.votes.toLocaleString()} votes
           </Text>
         </Row>

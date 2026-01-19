@@ -63,7 +63,7 @@ export function SimulatorScanMeta({
     >
       {rootName ? <span className="font-mono text-mdt-text">{rootName}</span> : null}
       {rootName ? <span className="text-mdt-muted">: </span> : null}
-      <span>{summary.join(" · ")}.</span>
+      <span className="tabular-nums">{summary.join(" · ")}.</span>
       {metaParts.length ? <span className="text-mdt-muted">·</span> : null}
       {metaParts.map((part, index) => (
         <span key={`meta-${index}`} className="inline-flex items-center gap-1 text-mdt-muted">

@@ -15,7 +15,7 @@ export function CrosswalkSection({ features, crosswalk, selectedPlatforms }: Cro
   return (
     <section className="rounded-mdt-xl border border-mdt-border bg-mdt-surface p-mdt-4 shadow-mdt-sm">
       <div className="text-body-sm font-semibold text-mdt-text">Equivalent artifacts</div>
-      <div className="mt-mdt-2 text-body-xs text-mdt-muted">
+      <div className="mt-mdt-2 text-body-xs text-mdt-muted text-pretty">
         Crosswalk entries from <span className="font-mono">atlas/crosswalk.json</span>.
       </div>
 
@@ -53,4 +53,3 @@ export function CrosswalkSection({ features, crosswalk, selectedPlatforms }: Cro
     </section>
   );
 }
-

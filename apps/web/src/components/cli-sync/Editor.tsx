@@ -19,8 +19,16 @@ export function Editor({ filePath, content, hasUnsavedEdits = false }: RepoEdito
           Editor
         </Text>
         <Row align="center" justify="between" wrap className="gap-mdt-3">
-          <Heading level="h3">Working copy</Heading>
-          <Text size="caption" tone="muted" className={hasUnsavedEdits ? "text-mdt-danger" : undefined}>
+          <Heading level="h3" id="cli-sync-working-copy">
+            Working copy
+          </Heading>
+          <Text
+            size="caption"
+            tone="muted"
+            className={hasUnsavedEdits ? "text-mdt-danger" : undefined}
+            role="status"
+            aria-live="polite"
+          >
             {hasUnsavedEdits ? "Unsaved edits" : "Synced with snapshot"}
           </Text>
         </Row>
@@ -34,6 +42,9 @@ export function Editor({ filePath, content, hasUnsavedEdits = false }: RepoEdito
           value={content}
           readOnly
           className="min-h-[280px] resize-none font-mono text-xs leading-relaxed"
+          aria-labelledby="cli-sync-working-copy"
+          autoComplete="off"
+          spellCheck={false}
         />
       </div>
 

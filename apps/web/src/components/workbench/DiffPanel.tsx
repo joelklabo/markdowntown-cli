@@ -24,7 +24,11 @@ export function DiffPanel({
 
   if (!baselineUam && !before) {
     return (
-      <div className="rounded-mdt-lg border border-dashed border-mdt-border bg-mdt-surface-subtle px-mdt-4 py-mdt-3 text-body-sm text-mdt-muted">
+      <div
+        className="rounded-mdt-lg border border-dashed border-mdt-border bg-mdt-surface-subtle px-mdt-4 py-mdt-3 text-body-sm text-mdt-muted"
+        role="status"
+        aria-live="polite"
+      >
         No baseline to compare yet.
       </div>
     );

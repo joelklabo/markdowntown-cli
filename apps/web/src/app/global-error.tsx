@@ -14,8 +14,8 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
 
   return (
     <html>
-      <body className="min-h-screen bg-mdt-bg-soft text-mdt-text">
-        <main className="mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center px-4 py-mdt-12 text-center">
+      <body className="min-h-dvh bg-mdt-bg-soft text-mdt-text">
+        <main className="mx-auto flex min-h-dvh max-w-4xl flex-col items-center justify-center px-4 py-mdt-12 text-center">
           <div className="mb-mdt-6 flex items-center justify-center">
             <BrandLogo />
           </div>
@@ -26,8 +26,8 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
               </div>
             </div>
             <div className="space-y-2">
-              <h1 className="text-h1">Something went wrong</h1>
-              <p className="text-body text-mdt-muted">
+              <h1 className="text-h1 text-balance">Something went wrong</h1>
+              <p className="text-body text-mdt-muted text-pretty">
                 We hit a snag while loading this page. Try again, or head back to the town square.
               </p>
             </div>
@@ -37,7 +37,7 @@ export default function GlobalError({ error, reset }: { error: Error; reset: () 
                 <Link href="/">Back to home</Link>
               </Button>
             </div>
-            <p className="text-caption text-mdt-muted">
+            <p className="text-caption text-mdt-muted text-pretty">
               If the issue keeps happening, refresh the page or check your connection.
             </p>
           </Card>

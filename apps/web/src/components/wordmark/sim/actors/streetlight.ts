@@ -3,7 +3,7 @@ import type { CityWordmarkLayout } from "../layout";
 import { createRng } from "../rng";
 import { getTimeOfDayPhase } from "../time";
 import type { CityWordmarkConfig } from "../types";
-import { getActorScale } from "./types";
+import { getActorScale, getActorUnit } from "./types";
 import type { CityWordmarkActor, CityWordmarkActorContext, CityWordmarkActorRect } from "./types";
 
 type Streetlight = {
@@ -27,7 +27,7 @@ function getStreetlightCount(config: CityWordmarkConfig): number {
 }
 
 // Streetlight dimensions in units (unit = half scale, same as all actors)
-// At scale=3: unit=1, streetlight is 2 units wide, 6 units tall
+// At scale=3: unit=2, streetlight is 4 units wide, 12 units tall
 // Structure: cap (1 unit) + bulb (2 units) + post (4 units tall, 1 unit wide)
 const BULB_SIZE_UNITS = 2;
 const POST_WIDTH_UNITS = 1;
@@ -48,7 +48,8 @@ function createStreetlightActor(state: StreetlightState): CityWordmarkActor {
 
     const out: CityWordmarkActorRect[] = [];
     const scale = getActorScale(ctx.layout);
-    const unit = Math.max(1, Math.floor(scale / 2));
+    const unit = getActorUnit(ctx.layout);
+    const isDetailed = scale >= 3;
 
     const bulbSize = BULB_SIZE_UNITS * unit;
     const postWidth = POST_WIDTH_UNITS * unit;
@@ -79,6 +80,17 @@ function createStreetlightActor(state: StreetlightState): CityWordmarkActor {
           tone: "pedestrian",
           opacity: clamp01(opacity * 0.55),
         });
+        if (isDetailed) {
+          const baseY = postY + postHeight - unit;
+          out.push({
+            x: postX - unit,
+            y: baseY,
+            width: postWidth + unit * 2,
+            height: unit,
+            tone: "pedestrian",
+            opacity: clamp01(opacity * 0.4),
+          });
+        }
       }
 
       // Cap (above bulb)
@@ -118,6 +130,19 @@ function createStreetlightActor(state: StreetlightState): CityWordmarkActor {
         tone: "headlight",
         opacity,
       });
+
+      if (isDetailed) {
+        const coreSize = Math.max(1, Math.floor(bulbSize / 2));
+        const coreOffset = Math.floor((bulbSize - coreSize) / 2);
+        out.push({
+          x: light.x + coreOffset,
+          y: light.y + coreOffset,
+          width: coreSize,
+          height: coreSize,
+          tone: "headlight",
+          opacity: clamp01(opacity * 0.6),
+        });
+      }
     }
 
     return out;
@@ -138,7 +163,7 @@ export function spawnStreetlightActors(ctx: CityWordmarkActorContext): CityWordm
   if (ctx.layout.sceneWidth <= 0) return [];
 
   const rng = createRng(`${ctx.config.seed}:streetlights`);
-  const unit = Math.max(1, Math.floor(getActorScale(ctx.layout) / 2));
+  const unit = getActorUnit(ctx.layout);
   const totalHeight = TOTAL_HEIGHT_UNITS * unit;
   const y = Math.max(0, ctx.layout.baselineY - totalHeight + POST_HEIGHT_UNITS * unit);
   const xMax = Math.max(0, ctx.layout.sceneWidth - 1);

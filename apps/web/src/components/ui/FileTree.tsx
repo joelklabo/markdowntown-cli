@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '@/lib/cn';
+import { cn, focusRing, interactiveBase } from '@/lib/cn';
 
 type TreeNode = {
   name: string;
@@ -71,8 +71,11 @@ function Tree({
                 type="button"
                 onClick={() => onSelect?.(child.fullPath)}
                 disabled={!onSelect}
+                aria-current={selected ? "true" : undefined}
                 className={cn(
-                  'w-full text-left font-mono text-caption px-2 py-1 rounded border',
+                  'w-full min-h-6 text-left font-mono text-caption px-2 py-1 rounded border',
+                  interactiveBase,
+                  focusRing,
                   selected ? 'border-mdt-primary bg-mdt-primary/10' : 'border-transparent hover:bg-mdt-surface-subtle',
                   depth > 0 ? 'ml-2' : ''
                 )}
@@ -109,7 +112,11 @@ export function FileTree({ paths, selectedPath, onSelect, className, emptyLabel 
   const tree = React.useMemo(() => buildTree(paths), [paths]);
 
   if (paths.length === 0) {
-    return <div className={cn('text-mdt-muted text-body-sm', className)}>{emptyLabel}</div>;
+    return (
+      <div className={cn('text-mdt-muted text-body-sm', className)} role="status" aria-live="polite">
+        {emptyLabel}
+      </div>
+    );
   }
 
   return (
@@ -118,4 +125,3 @@ export function FileTree({ paths, selectedPath, onSelect, className, emptyLabel 
     </div>
   );
 }
-

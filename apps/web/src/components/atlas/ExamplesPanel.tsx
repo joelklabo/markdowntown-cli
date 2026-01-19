@@ -21,11 +21,11 @@ export function ExamplesPanel({ platformId, defaultTargetId, examples }: Example
       <div className="flex items-center justify-between gap-mdt-3">
         <div className="text-body-sm font-semibold text-mdt-text">Examples</div>
         <div className="flex items-center gap-mdt-2">
-          <div className="text-caption text-mdt-muted">{examples.length}</div>
+          <div className="text-caption text-mdt-muted tabular-nums">{examples.length}</div>
           <DownloadExamplesZipButton files={zipFiles} downloadName={`atlas-${platformId}-examples.zip`} />
         </div>
       </div>
-      <div className="mt-mdt-2 text-body-xs text-mdt-muted">Snippets under atlas/examples/&lt;platformId&gt;/.</div>
+      <div className="mt-mdt-2 text-body-xs text-mdt-muted text-pretty">Snippets under atlas/examples/&lt;platformId&gt;/.</div>
 
       {examples.length === 0 ? (
         <Text className="mt-mdt-3" size="bodySm" tone="muted">

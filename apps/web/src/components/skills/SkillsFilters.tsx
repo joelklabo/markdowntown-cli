@@ -8,6 +8,7 @@ import { Row, Stack } from "@/components/ui/Stack";
 import { Text } from "@/components/ui/Text";
 import type { ListPublicSkillsInput } from "@/lib/skills/skillTypes";
 import type { PublicTag } from "@/lib/publicTags";
+import { cn, focusRing, interactiveBase } from "@/lib/cn";
 
 type Filters = {
   q: string;
@@ -85,7 +86,17 @@ export function SkillsFilters({ q, tags, targets, sort, topTags, availableTarget
           <Text as="label" htmlFor="skills-q" size="caption" tone="muted">
             Search skills
           </Text>
-          <Input id="skills-q" name="q" defaultValue={q} placeholder="Search skills or capabilities…" />
+        <Input
+          id="skills-q"
+          name="q"
+          type="search"
+          defaultValue={q}
+          placeholder="Search skills or capabilities…"
+          autoComplete="off"
+          spellCheck={false}
+          enterKeyHint="search"
+          inputMode="search"
+        />
         </div>
 
         {sort !== "recent" && <input type="hidden" name="sort" value={sort} />}
@@ -124,7 +135,7 @@ export function SkillsFilters({ q, tags, targets, sort, topTags, availableTarget
           className="rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle px-mdt-3 py-mdt-2"
           open={advancedOpen}
         >
-          <summary className="cursor-pointer text-body-sm font-semibold text-mdt-text">
+          <summary className={cn("cursor-pointer text-body-sm font-semibold text-mdt-text", interactiveBase, focusRing)}>
             Advanced filters
           </summary>
           <div className="mt-mdt-3 space-y-mdt-4">
@@ -144,7 +155,7 @@ export function SkillsFilters({ q, tags, targets, sort, topTags, availableTarget
                   );
                 })}
                 {availableTargets.length === 0 && (
-                  <Text size="caption" tone="muted">
+                  <Text size="caption" tone="muted" role="status" aria-live="polite">
                     No target metadata yet.
                   </Text>
                 )}
@@ -167,7 +178,7 @@ export function SkillsFilters({ q, tags, targets, sort, topTags, availableTarget
                   );
                 })}
                 {visibleTags.length === 0 && (
-                  <Text size="caption" tone="muted">
+                  <Text size="caption" tone="muted" role="status" aria-live="polite">
                     No tags yet.
                   </Text>
                 )}

@@ -18,7 +18,7 @@ export function AtlasSidebar() {
     >
       <div className="rounded-t-mdt-xl border-b border-mdt-border bg-mdt-surface-subtle px-mdt-4 py-mdt-3">
         <div className="text-body-sm font-semibold text-mdt-text">Explore</div>
-        <div className="text-body-xs text-mdt-muted">Docs-as-data for agent behavior.</div>
+        <div className="text-body-xs text-mdt-muted text-pretty">Docs-as-data for agent behavior.</div>
       </div>
       <ul className="space-y-mdt-1 p-mdt-3">
         {navItems.map((item) => (

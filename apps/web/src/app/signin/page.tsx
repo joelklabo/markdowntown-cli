@@ -27,7 +27,7 @@ export default async function SignInPage({
   const error = params.error;
 
   return (
-    <div className="min-h-screen bg-mdt-bg-soft text-mdt-text">
+    <div className="min-h-dvh bg-mdt-bg-soft text-mdt-text">
       <main id="main-content" className="py-mdt-10 md:py-mdt-12">
         <Container size="md" padding="md">
           <Stack gap={10}>
@@ -83,7 +83,7 @@ export default async function SignInPage({
                   </div>
                 )}
                 {error && (
-                  <Text size="bodySm" className="text-[color:var(--mdt-color-danger)]">
+                  <Text size="bodySm" className="text-[color:var(--mdt-color-danger)]" role="alert">
                     Sign-in failed: {error.replaceAll("_", " ")}
                   </Text>
                 )}

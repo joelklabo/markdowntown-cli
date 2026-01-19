@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Text } from '@/components/ui/Text';
 import { StructuredAssistPanel } from '@/components/workbench/StructuredAssistPanel';
-import { cn } from '@/lib/cn';
+import { cn, focusRing, interactiveBase } from '@/lib/cn';
 import type { UamBlockKindV1 } from '@/lib/uam/uamTypes';
 
 const KIND_OPTIONS: Array<{ kind: UamBlockKindV1; label: string }> = [
@@ -109,12 +109,23 @@ export function BlocksPanel() {
                       style={provided.draggableProps.style}
                       className={cn(
                         'group flex items-center gap-mdt-2 rounded-mdt-md border p-mdt-2 transition-colors duration-mdt-fast ease-mdt-standard motion-reduce:transition-none',
+                        interactiveBase,
+                        focusRing,
                         selectedBlockId === block.id
                           ? 'border-mdt-primary bg-mdt-primary/10'
                           : 'border-mdt-border bg-mdt-surface hover:border-mdt-primary-soft',
                         snapshot.isDragging ? 'shadow-lg opacity-80 z-50' : ''
                       )}
                       onClick={() => selectBlock(block.id)}
+                      role="button"
+                      aria-pressed={selectedBlockId === block.id}
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          selectBlock(block.id);
+                        }
+                      }}
                     >
                       <div
                         {...provided.dragHandleProps}
@@ -137,7 +148,11 @@ export function BlocksPanel() {
                           e.stopPropagation();
                           removeBlock(block.id);
                         }}
-                        className="p-mdt-1 text-mdt-muted opacity-0 group-hover:opacity-100 hover:text-mdt-danger"
+                        className={cn(
+                          "inline-flex h-mdt-8 w-mdt-8 items-center justify-center rounded-mdt-sm text-mdt-muted opacity-0 group-hover:opacity-100 hover:text-mdt-danger",
+                          interactiveBase,
+                          focusRing
+                        )}
                         aria-label="Remove block"
                       >
                         ×

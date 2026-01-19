@@ -85,12 +85,13 @@ export function NavActiveIndicator({
       <span
         className={cn(
           "mdt-nav-active-indicator-position absolute left-0 bottom-1 transition-[transform,opacity] duration-mdt-fast ease-mdt-emphasized",
+          "motion-reduce:transition-none",
           state.visible ? "opacity-100" : "opacity-0"
         )}
         style={{ transform: `translateX(${state.x}px)` }}
       >
         <span
-          className="mdt-nav-active-indicator-bar block h-[3px] w-px origin-left rounded-full bg-mdt-primary transition-transform duration-mdt-fast ease-mdt-emphasized"
+          className="mdt-nav-active-indicator-bar block h-[3px] w-px origin-left rounded-full bg-mdt-primary transition-transform duration-mdt-fast ease-mdt-emphasized motion-reduce:transition-none"
           style={{ transform: `scaleX(${Math.max(1, state.width)})` }}
         />
       </span>

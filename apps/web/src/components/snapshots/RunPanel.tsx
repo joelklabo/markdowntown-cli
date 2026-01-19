@@ -74,6 +74,7 @@ export function RunPanel({ snapshotId, initialRuns }: RunPanelProps) {
             size="sm"
             onClick={() => startRun("audit")}
             disabled={isStarting === "audit" || auditRun?.status === "RUNNING"}
+            aria-busy={isStarting === "audit"}
           >
             {isStarting === "audit" ? "Starting..." : "Run Audit"}
           </Button>
@@ -92,6 +93,7 @@ export function RunPanel({ snapshotId, initialRuns }: RunPanelProps) {
             variant="secondary"
             onClick={() => startRun("suggest")}
             disabled={isStarting === "suggest" || suggestRun?.status === "RUNNING"}
+            aria-busy={isStarting === "suggest"}
           >
             {isStarting === "suggest" ? "Starting..." : "Run Suggest"}
           </Button>

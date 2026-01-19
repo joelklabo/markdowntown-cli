@@ -28,11 +28,11 @@ export function SnapshotList({ snapshots }: SnapshotListProps) {
             <Heading level="h3" className="font-mono">
               {snapshot.id.slice(0, 8)}
             </Heading>
-            <Text tone="muted" size="caption">
+            <Text tone="muted" size="caption" className="tabular-nums">
               {new Date(snapshot.createdAt).toLocaleDateString()}
             </Text>
           </div>
-          <Text tone="muted" size="bodySm">
+          <Text tone="muted" size="bodySm" className="tabular-nums">
             {snapshot._count.files} {strings.snapshots.files} • {snapshot.status}
           </Text>
           <div className="mt-2">

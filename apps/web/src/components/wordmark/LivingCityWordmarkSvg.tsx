@@ -259,16 +259,22 @@ export function LivingCityWordmarkSvg({
     () => getCityWordmarkWindowLights(windows, { nowMs, timeOfDay }),
     [nowMs, timeOfDay, windows]
   );
+  // Universal voxel size - same as actors use
+  const voxel = Math.max(1, Math.floor(gridScale / 2));
+
   const windowsPath = useMemo(() => {
     const lit: Array<{ x: number; y: number; width: number; height: number }> = [];
     for (let i = 0; i < windows.length; i++) {
       if (!windowState[i]) continue;
       const w = windows[i];
       if (!w) continue;
-      lit.push({ x: w.x, y: w.y, width: 1, height: 1 });
+      // Only render windows that fall on the voxel grid to prevent overlap
+      if (w.x % voxel !== 0 || w.y % voxel !== 0) continue;
+      // Scale windows to match actor voxel size
+      lit.push({ x: w.x, y: w.y, width: voxel, height: voxel });
     }
     return voxelRectsToPath(lit, 1);
-  }, [windowState, windows]);
+  }, [windowState, windows, voxel]);
 
   const bodySize = 2 * gridScale;
   const skyMaxX = Math.max(0, sceneWidth - bodySize);

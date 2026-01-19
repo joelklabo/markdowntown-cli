@@ -41,7 +41,7 @@ export function ComparePicker({
       className={cn("rounded-mdt-xl border border-mdt-border bg-mdt-surface p-mdt-4 shadow-mdt-sm", className)}
     >
       <legend className="text-body-sm font-semibold text-mdt-text">Platforms</legend>
-      <div className="mt-mdt-2 text-body-xs text-mdt-muted">
+      <div className="mt-mdt-2 text-body-xs text-mdt-muted text-pretty tabular-nums">
         Select {min}–{max} platforms to compare.
       </div>
 
@@ -73,4 +73,3 @@ export function ComparePicker({
     </fieldset>
   );
 }
-

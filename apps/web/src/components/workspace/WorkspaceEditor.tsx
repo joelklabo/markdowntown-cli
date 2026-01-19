@@ -99,13 +99,20 @@ export function WorkspaceEditor({ initialData, snapshotId, workspaceId }: Worksp
           <>
             <div className="flex justify-between items-center">
               <div className="flex flex-col">
-                <Heading level="h3" className="font-mono">{selectedPath}</Heading>
-                {isDirty && <Text tone="muted" size="caption">Unsaved changes</Text>}
+                <Heading level="h3" id="workspace-editor-path" className="font-mono">
+                  {selectedPath}
+                </Heading>
+                {isDirty && (
+                  <Text tone="muted" size="caption" role="status" aria-live="polite">
+                    Unsaved changes
+                  </Text>
+                )}
               </div>
               <Button
                 size="sm"
                 onClick={handleSave}
                 disabled={!isDirty || isSaving || isLoading}
+                aria-busy={isSaving}
               >
                 {isSaving ? "Saving..." : "Save Changes"}
               </Button>
@@ -114,7 +121,9 @@ export function WorkspaceEditor({ initialData, snapshotId, workspaceId }: Worksp
             <Card padding="none" tone="raised" className="relative min-h-[500px]">
               {isLoading && (
                 <div className="absolute inset-0 bg-mdt-surface/50 flex items-center justify-center z-10">
-                  <Text>Loading...</Text>
+                  <Text role="status" aria-live="polite">
+                    Loading...
+                  </Text>
                 </div>
               )}
               <CodeEditor
@@ -123,8 +132,10 @@ export function WorkspaceEditor({ initialData, snapshotId, workspaceId }: Worksp
                   setCurrentContent(e.target.value);
                   setIsDirty(true);
                 }}
-                className="w-full h-full min-h-[500px] p-4 resize-none focus:ring-0 border-0"
+                className="w-full h-full min-h-[500px] p-4 resize-none border-0"
                 placeholder="File content..."
+                aria-labelledby="workspace-editor-path"
+                spellCheck={false}
               />
             </Card>
           </>

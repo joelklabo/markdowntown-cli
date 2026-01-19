@@ -109,16 +109,16 @@ export default async function SnippetDetail({ params }: { params: Promise<Snippe
             <Heading level="h3" as="h4">Quality signals</Heading>
             <div className="grid gap-mdt-3 sm:grid-cols-3">
               <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle p-mdt-3 text-body-sm">
-                <p className="text-caption text-mdt-muted">Copies</p>
-                <p className="text-h3 font-display">{item.stats.copies.toLocaleString()}</p>
+                <p className="text-caption text-mdt-muted text-balance">Copies</p>
+                <p className="text-h3 font-display tabular-nums text-balance">{item.stats.copies.toLocaleString()}</p>
               </div>
               <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle p-mdt-3 text-body-sm">
-                <p className="text-caption text-mdt-muted">Views</p>
-                <p className="text-h3 font-display">{item.stats.views.toLocaleString()}</p>
+                <p className="text-caption text-mdt-muted text-balance">Views</p>
+                <p className="text-h3 font-display tabular-nums text-balance">{item.stats.views.toLocaleString()}</p>
               </div>
               <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle p-mdt-3 text-body-sm">
-                <p className="text-caption text-mdt-muted">Votes</p>
-                <p className="text-h3 font-display">{item.stats.votes.toLocaleString()}</p>
+                <p className="text-caption text-mdt-muted text-balance">Votes</p>
+                <p className="text-h3 font-display tabular-nums text-balance">{item.stats.votes.toLocaleString()}</p>
               </div>
             </div>
           </Surface>

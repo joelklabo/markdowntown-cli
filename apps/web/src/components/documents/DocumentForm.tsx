@@ -135,6 +135,8 @@ export function DocumentForm({ initial }: Props) {
               onChange={(e) => setTitle(e.target.value)}
               required
               aria-label="Document title"
+              autoComplete="off"
+              enterKeyHint="done"
             />
           </Stack>
 
@@ -148,6 +150,7 @@ export function DocumentForm({ initial }: Props) {
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
               aria-label="Document description"
+              autoComplete="off"
             />
           </Stack>
 
@@ -162,6 +165,8 @@ export function DocumentForm({ initial }: Props) {
               onChange={(e) => setContent(e.target.value)}
               rows={10}
               aria-label="agents.md content"
+              autoComplete="off"
+              spellCheck={false}
             />
           </Stack>
 
@@ -174,14 +179,21 @@ export function DocumentForm({ initial }: Props) {
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               aria-label="Document tags"
+              autoComplete="off"
+              spellCheck={false}
+              enterKeyHint="done"
             />
           </Stack>
         </Stack>
 
-        {error && <Text size="bodySm" className="text-red-600">{error}</Text>}
+        {error && (
+          <Text size="bodySm" className="text-red-600" role="alert">
+            {error}
+          </Text>
+        )}
 
         <Row gap={2}>
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" disabled={saving} aria-busy={saving}>
             {saving ? "Saving…" : initial?.id ? "Save changes" : "Create document"}
           </Button>
           <Button variant="secondary" type="button" onClick={() => router.back()}>
@@ -211,11 +223,20 @@ export function DocumentForm({ initial }: Props) {
               disabled={loadingSnippets || snippets.length === 0}
               onClick={insertSelectedSnippet}
               aria-label="Insert selected snippet into document"
+              aria-busy={loadingSnippets}
             >
               Insert into document
             </Button>
-            {loadingSnippets && <Text as="span" size="caption" tone="muted">Loading snippets…</Text>}
-            {snippetError && <Text as="span" size="caption" className="text-red-600">{snippetError}</Text>}
+            {loadingSnippets && (
+              <Text as="span" size="caption" tone="muted" role="status" aria-live="polite">
+                Loading snippets…
+              </Text>
+            )}
+            {snippetError && (
+              <Text as="span" size="caption" className="text-red-600" role="alert">
+                {snippetError}
+              </Text>
+            )}
           </Row>
           <Row wrap gap={2}>
             <Button type="button" variant="secondary" size="xs" onClick={copyContent} disabled={!content.trim()} aria-label="Copy document markdown">

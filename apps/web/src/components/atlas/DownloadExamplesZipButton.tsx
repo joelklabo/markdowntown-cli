@@ -50,9 +50,15 @@ export function DownloadExamplesZipButton({ files, downloadName }: DownloadExamp
   };
 
   return (
-    <Button type="button" variant="secondary" size="sm" disabled={disabled} onClick={handleDownload}>
+    <Button
+      type="button"
+      variant="secondary"
+      size="sm"
+      disabled={disabled}
+      onClick={handleDownload}
+      aria-busy={loading}
+    >
       {loading ? "Downloading…" : "Download example zip"}
     </Button>
   );
 }
-

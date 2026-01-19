@@ -51,7 +51,7 @@ export default async function AtlasChangelogEntryPage({ params }: { params: Prom
 
         <section className="rounded-mdt-xl border border-mdt-border bg-mdt-surface p-mdt-4 shadow-mdt-sm">
           <div className="text-body-sm font-semibold text-mdt-text">Impacted claims</div>
-          <div className="mt-mdt-2 text-body-xs text-mdt-muted">Claims referenced by this entry.</div>
+          <div className="mt-mdt-2 text-body-xs text-mdt-muted text-pretty">Claims referenced by this entry.</div>
 
           {impacted.length === 0 ? (
             <Text className="mt-mdt-3" size="bodySm" tone="muted">
@@ -101,7 +101,7 @@ export default async function AtlasChangelogEntryPage({ params }: { params: Prom
 
         <section className="rounded-mdt-xl border border-mdt-border bg-mdt-surface p-mdt-4 shadow-mdt-sm">
           <div className="text-body-sm font-semibold text-mdt-text">Facts diff</div>
-          <div className="mt-mdt-2 text-body-xs text-mdt-muted">Structured diffs for facts JSON.</div>
+          <div className="mt-mdt-2 text-body-xs text-mdt-muted text-pretty">Structured diffs for facts JSON.</div>
 
           {entry.diffs.length === 0 ? (
             <Text className="mt-mdt-3" size="bodySm" tone="muted">

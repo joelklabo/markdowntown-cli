@@ -26,7 +26,7 @@ export function DetailStats({ views, copies, votes = 0 }: Props) {
             <span aria-hidden className="text-body-sm">{item.icon}</span>
             <span className="text-caption">{item.label}</span>
           </div>
-          <span className="font-semibold text-mdt-text">{item.value.toLocaleString()}</span>
+          <span className="font-semibold text-mdt-text tabular-nums">{item.value.toLocaleString()}</span>
         </Card>
       ))}
     </div>

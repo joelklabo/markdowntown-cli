@@ -67,7 +67,7 @@ export function WordmarkLegend({ className, defaultOpen = true }: { className?: 
         </Button>
       </div>
       <div id={contentId} hidden={!open} className="space-y-mdt-3">
-        <p className="text-caption text-mdt-muted">
+        <p className="text-caption text-mdt-muted text-pretty">
           Events map to animated city cues. Trigger an event and look for the matching signal.
         </p>
         <dl className="grid gap-mdt-3 sm:grid-cols-2">

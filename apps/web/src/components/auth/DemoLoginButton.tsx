@@ -43,11 +43,18 @@ export function DemoLoginButton({
 
   return (
     <div className={`space-y-mdt-2 w-full ${className ?? ""}`.trim()}>
-      <Button className="w-full" onClick={handleClick} disabled={loading} variant={variant} size={size}>
+      <Button
+        className="w-full"
+        onClick={handleClick}
+        disabled={loading}
+        aria-busy={loading}
+        variant={variant}
+        size={size}
+      >
         {loading ? "Signing in…" : "Sign in with demo account"}
       </Button>
       {error && (
-        <Text size="bodySm" className="text-[color:var(--mdt-color-danger)]">
+        <Text size="bodySm" className="text-[color:var(--mdt-color-danger)]" role="alert">
           {error}
         </Text>
       )}

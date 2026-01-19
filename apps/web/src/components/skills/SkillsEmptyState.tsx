@@ -10,7 +10,7 @@ export function SkillsEmptyState({ hasFilters }: { hasFilters: boolean }) {
       <Heading level="h3" as="h2">
         No skills match those filters
       </Heading>
-      <Text tone="muted" className="mx-auto max-w-xl">
+      <Text tone="muted" className="mx-auto max-w-xl" role="status" aria-live="polite">
         {hasFilters
           ? "Try clearing filters or searching fewer tags. You can also create a skill in Workbench to share with your team."
           : "Get started by creating a new skill in Workbench, or check back soon for more."}

@@ -14,7 +14,8 @@ export function CodeEditor({ className, ...props }: CodeEditorProps) {
         'font-mono text-body-sm leading-relaxed border-mdt-border bg-mdt-surface-subtle',
         className
       )}
+      autoComplete="off"
+      spellCheck={false}
     />
   );
 }
-

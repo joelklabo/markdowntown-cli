@@ -319,7 +319,7 @@ export function WorkbenchPageClient({
       ) : null}
 
       {saveConflict.status === 'conflict' ? (
-        <div className="border-b border-mdt-border bg-mdt-surface px-mdt-4 py-mdt-3">
+        <div className="border-b border-mdt-border bg-mdt-surface px-mdt-4 py-mdt-3" role="alert">
           <div className="flex flex-wrap items-start justify-between gap-mdt-3">
             <div className="space-y-mdt-1">
               <Text size="caption" tone="muted">
@@ -346,6 +346,8 @@ export function WorkbenchPageClient({
         <div
           data-testid="workbench-draft-restore"
           className="border-b border-mdt-border bg-mdt-surface-subtle px-mdt-4 py-mdt-3"
+          role="status"
+          aria-live="polite"
         >
           <div className="flex flex-wrap items-start justify-between gap-mdt-3">
             <div className="space-y-mdt-1">
@@ -353,7 +355,7 @@ export function WorkbenchPageClient({
                 Draft found
               </Text>
               <Text weight="semibold">Restore your last Workbench draft?</Text>
-              <Text size="bodySm" tone="muted">
+              <Text size="bodySm" tone="muted" role="status" aria-live="polite" className="tabular-nums">
                 {draftSavedLabel}
               </Text>
             </div>
@@ -370,7 +372,11 @@ export function WorkbenchPageClient({
       ) : null}
 
       {showArtifactNotice && (artifactNotice.status === 'loaded' || artifactNotice.status === 'error') ? (
-        <div className="border-b border-mdt-border bg-mdt-surface px-mdt-4 py-mdt-3">
+        <div
+          className="border-b border-mdt-border bg-mdt-surface px-mdt-4 py-mdt-3"
+          role={artifactNotice.status === 'error' ? 'alert' : 'status'}
+          aria-live={artifactNotice.status === 'error' ? undefined : 'polite'}
+        >
           <div className="flex flex-wrap items-start justify-between gap-mdt-3">
             <div className="space-y-mdt-1">
               <Text size="caption" tone="muted">
@@ -397,7 +403,7 @@ export function WorkbenchPageClient({
       ) : null}
 
       {scanSummary ? (
-        <div className="border-b border-mdt-border bg-mdt-surface-subtle px-mdt-4 py-mdt-3">
+        <div className="border-b border-mdt-border bg-mdt-surface-subtle px-mdt-4 py-mdt-3" role="status" aria-live="polite">
           <div className="flex flex-wrap items-start justify-between gap-mdt-3">
             <div className="space-y-mdt-1">
               <Text size="caption" tone="muted">

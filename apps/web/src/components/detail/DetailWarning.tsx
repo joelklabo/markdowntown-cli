@@ -20,8 +20,8 @@ export function DetailWarning({ visibility, type }: Props) {
     >
       <span aria-hidden>⚠️</span>
       <div className="space-y-mdt-2">
-        <p className="font-semibold">{copy} {type}</p>
-        <p className="text-mdt-muted">
+        <p className="font-semibold text-balance">{copy} {type}</p>
+        <p className="text-mdt-muted text-pretty">
           This {type} is {copy.toLowerCase()} — share carefully. Only people with the link should access it.
         </p>
       </div>

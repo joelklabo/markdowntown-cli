@@ -10,9 +10,14 @@ import { TabsContent, TabsList, TabsRoot, TabsTrigger } from "@/components/ui/Ta
 import { lintUamV1 } from "@/lib/uam/uamLint";
 import { safeParseUamV1 } from "@/lib/uam/uamValidate";
 import type { UamScopeV1 } from "@/lib/uam/uamTypes";
+import { cn, focusRing, interactiveBase } from "@/lib/cn";
 
 const ReactMarkdown = dynamic(() => import("react-markdown"), {
-  loading: () => <div>Loading...</div>,
+  loading: () => (
+    <div role="status" aria-live="polite">
+      Loading...
+    </div>
+  ),
 });
 
 type CompileResult = {
@@ -428,12 +433,12 @@ export function ArtifactDetailTabs({ artifactId, version, uam, targets, lintGrad
             <div className="text-xs text-mdt-muted">
               {activeTargets.length > 0 ? `Targets: ${activeTargets.join(", ")}` : "Targets: none"}
             </div>
-            <Button size="sm" variant="secondary" onClick={compileNow} disabled={compileLoading}>
+            <Button size="sm" variant="secondary" onClick={compileNow} disabled={compileLoading} aria-busy={compileLoading}>
               {compileLoading ? "Compiling…" : compileResult ? "Recompile" : "Compile"}
             </Button>
           </div>
 
-          {compileError && <div className="text-xs text-mdt-danger">{compileError}</div>}
+          {compileError && <div className="text-xs text-mdt-danger" role="alert">{compileError}</div>}
 
           {compileResult && (
             <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4">
@@ -453,7 +458,11 @@ export function ArtifactDetailTabs({ artifactId, version, uam, targets, lintGrad
                     <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-mdt-border">
                       <div className="font-mono text-xs text-mdt-text">{selectedFile.path}</div>
                       <div className="flex items-center gap-2">
-                        {copiedPath === selectedFile.path && <div className="text-[11px] text-mdt-muted">Copied</div>}
+                        {copiedPath === selectedFile.path && (
+                          <div className="text-[11px] text-mdt-muted" role="status" aria-live="polite">
+                            Copied
+                          </div>
+                        )}
                         <Button
                           size="sm"
                           variant="secondary"
@@ -474,7 +483,9 @@ export function ArtifactDetailTabs({ artifactId, version, uam, targets, lintGrad
                     <pre className="text-xs overflow-auto p-3 font-mono whitespace-pre-wrap">{selectedFile.content}</pre>
                   </div>
                 ) : (
-                  <div className="text-body-sm text-mdt-muted">Select a file to view its contents.</div>
+                  <div className="text-body-sm text-mdt-muted text-pretty" role="status" aria-live="polite">
+                    Select a file to view its contents.
+                  </div>
                 )}
               </div>
             </div>
@@ -485,16 +496,18 @@ export function ArtifactDetailTabs({ artifactId, version, uam, targets, lintGrad
       <TabsContent value="lint">
         <div className="space-y-3">
           <div className="space-y-1">
-            <div className="text-body-sm text-mdt-text">
+            <div className="text-body-sm text-mdt-text tabular-nums text-pretty">
               Stored lint grade: <span className="font-semibold">{lintGrade ?? "—"}</span>
             </div>
-            <div className="text-body-sm text-mdt-text">
+            <div className="text-body-sm text-mdt-text tabular-nums text-pretty">
               UAM lint warnings: <span className="font-semibold">{lintWarnings ? lintWarnings.length : "—"}</span>
             </div>
           </div>
 
           {lintWarnings === null && (
-            <div className="text-body-sm text-mdt-muted">This version does not validate as UAM v1.</div>
+            <div className="text-body-sm text-mdt-muted text-pretty" role="status" aria-live="polite">
+              This version does not validate as UAM v1.
+            </div>
           )}
 
           {lintWarnings && lintWarnings.length > 0 && (
@@ -517,22 +530,42 @@ export function ArtifactDetailTabs({ artifactId, version, uam, targets, lintGrad
               </ul>
             </div>
           ) : (
-            <div className="text-body-sm text-mdt-muted">No compile warnings.</div>
+            <div className="text-body-sm text-mdt-muted text-pretty" role="status" aria-live="polite">
+              No compile warnings.
+            </div>
           )}
         </div>
       </TabsContent>
 
       <TabsContent value="diff">
         <div className="space-y-3">
-          {versionsLoading && <div className="text-body-sm text-mdt-muted">Loading versions…</div>}
-          {versionsError && <div className="text-body-sm text-mdt-danger">{versionsError}</div>}
-
-          {!versionsLoading && versions && versions.length > 0 && !previousRow && (
-            <div className="text-body-sm text-mdt-muted">No previous version to diff against.</div>
+          {versionsLoading && (
+            <div className="text-body-sm text-mdt-muted text-pretty" role="status" aria-live="polite">
+              Loading versions…
+            </div>
+          )}
+          {versionsError && (
+            <div className="text-body-sm text-mdt-danger text-pretty" role="alert">
+              {versionsError}
+            </div>
           )}
 
-          {diffLoading && <div className="text-body-sm text-mdt-muted">Loading diff…</div>}
-          {diffError && <div className="text-body-sm text-mdt-danger">{diffError}</div>}
+          {!versionsLoading && versions && versions.length > 0 && !previousRow && (
+            <div className="text-body-sm text-mdt-muted text-pretty" role="status" aria-live="polite">
+              No previous version to diff against.
+            </div>
+          )}
+
+          {diffLoading && (
+            <div className="text-body-sm text-mdt-muted text-pretty" role="status" aria-live="polite">
+              Loading diff…
+            </div>
+          )}
+          {diffError && (
+            <div className="text-body-sm text-mdt-danger text-pretty" role="alert">
+              {diffError}
+            </div>
+          )}
 
           {diffChunks && (
             <div className="rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle overflow-hidden">
@@ -566,12 +599,32 @@ export function ArtifactDetailTabs({ artifactId, version, uam, targets, lintGrad
 
       <TabsContent value="versions">
         <div className="space-y-3">
-          {versionsLoading && <div className="text-body-sm text-mdt-muted">Loading…</div>}
-          {versionsError && <div className="text-body-sm text-mdt-danger">{versionsError}</div>}
-          {selectLoading && <div className="text-body-sm text-mdt-muted">Loading version…</div>}
-          {selectError && <div className="text-body-sm text-mdt-danger">{selectError}</div>}
+          {versionsLoading && (
+            <div className="text-body-sm text-mdt-muted text-pretty" role="status" aria-live="polite">
+              Loading…
+            </div>
+          )}
+          {versionsError && (
+            <div className="text-body-sm text-mdt-danger text-pretty" role="alert">
+              {versionsError}
+            </div>
+          )}
+          {selectLoading && (
+            <div className="text-body-sm text-mdt-muted text-pretty" role="status" aria-live="polite">
+              Loading version…
+            </div>
+          )}
+          {selectError && (
+            <div className="text-body-sm text-mdt-danger text-pretty" role="alert">
+              {selectError}
+            </div>
+          )}
 
-          {versions && versions.length === 0 && <div className="text-body-sm text-mdt-muted">No versions yet.</div>}
+          {versions && versions.length === 0 && (
+            <div className="text-body-sm text-mdt-muted" role="status" aria-live="polite">
+              No versions yet.
+            </div>
+          )}
 
           {versions && versions.length > 0 && (
             <ul className="space-y-2">
@@ -582,20 +635,25 @@ export function ArtifactDetailTabs({ artifactId, version, uam, targets, lintGrad
                     onClick={() => selectVersion(v.id)}
                     disabled={selectLoading}
                     aria-label={`Select version ${v.version}`}
-                    className={[
+                    aria-pressed={v.id === selectedRow?.id}
+                    className={cn(
                       "w-full text-left rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle p-3",
                       "hover:bg-[color:var(--mdt-color-surface-strong)]",
-                      v.id === selectedRow?.id ? "ring-2 ring-[color:var(--mdt-color-primary-strong)]" : "",
-                    ].join(" ")}
+                      interactiveBase,
+                      focusRing,
+                      v.id === selectedRow?.id ? "ring-2 ring-[color:var(--mdt-color-primary-strong)]" : ""
+                    )}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <div className="font-mono text-caption text-mdt-text">v{v.version}</div>
+                        <div className="font-mono text-caption text-mdt-text tabular-nums">v{v.version}</div>
                         {v.id === selectedRow?.id && <div className="text-caption text-mdt-muted">(selected)</div>}
                       </div>
-                      <div className="text-caption text-mdt-muted">{new Date(v.createdAt).toLocaleString()}</div>
+                      <div className="text-caption text-mdt-muted tabular-nums">
+                        {new Date(v.createdAt).toLocaleString()}
+                      </div>
                     </div>
-                    {v.message && <div className="text-body-sm text-mdt-text mt-1">{v.message}</div>}
+                    {v.message && <div className="text-body-sm text-mdt-text text-pretty mt-1">{v.message}</div>}
                   </button>
                 </li>
               ))}

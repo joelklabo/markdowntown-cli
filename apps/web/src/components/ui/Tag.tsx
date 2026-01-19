@@ -22,10 +22,12 @@ export function Tag({ label, tone = "neutral", onRemove, className, ...props }: 
     info:
       "border-[color:var(--mdt-color-info)]/25 bg-[color:var(--mdt-color-info-soft)] text-[color:var(--mdt-info-700)]",
   };
+  const heightClass = onRemove ? "h-mdt-11" : "h-mdt-8";
   return (
     <div
       className={cn(
-        "inline-flex h-mdt-8 items-center gap-mdt-2 rounded-mdt-pill border px-mdt-3 text-body-sm",
+        "inline-flex items-center gap-mdt-2 rounded-mdt-pill border px-mdt-3 text-body-sm",
+        heightClass,
         toneMap[tone],
         className
       )}
@@ -35,10 +37,10 @@ export function Tag({ label, tone = "neutral", onRemove, className, ...props }: 
       {onRemove ? (
         <IconButton
           variant="ghost"
-          size="xs"
+          size="md"
           aria-label={`Remove ${label}`}
           onClick={onRemove}
-          className="h-mdt-7 w-mdt-7 text-caption"
+          className="text-caption"
         >
           ×
         </IconButton>

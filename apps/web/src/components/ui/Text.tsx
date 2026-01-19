@@ -5,9 +5,9 @@ import { cn } from "@/lib/cn";
 const textVariants = cva("", {
   variants: {
     size: {
-      body: "text-body",
-      bodySm: "text-body-sm",
-      caption: "text-caption",
+      body: "text-body text-pretty",
+      bodySm: "text-body-sm text-pretty",
+      caption: "text-caption text-pretty",
     },
     tone: {
       default: "text-mdt-text",

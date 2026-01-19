@@ -8,6 +8,7 @@ import { Pill } from "@/components/ui/Pill";
 import { Stack, Row } from "@/components/ui/Stack";
 import type { PublicItemType } from "@/lib/publicItems";
 import type { PublicTag } from "@/lib/publicTags";
+import { cn, focusRing, interactiveBase } from "@/lib/cn";
 
 type Filters = {
   q: string;
@@ -65,7 +66,17 @@ export function LibraryFilters({ q, type, tags, targets, hasScopes, topTags, ava
           <Text as="label" htmlFor="library-q" size="caption" tone="muted">
             Search library
           </Text>
-          <Input id="library-q" name="q" defaultValue={q} placeholder="Search titles, descriptions, or tags…" />
+        <Input
+          id="library-q"
+          name="q"
+          type="search"
+          defaultValue={q}
+          placeholder="Search titles, descriptions, or tags…"
+          autoComplete="off"
+          spellCheck={false}
+          enterKeyHint="search"
+          inputMode="search"
+        />
         </div>
 
         {type !== "all" && <input type="hidden" name="type" value={type} />}
@@ -134,7 +145,7 @@ export function LibraryFilters({ q, type, tags, targets, hasScopes, topTags, ava
           className="rounded-mdt-md border border-mdt-border bg-mdt-surface-subtle px-mdt-3 py-mdt-2"
           open={advancedOpen}
         >
-          <summary className="cursor-pointer text-body-sm font-semibold text-mdt-text">
+          <summary className={cn("cursor-pointer text-body-sm font-semibold text-mdt-text", interactiveBase, focusRing)}>
             Advanced filters
           </summary>
           <div className="mt-mdt-3 space-y-mdt-4">

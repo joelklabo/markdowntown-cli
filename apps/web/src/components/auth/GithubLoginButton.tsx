@@ -40,6 +40,7 @@ export function GithubLoginButton({
       variant={variant}
       size={size}
       disabled={disabled || loading}
+      aria-busy={loading}
       className={`whitespace-nowrap ${className ?? ""}`.trim()}
     >
       {loading ? "Redirecting…" : children}

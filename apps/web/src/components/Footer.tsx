@@ -23,16 +23,16 @@ export function Footer() {
               Product
             </Text>
             <div className="flex flex-col gap-mdt-2 text-body-sm text-mdt-muted">
-              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text" href="/atlas/simulator">
+              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text motion-reduce:transition-none" href="/atlas/simulator">
                 Scan
               </Link>
-              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text" href="/workbench">
+              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text motion-reduce:transition-none" href="/workbench">
                 Workbench
               </Link>
-              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text" href="/library">
+              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text motion-reduce:transition-none" href="/library">
                 Library
               </Link>
-              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text" href="/translate">
+              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text motion-reduce:transition-none" href="/translate">
                 Translate
               </Link>
             </div>
@@ -42,7 +42,7 @@ export function Footer() {
               Resources
             </Text>
             <div className="flex flex-col gap-mdt-2 text-body-sm text-mdt-muted">
-              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text" href="/docs">
+              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text motion-reduce:transition-none" href="/docs">
                 Docs
               </Link>
             </div>
@@ -52,10 +52,10 @@ export function Footer() {
               Legal
             </Text>
             <div className="flex flex-col gap-mdt-2 text-body-sm text-mdt-muted">
-              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text" href="/privacy">
+              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text motion-reduce:transition-none" href="/privacy">
                 Privacy
               </Link>
-              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text" href="/terms">
+              <Link className="transition-colors duration-mdt-fast ease-mdt-standard hover:text-mdt-text motion-reduce:transition-none" href="/terms">
                 Terms
               </Link>
             </div>

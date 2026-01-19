@@ -136,13 +136,21 @@ export function StructuredAssistPanel({ onClose }: StructuredAssistPanelProps) {
             </label>
             <Input
               id="structured-scope-value"
+              name="structuredScopeValue"
               value={scopeValue}
               onChange={(event) => setScopeValue(event.target.value)}
               placeholder={scopeKind === 'dir' ? 'src/components' : 'src/**/*.md'}
               size="sm"
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={Boolean(scopeValidation.message)}
+              aria-describedby={scopeValidation.message ? "structured-scope-value-error" : undefined}
+              enterKeyHint="done"
             />
             {scopeValidation.message && (
-              <div className="text-caption text-mdt-danger">{scopeValidation.message}</div>
+              <div id="structured-scope-value-error" className="text-caption text-mdt-danger" role="alert">
+                {scopeValidation.message}
+              </div>
             )}
           </div>
         )}
@@ -154,10 +162,13 @@ export function StructuredAssistPanel({ onClose }: StructuredAssistPanelProps) {
             </label>
             <Input
               id="structured-scope-name"
+              name="structuredScopeName"
               value={scopeName}
               onChange={(event) => setScopeName(event.target.value)}
               placeholder="Marketing site"
               size="sm"
+              autoComplete="off"
+              enterKeyHint="done"
             />
           </div>
         )}
@@ -185,10 +196,12 @@ export function StructuredAssistPanel({ onClose }: StructuredAssistPanelProps) {
           </label>
           <Input
             id="structured-block-title"
+            name="structuredBlockTitle"
             value={blockTitle}
             onChange={(event) => setBlockTitle(event.target.value)}
             placeholder="Setup checklist"
             size="sm"
+            autoComplete="off"
           />
         </div>
 
