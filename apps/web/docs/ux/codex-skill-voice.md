@@ -58,7 +58,6 @@ Use this skill when...
 
 ## Reference docs
 - docs/DEV_ONBOARDING.md
-- docs/BEADS.md
 - docs/DESIGN_SYSTEM.md
 - docs/ux/primary-flow-spec.md
 - docs/design/motion-responsive.md

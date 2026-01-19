@@ -31,5 +31,4 @@ description: Use this when running or adding tests (compile/lint/unit/E2E), upda
 
 ## Guardrails
 - Keep tests deterministic; avoid time-based flakiness where possible.
-- Always record refactors/bugs discovered as follow-up bd tasks.
 - When documenting QA evidence, use `qa-verification`.

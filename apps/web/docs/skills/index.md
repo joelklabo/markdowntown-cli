@@ -1,7 +1,6 @@
 # Codex skills overview
 
 ## Available skills
-- **markdowntown-bd** — bd workflow, git hygiene, test loop.
 - **markdowntown-frontend** — UI, layout, design system constraints.
 - **markdowntown-atlas-scan** — scan + simulator flow and handoff.
 - **markdowntown-workbench** — Workbench state, export/compile pipeline.

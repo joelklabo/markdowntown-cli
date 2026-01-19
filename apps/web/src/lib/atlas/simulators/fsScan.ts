@@ -44,7 +44,6 @@ export type FsScanResult = {
 export const DEFAULT_IGNORE_DIRS = [
   '.git',
   '.next',
-  '.beads',
   'node_modules',
   'dist',
   'build',

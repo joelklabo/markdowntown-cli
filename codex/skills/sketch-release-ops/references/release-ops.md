@@ -49,7 +49,6 @@ This checklist is the final gate before public launch. It combines QA, DevTools,
 ## 6) Post-Launch Watchlist (first 24 hours)
 - [ ] Monitor error rate spikes and timeouts.
 - [ ] Capture and triage any new console errors.
-- [ ] Create bd tasks for any regressions, refactors, or UX gaps discovered.
 
 ## Go/No-Go
 - [ ] All QA gates pass with evidence (logs + screenshots).

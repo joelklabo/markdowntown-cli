@@ -105,7 +105,6 @@ Test WASM: `pnpm wasm:smoke`
 - Prefer small, deterministic changes aligned with specs
 - Avoid destructive git commands unless explicitly requested
 - Follow the "Landing the Plane" workflow in `AGENTS.md` when ending sessions
-- Use `npx bd --no-daemon ...` for issue tracking (bd tool manages .beads/ directory)
 
 ### Code Style
 - **Go**: Use `gofmt`, follow golangci-lint rules
@@ -129,7 +128,7 @@ Test WASM: `pnpm wasm:smoke`
 ### Agent Instructions
 - Root: `AGENTS.md` (monorepo workflow, session completion checklist)
 - CLI: `cli/AGENTS.md` (CLI-specific workflow)
-- Web: `apps/web/AGENTS.md` (bd-based workflow, issue tracking)
+- Web: `apps/web/AGENTS.md` (web app workflow)
 
 ### Codex Integration
 - Skills: `codex/skills/` (source of truth), synced to `.codex/skills/` or `~/.codex/skills/`

@@ -19,4 +19,3 @@
 ## If deploy is broken
 - Scale to zero? Use ACA restart or scale back to previous revision.
 - Disable ingress temporarily while rolling back to avoid bad traffic.
-- Open an issue in Beads and tag `markdowntown-480` with details + trace IDs.

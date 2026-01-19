@@ -1,7 +1,7 @@
 # Codex skills inventory + triggers
 
 ## Goal
-Provide a curated set of Codex skills that cover core markdowntown workflows: scan → workbench → export, testing, docs, analytics/privacy, and beads (bd) operations.
+Provide a curated set of Codex skills that cover core markdowntown workflows: scan → workbench → export, testing, docs, and analytics/privacy.
 
 See `docs/skills/index.md` for the quick overview and maintenance steps.
 
@@ -9,7 +9,6 @@ See `docs/skills/index.md` for the quick overview and maintenance steps.
 
 | Skill name | Trigger phrases (examples) | Intended scope | Primary workflows |
 | --- | --- | --- | --- |
-| markdowntown-bd | "bd issue", "beads workflow", "create task", "update status" | bd CLI usage + repo ops | bd workflow, git hygiene |
 | markdowntown-frontend | "UI change", "design system", "tailwind", "layout" | frontend UX + design rules | workbench UX, library/skills UI |
 | markdowntown-atlas-scan | "scan flow", "atlas simulator", "folder upload" | scan + simulator logic | scan flow, onboarding funnel |
 | markdowntown-workbench | "workbench export", "compile adapters", "targets" | workbench + adapters | build/export pipeline |
@@ -24,7 +23,6 @@ See `docs/skills/index.md` for the quick overview and maintenance steps.
 - **Testing**: markdowntown-testing
 - **Docs**: markdowntown-docs
 - **Analytics/security**: markdowntown-analytics
-- **bd workflow**: markdowntown-bd
 - **Backend/data layer**: markdowntown-backend
 
 ## Assumptions
@@ -34,4 +32,4 @@ See `docs/skills/index.md` for the quick overview and maintenance steps.
 
 ## Open questions
 - Do we need a separate skill for public API routes vs UI components?
-- Is there a need for a "release + deploy" skill beyond bd workflow notes?
+- Is there a need for a "release + deploy" skill beyond the current runbook notes?

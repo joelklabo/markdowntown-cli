@@ -9,7 +9,7 @@ Scan instruction files in a repo, understand how tools load them, and export a c
 - App Router Next.js 16 + Tailwind v4 UI with Prisma + NextAuth.
 - RESTful section APIs (`/api/sections`) protected by session auth.
 - GitHub login via NextAuth (database sessions) and a health check at `/api/health`.
-- Dockerfile, GitHub Actions CI (lint, type-check, build), Beads backlog.
+- Dockerfile, GitHub Actions CI (lint, type-check, build).
 - Design system: mark downtown brand icon, Tailwind tokens, global utilities, and UI primitives (BrandLogo, Button, Card, Pill).
 - Release docs: Semantic Versioning, CHANGELOG, and migration/release guides in `docs/`.
 - CDN-friendly asset headers; ACA scaling set to min=1, max=5; HTTP scale rule concurrentRequests=50.
@@ -56,18 +56,12 @@ docker run -p 3000:3000 \
 3. Configure secrets/env: `DATABASE_URL`, `GITHUB_CLIENT_ID/SECRET`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, PostHog/Sentry when added.
 4. Add custom domain + cert (see checklist in the issue description).
 
-## Beads workflow
-- Issues live in `.beads`. `bd list` to view; tasks are grouped under epics (Application Core, Auth, Composer, DevOps, etc.).
-- Create work under an epic: `bd create --parent <epic-id> "Implement X"`.
-- Commit `.beads` changes with code for traceability.
-
 ## More docs
 - User guide: `docs/USER_GUIDE.md`
 - Developer onboarding: `docs/DEV_ONBOARDING.md`
 - Release process: `docs/RELEASE_PROCESS.md`
 - Migration policy: `docs/MIGRATIONS.md`
 - Monitoring/analytics: set `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `NEXT_PUBLIC_POSTHOG_KEY`, and optional `NEXT_PUBLIC_POSTHOG_HOST`.
-- Beads CLI quick reference: `docs/BEADS.md`
 - E2E workflow (conditional): set secrets `GITHUB_CLIENT_ID_TEST`, `GITHUB_CLIENT_SECRET_TEST`, `GITHUB_TEST_USER`, `GITHUB_TEST_PASS` to enable GitHub OAuth Playwright runs on CI
 - Architecture overview: `docs/architecture/architecture.md`
 - Caching/ISR plan: `docs/architecture/caching-isr-plan.md`

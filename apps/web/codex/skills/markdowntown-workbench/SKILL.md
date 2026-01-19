@@ -45,4 +45,3 @@ description: Use this when working on the Workbench UI, Workbench state/store, e
 ## Guardrails
 - Prefer UAM v1 helpers (`createUamTargetV1`, `normalizeUamTargetsV1`) to avoid drift.
 - Keep Workbench strings aligned with `docs/ux/microcopy-guidelines.md`.
-- Always look for refactoring or bugs; create new bd tasks when you spot them.

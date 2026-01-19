@@ -1,7 +1,6 @@
 # Codex skills catalog
 
 ## Core utilities
-- bd-beads-best-practices: bd workflow + field usage + hygiene (`skills/bd-beads-best-practices/SKILL.md`)
 - research-web: web research workflow + source evaluation (`skills/research-web/SKILL.md`)
 - qa-verification: unified web + CLI QA evidence (`skills/qa-verification/SKILL.md`)
 - oracle: Gemini + Copilot parallel critique workflow (`skills/oracle/SKILL.md`)
@@ -11,7 +10,6 @@
 - markdowntown-analytics: analytics taxonomy + redaction guidance (`skills/markdowntown-analytics/SKILL.md`)
 - markdowntown-atlas-scan: Atlas scan flow + CTAs (`skills/markdowntown-atlas-scan/SKILL.md`)
 - markdowntown-backend: API routes, Prisma, validation (`skills/markdowntown-backend/SKILL.md`)
-- markdowntown-bd: bd workflow + repo ops (`skills/markdowntown-bd/SKILL.md`)
 - markdowntown-docs: docs/spec writing (`skills/markdowntown-docs/SKILL.md`)
 - markdowntown-frontend: UX + design system (`skills/markdowntown-frontend/SKILL.md`)
 - markdowntown-testing: test workflow + Playwright (`skills/markdowntown-testing/SKILL.md`)

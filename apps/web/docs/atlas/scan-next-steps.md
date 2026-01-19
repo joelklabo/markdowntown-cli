@@ -193,4 +193,4 @@ Always include (or link to) a short reminder:
 - GitHub Copilot: missing `.github/instructions/*.instructions.md` -> “Open docs for scoped rules.”
 
 ## Refactoring/bug-fix reminder
-While implementing this spec, always watch for refactoring opportunities, bug fixes, and improvements. Create new bd tasks when discovered.
+While implementing this spec, always watch for refactoring opportunities, bug fixes, and improvements. Track follow-up tasks when discovered.

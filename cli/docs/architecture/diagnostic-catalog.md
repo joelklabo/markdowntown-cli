@@ -87,6 +87,6 @@ These rules can be implemented using scan metadata without reading file content,
 
 ## Follow-on Tasks
 
-- Implement proposed rules in the audit engine (see bd: markdowntown-cli-p4i).
-- Add diagnostics metadata mapping and tagging in LSP (see bd: markdowntown-cli-g7u).
-- Add settings + capability gating for diagnostics (see bd: markdowntown-cli-4r0).
+- Implement proposed rules in the audit engine.
+- Add diagnostics metadata mapping and tagging in LSP.
+- Add settings + capability gating for diagnostics.

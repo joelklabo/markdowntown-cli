@@ -4,7 +4,7 @@
 
 ### Git remote + tracking setup
 
-The bd workflow assumes your `main` branch can pull/push against `origin`. If the remote is missing, configure it once:
+This repo assumes your `main` branch can pull/push against `origin`. If the remote is missing, configure it once:
 
 ```bash
 git remote add origin <your-remote-url>

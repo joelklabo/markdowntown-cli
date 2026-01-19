@@ -40,11 +40,6 @@ const referenceLinks = [
     description: "Start here for environment, scripts, and architecture notes.",
     href: `${repoBase}/docs/DEV_ONBOARDING.md`,
   },
-  {
-    label: "Beads CLI",
-    description: "Issue workflow conventions and task structure.",
-    href: `${repoBase}/docs/BEADS.md`,
-  },
 ];
 
 export default function DocsPage() {

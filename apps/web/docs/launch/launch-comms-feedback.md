@@ -12,7 +12,6 @@
 ## Feedback loop
 - Add in-app “Give feedback” link (footer or profile menu) → opens mailto or GitHub discussions.
 - Tag analytics events for new features: `whatsnew_open`, `feedback_click`.
-- Collect issues in `bd` with label `feedback` and link back to source.
 
 ## Acceptance
 - Changelog updated with date and bullets.

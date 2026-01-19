@@ -18,7 +18,6 @@ Install the markdowntown Codex skills into `~/.codex/skills` and verify that Cod
 ## Verification
 1. Open Codex CLI and run `/skills`.
 2. Confirm the following skills appear:
-   - markdowntown-bd
    - markdowntown-frontend
    - markdowntown-atlas-scan
    - markdowntown-workbench
@@ -34,6 +33,3 @@ Install the markdowntown Codex skills into `~/.codex/skills` and verify that Cod
 
 ## Rollback
 - Remove the synced skills folder from `~/.codex/skills/markdowntown-*` if needed.
-
-## Follow-ups
-- Log any missing skills or failed activations as bd issues and link to the failing command output.

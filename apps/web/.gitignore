@@ -51,8 +51,6 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
-.beads/history.jsonl
-.beads/history.jsonl.tmp
 
 # local/generated artifacts
 .gemini-clipboard/

@@ -26,7 +26,6 @@ description: Backend API routes, Prisma schema/migrations, and server-side valid
 - When mutating data, call `safeRevalidateTag` for list/detail tags and landing.
 - Do not bypass `requireSession` for private routes; keep 401 responses consistent.
 - Avoid direct Prisma access from UI components; use API routes or server utilities.
-- Always look for refactoring or bugs; create new bd tasks when you spot them.
 
 ## References
 - docs/DEV_ONBOARDING.md

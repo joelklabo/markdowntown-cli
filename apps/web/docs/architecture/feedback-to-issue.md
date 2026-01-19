@@ -33,6 +33,4 @@ Issue: markdowntown-7z8.57
 - [ ] Frontend widget (portal) with collapse state; integrates Turnstile/hCaptcha when score low.
 - [ ] API route with validation, rate limiting, captcha, persistence.
 - [ ] AI call with repo/docs context; implement confidence threshold + clarification path.
-- [ ] BD integration to create task (CLI invocation or direct file write + sync).
-- [ ] Admin/triage view (even simple bd search link) to track feedback→issue mapping.
 - [ ] Tests: API validation, rate limits, captcha path; model response shaping (mocked).
