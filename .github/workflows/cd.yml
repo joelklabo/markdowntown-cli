@@ -33,19 +33,19 @@ jobs:
             echo "has_secrets=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         if: steps.check_secrets.outputs.has_secrets == 'true'
 
       - name: Setup pnpm
         if: steps.check_secrets.outputs.has_secrets == 'true'
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
           version: 9.15.9
           run_install: false
 
       - name: Set up Node
         if: steps.check_secrets.outputs.has_secrets == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: pnpm
@@ -71,7 +71,7 @@ jobs:
       - name: Azure login
         if: steps.check_secrets.outputs.has_secrets == 'true'
         id: azure_login
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
@@ -140,7 +140,7 @@ jobs:
 
       - name: Upload Trivy artifacts
         if: always() && hashFiles('trivy-results.sarif') != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cd-trivy
           path: trivy-results.sarif
