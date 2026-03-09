@@ -129,7 +129,7 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `body<<EOF\n${body}\nEOF\n`);
           NODE
       - name: Upload metrics artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: steps.lhci.outcome == 'success'
         with:
           name: lh-metrics-${{ steps.slug.outputs.slug }}-${{ matrix.formFactor }}
@@ -137,7 +137,7 @@ jobs:
           retention-days: 30
       - name: Upload summary markdown
         if: ${{ github.event_name == 'pull_request' && steps.lhci.outcome == 'success' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: lh-summary-${{ steps.slug.outputs.slug }}-${{ matrix.formFactor }}
           path: lh-summary.md
@@ -149,7 +149,7 @@ jobs:
     needs: lhci
     steps:
       - name: Download metrics artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: lh-artifacts
           if-no-artifact-found: ignore
@@ -190,7 +190,7 @@ jobs:
             const issue_number = context.issue.number;
             await github.rest.issues.createComment({ owner, repo, issue_number, body });
       - name: Upload combined metrics
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: lh-trends
           path: combined-metrics.csv
