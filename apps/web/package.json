@@ -98,7 +98,7 @@
     "eslint-plugin-unused-imports": "^4.4.1",
     "globby": "^16.1.1",
     "husky": "^9.1.7",
-    "jsdom": "^25.0.1",
+    "jsdom": "^28.1.0",
     "knip": "^5.85.0",
     "lint-staged": "^16.3.1",
     "markdownlint-cli2": "^0.21.0",
