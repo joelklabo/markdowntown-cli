@@ -65,7 +65,7 @@
     "react-markdown": "^10.1.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
-    "require-in-the-middle": "7.5.2",
+    "require-in-the-middle": "8.0.1",
     "web-vitals": "^4.2.0",
     "yaml": "^2.8.1",
     "zod": "^4.3.6",
