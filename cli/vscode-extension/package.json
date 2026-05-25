@@ -110,13 +110,13 @@
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2",
+    "@playwright/test": "^1.60.0",
     "@types/mocha": "^10.0.6",
-    "@types/node": "^25.3.3",
-    "@types/vscode": "^1.109.0",
+    "@types/node": "^25.9.1",
+    "@types/vscode": "^1.120.0",
     "@vscode/test-electron": "^2.5.2",
-    "@vscode/vsce": "^3.7.1",
-    "mocha": "^11.7.5",
+    "@vscode/vsce": "^3.9.1",
+    "mocha": "^11.7.6",
     "typescript": "^5.9.3"
   }
 }
